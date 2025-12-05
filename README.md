@@ -60,7 +60,7 @@ const marketFetcher = new MarketFetcher(httpClient);
 // Get markets sorted by LP rewards
 const markets = await marketFetcher.getActiveMarkets({
   limit: 8,
-  sortBy: 'lp_rewards', // 'lp_rewards' | 'ending_soon' | 'newest' | 'volume' | 'liquidity'
+  sortBy: 'lp_rewards', // 'lp_rewards' | 'ending_soon' | 'newest' | 'high_value' | 'liquidity'
 });
 
 console.log(`Found ${markets.data.length} of ${markets.totalMarketsCount} markets`);

@@ -139,10 +139,10 @@ describe('MarketFetcher', () => {
       await marketFetcher.getActiveMarkets({
         limit: 8,
         page: 3,
-        sortBy: 'volume',
+        sortBy: 'high_value',
       });
 
-      expect(getSpy).toHaveBeenCalledWith('/markets/active?limit=8&page=3&sortBy=volume');
+      expect(getSpy).toHaveBeenCalledWith('/markets/active?limit=8&page=3&sortBy=high_value');
     });
 
     it('should handle API errors', async () => {
