@@ -120,7 +120,7 @@ describe('Authenticator', () => {
         authenticator.logout('test-jwt-token')
       ).resolves.not.toThrow();
 
-      expect(httpClient.post).toHaveBeenCalledWith('/auth/logout');
+      expect(httpClient.post).toHaveBeenCalledWith('/auth/logout', {});
     });
   });
 });

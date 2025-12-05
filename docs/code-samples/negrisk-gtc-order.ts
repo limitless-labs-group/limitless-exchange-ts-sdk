@@ -11,8 +11,8 @@
  * are traded together (e.g., "Largest Company 2025" with Apple, Microsoft, NVIDIA, etc.)
  */
 
-import { config } from "dotenv";
-import { ethers } from "ethers";
+import { config } from 'dotenv';
+import { ethers } from 'ethers';
 import {
   HttpClient,
   MessageSigner,
@@ -24,43 +24,47 @@ import {
   MarketType,
   ConsoleLogger,
   getContractAddress,
-} from "@limitless/exchange-ts-sdk";
+} from 'limitless-exchange-ts-sdk';
 
 // Load environment variables
 config();
 
 // Configuration constants
-const API_URL = process.env.API_URL || "https://api.limitless.exchange";
-const CHAIN_ID = parseInt(process.env.CHAIN_ID || "8453"); // Base mainnet
+const API_URL = process.env.API_URL || 'https://api.limitless.exchange';
+const CHAIN_ID = parseInt(process.env.CHAIN_ID || '8453'); // Base mainnet
 
 // Contract addresses - use SDK defaults or override with env var
-const NEGRISK_CONTRACT_ADDRESS = process.env.NEGRISK_CONTRACT_ADDRESS || getContractAddress("NEGRISK", CHAIN_ID);
+const NEGRISK_CONTRACT_ADDRESS =
+  process.env.NEGRISK_CONTRACT_ADDRESS || getContractAddress('NEGRISK', CHAIN_ID);
 
 // NegRisk group market example
-const NEGRISK_GROUP_SLUG = "largest-company-end-of-2025-1746118069282";
+const NEGRISK_GROUP_SLUG = 'largest-company-end-of-2025-1746118069282';
 
 async function main() {
-  console.log("🚀 NegRisk Group Market Trading Example\n");
+  console.log('🚀 NegRisk Group Market Trading Example\n');
 
   // Show configuration
-  console.log("⚙️  Configuration:");
+  console.log('⚙️  Configuration:');
   console.log(`   API URL: ${API_URL}`);
   console.log(`   Chain ID: ${CHAIN_ID}`);
   console.log(`   NegRisk Contract: ${NEGRISK_CONTRACT_ADDRESS}\n`);
 
   // Validate environment
   const privateKey = process.env.PRIVATE_KEY;
-  if (!privateKey || privateKey === "0x0000000000000000000000000000000000000000000000000000000000000000") {
-    throw new Error("Please set PRIVATE_KEY in .env file");
+  if (
+    !privateKey ||
+    privateKey === '0x0000000000000000000000000000000000000000000000000000000000000000'
+  ) {
+    throw new Error('Please set PRIVATE_KEY in .env file');
   }
 
-  const logger = new ConsoleLogger("info");
+  const logger = new ConsoleLogger('info');
 
   try {
     // ===========================================
     // STEP 1: Setup Authentication
     // ===========================================
-    console.log("📝 Step 1: Authenticating...");
+    console.log('📝 Step 1: Authenticating...');
 
     const wallet = new ethers.Wallet(privateKey);
     console.log(`   Wallet: ${wallet.address}`);
@@ -74,7 +78,7 @@ async function main() {
     const authenticator = new Authenticator(httpClient, signer, logger);
 
     const authResult = await authenticator.authenticate({
-      client: "eoa",
+      client: 'eoa',
     });
 
     console.log(`   ✅ Authenticated as: ${authResult.profile.account}`);
@@ -92,7 +96,7 @@ async function main() {
     // ===========================================
     // STEP 2: Fetch NegRisk Group Market
     // ===========================================
-    console.log("📊 Step 2: Fetching NegRisk Group Market...");
+    console.log('📊 Step 2: Fetching NegRisk Group Market...');
 
     const marketFetcher = new MarketFetcher(httpClient, logger);
     const groupMarketResponse = await marketFetcher.getMarket(NEGRISK_GROUP_SLUG);
@@ -101,40 +105,42 @@ async function main() {
     // The API returns these fields but they're not in the SDK type yet
     const groupMarket = groupMarketResponse as any;
 
-    console.log("📦 Group Market Details:");
-    console.log("   Title:", groupMarket.title);
-    console.log("   Type:", groupMarket.marketType); // "group" for NegRisk
-    console.log("   Trade Type:", groupMarket.tradeType); // "clob"
-    console.log("   Expiration:", groupMarket.expirationDate);
-    console.log("   Total Volume:", groupMarket.volumeFormatted, "USDC");
-    console.log("   Daily Rewards:", groupMarket.dailyReward || "N/A", "USDC");
-    console.log("   Number of Submarkets:", groupMarket.markets?.length || 0, "\n");
+    console.log('📦 Group Market Details:');
+    console.log('   Title:', groupMarket.title);
+    console.log('   Type:', groupMarket.marketType); // "group" for NegRisk
+    console.log('   Trade Type:', groupMarket.tradeType); // "clob"
+    console.log('   Expiration:', groupMarket.expirationDate);
+    console.log('   Total Volume:', groupMarket.volumeFormatted, 'USDC');
+    console.log('   Daily Rewards:', groupMarket.dailyReward || 'N/A', 'USDC');
+    console.log('   Number of Submarkets:', groupMarket.markets?.length || 0, '\n');
 
     // ===========================================
     // STEP 3: Browse Submarkets
     // ===========================================
-    console.log("🔍 Step 3: Exploring Submarkets...\n");
+    console.log('🔍 Step 3: Exploring Submarkets...\n');
 
     if (!groupMarket.markets || groupMarket.markets.length === 0) {
-      console.log("   ⚠️  No submarkets found in this group");
+      console.log('   ⚠️  No submarkets found in this group');
       return;
     }
 
     // Display all submarkets
-    console.log("📋 Available Submarkets:");
+    console.log('📋 Available Submarkets:');
     groupMarket.markets.forEach((submarket: any, index: number) => {
       console.log(`\n   ${index + 1}. ${submarket.title}`);
       console.log(`      Slug: ${submarket.slug}`);
       console.log(`      Type: ${submarket.marketType}`); // "single" for individual NegRisk markets
       console.log(`      Volume: ${submarket.volumeFormatted} USDC`);
       console.log(`      Prices: Yes=${submarket.prices?.[0]} | No=${submarket.prices?.[1]}`);
-      console.log(`      Trade Prices (Buy Market): Yes=${submarket.tradePrices?.buy?.market?.[0]} | No=${submarket.tradePrices?.buy?.market?.[1]}`);
+      console.log(
+        `      Trade Prices (Buy Market): Yes=${submarket.tradePrices?.buy?.market?.[0]} | No=${submarket.tradePrices?.buy?.market?.[1]}`
+      );
     });
 
     // ===========================================
     // STEP 4: Get Orderbook for Specific Submarket
     // ===========================================
-    console.log("\n\n📖 Step 4: Fetching Orderbook for First Submarket...");
+    console.log('\n\n📖 Step 4: Fetching Orderbook for First Submarket...');
 
     // Pick first submarket as example
     const exampleSubmarket = groupMarket.markets[0] as any;
@@ -143,12 +149,14 @@ async function main() {
     // Fetch orderbook for this specific submarket
     const orderbook = await marketFetcher.getOrderBook(exampleSubmarket.slug);
 
-    console.log("\n   📊 Orderbook:");
+    console.log('\n   📊 Orderbook:');
     console.log(`      Bids: ${orderbook.bids.length} levels`);
     console.log(`      Asks: ${orderbook.asks.length} levels`);
 
     if (orderbook.bids.length > 0 && orderbook.asks.length > 0) {
-      console.log(`\n      Best Bid: ${orderbook.bids[0].price} (${orderbook.bids[0].size} shares)`);
+      console.log(
+        `\n      Best Bid: ${orderbook.bids[0].price} (${orderbook.bids[0].size} shares)`
+      );
       console.log(`      Best Ask: ${orderbook.asks[0].price} (${orderbook.asks[0].size} shares)`);
 
       const spread = orderbook.asks[0].price - orderbook.bids[0].price;
@@ -165,14 +173,16 @@ async function main() {
     const detailedInfoResponse = await marketFetcher.getMarket(`${exampleSubmarket.slug}`);
     const detailedInfo = detailedInfoResponse as any;
 
-    console.log("\n   📋 Detailed Market Info:");
+    console.log('\n   📋 Detailed Market Info:');
     console.log(`      Condition ID: ${detailedInfo.conditionId}`);
     console.log(`      NegRisk Request ID: ${detailedInfo.negRiskRequestId}`);
     console.log(`      Status: ${detailedInfo.status}`);
     console.log(`      Rewardable: ${detailedInfo.isRewardable}`);
-    console.log(`      Daily Reward: ${detailedInfo.settings?.dailyReward || "N/A"} USDC`);
-    console.log(`      Min Size: ${detailedInfo.settings?.minSize ? (Number(detailedInfo.settings.minSize) / 1e6).toFixed(2) : "N/A"} USDC`);
-    console.log(`      Max Spread: ${detailedInfo.settings?.maxSpread || "N/A"}`);
+    console.log(`      Daily Reward: ${detailedInfo.settings?.dailyReward || 'N/A'} USDC`);
+    console.log(
+      `      Min Size: ${detailedInfo.settings?.minSize ? (Number(detailedInfo.settings.minSize) / 1e6).toFixed(2) : 'N/A'} USDC`
+    );
+    console.log(`      Max Spread: ${detailedInfo.settings?.maxSpread || 'N/A'}`);
 
     // Token IDs for YES and NO outcomes
     console.log(`\n      Token IDs:`);
@@ -182,7 +192,7 @@ async function main() {
     // ===========================================
     // STEP 6: Place Order on NegRisk Submarket
     // ===========================================
-    console.log("\n\n💰 Step 6: Placing Order on NegRisk Submarket...");
+    console.log('\n\n💰 Step 6: Placing Order on NegRisk Submarket...');
 
     // Setup order client for NegRisk markets
     const orderClient = new OrderClient({
@@ -193,7 +203,7 @@ async function main() {
       logger,
     });
 
-    console.log("\n   📝 Order Details:");
+    console.log('\n   📝 Order Details:');
     console.log(`      Market: ${exampleSubmarket.title}`);
     console.log(`      Submarket Slug: ${exampleSubmarket.slug}`);
     console.log(`      Token: YES`);
@@ -213,7 +223,7 @@ async function main() {
       marketSlug: exampleSubmarket.slug, // ← Use submarket slug, not group slug!
     });
 
-    console.log("\n✅ Order Placed Successfully!");
+    console.log('\n✅ Order Placed Successfully!');
     console.log(`   Order ID: ${orderResponse.order.id}`);
     console.log(`   Created at: ${orderResponse.order.createdAt}`);
     console.log(`   Market ID: ${orderResponse.order.marketId}`);
@@ -221,7 +231,7 @@ async function main() {
     console.log(`   Taker Amount: ${orderResponse.order.takerAmount}`);
 
     // Print full response for inspection
-    console.log("\n📋 Full Order Response:");
+    console.log('\n📋 Full Order Response:');
     console.log(JSON.stringify(orderResponse, null, 2));
 
     // Check if order was partially matched
@@ -244,9 +254,9 @@ async function main() {
     // ===========================================
     // STEP 7: Place SELL Order on NegRisk Submarket
     // ===========================================
-    console.log("\n\n" + "=".repeat(60));
-    console.log("📤 STEP 7: Placing SELL Order on NegRisk Submarket");
-    console.log("=".repeat(60));
+    console.log('\n\n' + '='.repeat(60));
+    console.log('📤 STEP 7: Placing SELL Order on NegRisk Submarket');
+    console.log('='.repeat(60));
 
     const sellOrderParams = {
       tokenId: detailedInfo.tokens.yes,
@@ -255,7 +265,7 @@ async function main() {
       side: Side.SELL,
     };
 
-    console.log("\n📋 SELL Order Configuration:");
+    console.log('\n📋 SELL Order Configuration:');
     console.log(`   Market: ${exampleSubmarket.title}`);
     console.log(`   Submarket Slug: ${exampleSubmarket.slug}`);
     console.log(`   Token ID: ${sellOrderParams.tokenId}`);
@@ -264,7 +274,7 @@ async function main() {
     console.log(`   Size: ${sellOrderParams.size} shares`);
     console.log(`   Type: GTC (order will remain on orderbook)\n`);
 
-    console.log("📤 Creating and submitting SELL order...");
+    console.log('📤 Creating and submitting SELL order...');
 
     const sellOrderResponse = await orderClient.createOrder({
       ...sellOrderParams,
@@ -272,13 +282,13 @@ async function main() {
       marketSlug: exampleSubmarket.slug,
     });
 
-    console.log("   ✅ SELL Order submitted successfully!");
+    console.log('   ✅ SELL Order submitted successfully!');
     console.log(`   Order ID: ${sellOrderResponse.order.id}`);
     console.log(`   Created at: ${sellOrderResponse.order.createdAt}`);
     console.log(`   Market ID: ${sellOrderResponse.order.marketId}`);
 
     // Print full SELL order response
-    console.log("\n📋 Full SELL Order Response:");
+    console.log('\n📋 Full SELL Order Response:');
     console.log(JSON.stringify(sellOrderResponse, null, 2));
 
     // Check if SELL order was partially matched
@@ -301,7 +311,7 @@ async function main() {
     // ===========================================
     // STEP 8: View Updated Orderbook
     // ===========================================
-    console.log("\n🔍 Step 8: Fetching updated orderbook to verify both orders...");
+    console.log('\n🔍 Step 8: Fetching updated orderbook to verify both orders...');
 
     const updatedOrderbook = await marketFetcher.getOrderBook(exampleSubmarket.slug);
 
@@ -318,7 +328,9 @@ async function main() {
     }
 
     // Find our SELL order
-    const ourSellOrder = updatedOrderbook.asks.find((order) => Math.abs(order.price - sellOrderParams.price) < 0.001);
+    const ourSellOrder = updatedOrderbook.asks.find(
+      (order) => Math.abs(order.price - sellOrderParams.price) < 0.001
+    );
     if (ourSellOrder) {
       console.log(`\n   ✅ Found SELL order on orderbook!`);
       console.log(`      Price: ${ourSellOrder.price}`);
@@ -328,21 +340,23 @@ async function main() {
     // ===========================================
     // STEP 9: Cancel Orders Demo (Optional)
     // ===========================================
-    console.log("\n\n" + "=".repeat(60));
-    console.log("🗑️  STEP 9: Order Cancellation Demo (Optional)");
-    console.log("=".repeat(60));
-    console.log("\nThis step demonstrates order cancellation.");
-    console.log("Uncomment the code below to test cancellation:\n");
+    console.log('\n\n' + '='.repeat(60));
+    console.log('🗑️  STEP 9: Order Cancellation Demo (Optional)');
+    console.log('='.repeat(60));
+    console.log('\nThis step demonstrates order cancellation.');
+    console.log('Uncomment the code below to test cancellation:\n');
 
-    console.log("// Option 1: Cancel individual orders");
+    console.log('// Option 1: Cancel individual orders');
     console.log(`// const cancelBuy = await orderClient.cancel("${orderResponse.order.id}");`);
     console.log(`// console.log(cancelBuy.message);`);
     console.log(`//`);
     console.log(`// const cancelSell = await orderClient.cancel("${sellOrderResponse.order.id}");`);
     console.log(`// console.log(cancelSell.message);`);
-    console.log("");
-    console.log("// Option 2: Cancel all orders for this submarket");
-    console.log(`// const cancelAllResult = await orderClient.cancelAll("${exampleSubmarket.slug}");`);
+    console.log('');
+    console.log('// Option 2: Cancel all orders for this submarket');
+    console.log(
+      `// const cancelAllResult = await orderClient.cancelAll("${exampleSubmarket.slug}");`
+    );
     console.log(`// console.log(cancelAllResult.message);`);
 
     // console.log("\n🗑️  Cancelling BUY order...");
@@ -360,65 +374,67 @@ async function main() {
     // ===========================================
     // STEP 10: Summary
     // ===========================================
-    console.log("\n🎉 NegRisk order example completed successfully!");
-    console.log("\n📚 Summary:");
+    console.log('\n🎉 NegRisk order example completed successfully!');
+    console.log('\n📚 Summary:');
     console.log(`   - BUY Order ID: ${orderResponse.order.id} (Price: 0.1)`);
-    console.log(`   - SELL Order ID: ${sellOrderResponse.order.id} (Price: ${sellOrderParams.price})`);
-    console.log("\n📚 Cancellation Methods:");
-    console.log("   - orderClient.cancel(orderId) - Cancel single order");
-    console.log("   - orderClient.cancelAll(marketSlug) - Cancel all orders for submarket");
-    console.log("\n💡 Tip: Orders stay on the orderbook until:");
-    console.log("   1. Fully matched by another order");
-    console.log("   2. Manually cancelled");
-    console.log("   3. Market is resolved");
+    console.log(
+      `   - SELL Order ID: ${sellOrderResponse.order.id} (Price: ${sellOrderParams.price})`
+    );
+    console.log('\n📚 Cancellation Methods:');
+    console.log('   - orderClient.cancel(orderId) - Cancel single order');
+    console.log('   - orderClient.cancelAll(marketSlug) - Cancel all orders for submarket');
+    console.log('\n💡 Tip: Orders stay on the orderbook until:');
+    console.log('   1. Fully matched by another order');
+    console.log('   2. Manually cancelled');
+    console.log('   3. Market is resolved');
 
     // ===========================================
     // STEP 11: Key Differences Summary
     // ===========================================
-    console.log("\n\n📚 Key Differences: NegRisk vs Standard CLOB");
-    console.log("=".repeat(60));
+    console.log('\n\n📚 Key Differences: NegRisk vs Standard CLOB');
+    console.log('='.repeat(60));
 
-    console.log("\n1️⃣  Market Structure:");
+    console.log('\n1️⃣  Market Structure:');
     console.log("   CLOB:    marketType = 'single' (one outcome)");
     console.log("   NegRisk: marketType = 'group' (multiple related outcomes)");
 
-    console.log("\n2️⃣  Fetching Markets:");
-    console.log("   Group:    GET /markets/{group-slug}");
-    console.log("   Submarket: Access via groupMarket.markets[] array");
+    console.log('\n2️⃣  Fetching Markets:');
+    console.log('   Group:    GET /markets/{group-slug}');
+    console.log('   Submarket: Access via groupMarket.markets[] array');
 
-    console.log("\n3️⃣  Orderbooks:");
-    console.log("   Group:     No orderbook (container only)");
-    console.log("   Submarket: GET /markets/{submarket-slug}/orderbook");
+    console.log('\n3️⃣  Orderbooks:');
+    console.log('   Group:     No orderbook (container only)');
+    console.log('   Submarket: GET /markets/{submarket-slug}/orderbook');
 
-    console.log("\n4️⃣  Placing Orders:");
+    console.log('\n4️⃣  Placing Orders:');
     console.log("   Use submarket slug (e.g., 'nvidia-1746118069310')");
     console.log("   NOT group slug (e.g., 'largest-company-end-of-2025-1746118069282')");
-    console.log("   Everything else is the same as CLOB!");
+    console.log('   Everything else is the same as CLOB!');
 
-    console.log("\n5️⃣  Token IDs:");
-    console.log("   Each submarket has its own YES/NO token IDs");
-    console.log("   Get from: submarket.tokens.yes or submarket.tokens.no");
+    console.log('\n5️⃣  Token IDs:');
+    console.log('   Each submarket has its own YES/NO token IDs');
+    console.log('   Get from: submarket.tokens.yes or submarket.tokens.no');
 
-    console.log("\n\n✅ Example Complete!");
+    console.log('\n\n✅ Example Complete!');
   } catch (error) {
-    console.error("\n❌ Error occurred");
+    console.error('\n❌ Error occurred');
 
     // Check if it's an APIError with raw response data
     if (error && typeof error === 'object' && 'status' in error && 'data' in error) {
-      console.error("   Status:", (error as any).status);
-      console.error("   Message:", (error as any).message);
-      console.error("   URL:", (error as any).url);
-      console.error("   Method:", (error as any).method);
-      console.error("   Raw API Response:", JSON.stringify((error as any).data, null, 2));
+      console.error('   Status:', (error as any).status);
+      console.error('   Message:', (error as any).message);
+      console.error('   URL:', (error as any).url);
+      console.error('   Method:', (error as any).method);
+      console.error('   Raw API Response:', JSON.stringify((error as any).data, null, 2));
     } else if (error instanceof Error) {
-      console.error("   Message:", error.message);
+      console.error('   Message:', error.message);
     } else {
-      console.error("   Unknown error:", error);
+      console.error('   Unknown error:', error);
     }
 
     // Only show stack trace in debug mode
     if (process.env.DEBUG === 'true' && error instanceof Error && error.stack) {
-      console.error("\n   Stack trace:");
+      console.error('\n   Stack trace:');
       console.error(error.stack);
     }
 
@@ -430,6 +446,6 @@ async function main() {
 main()
   .then(() => process.exit(0))
   .catch((error) => {
-    console.error("Fatal error:", error);
+    console.error('Fatal error:', error);
     process.exit(1);
   });

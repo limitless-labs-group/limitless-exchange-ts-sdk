@@ -9,6 +9,8 @@ import type {
   MarketsResponse,
   OrderBook,
   MarketPrice,
+  ActiveMarketsParams,
+  ActiveMarketsResponse,
 } from '../types/markets';
 import type { ILogger } from '../types/logger';
 import { NoOpLogger } from '../types/logger';
@@ -65,6 +67,67 @@ export class MarketFetcher {
       return markets;
     } catch (error) {
       this.logger.error('Failed to fetch markets', error as Error);
+      throw error;
+    }
+  }
+
+  /**
+   * Gets active markets with query parameters and pagination support.
+   *
+   * @param params - Query parameters for filtering and pagination
+   * @returns Promise resolving to active markets response
+   * @throws Error if API request fails
+   *
+   * @example
+   * ```typescript
+   * // Get 8 markets sorted by LP rewards
+   * const response = await fetcher.getActiveMarkets({
+   *   limit: 8,
+   *   sortBy: 'lp_rewards'
+   * });
+   * console.log(`Found ${response.data.length} of ${response.totalMarketsCount} markets`);
+   *
+   * // Get page 2
+   * const page2 = await fetcher.getActiveMarkets({
+   *   limit: 8,
+   *   page: 2,
+   *   sortBy: 'ending_soon'
+   * });
+   * ```
+   */
+  async getActiveMarkets(params?: ActiveMarketsParams): Promise<ActiveMarketsResponse> {
+    const queryParams = new URLSearchParams();
+
+    if (params?.limit !== undefined) {
+      queryParams.append('limit', params.limit.toString());
+    }
+
+    if (params?.page !== undefined) {
+      queryParams.append('page', params.page.toString());
+    }
+
+    if (params?.sortBy) {
+      queryParams.append('sortBy', params.sortBy);
+    }
+
+    const queryString = queryParams.toString();
+    const endpoint = `/markets/active${queryString ? `?${queryString}` : ''}`;
+
+    this.logger.debug('Fetching active markets', { params });
+
+    try {
+      const response = await this.httpClient.get<ActiveMarketsResponse>(endpoint);
+
+      this.logger.info('Active markets fetched successfully', {
+        count: response.data.length,
+        total: response.totalMarketsCount,
+        sortBy: params?.sortBy,
+        page: params?.page,
+      });
+
+      return response;
+    } catch (error) {
+      this.logger.error('Failed to fetch active markets', error as Error, { params });
       throw error;
     }
   }

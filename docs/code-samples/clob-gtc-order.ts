@@ -15,8 +15,8 @@
  * - This ensures price * contracts yields whole number in collateral units
  */
 
-import { config } from "dotenv";
-import { ethers } from "ethers";
+import { config } from 'dotenv';
+import { ethers } from 'ethers';
 import {
   HttpClient,
   MessageSigner,
@@ -28,7 +28,7 @@ import {
   MarketType,
   ConsoleLogger,
   getContractAddress,
-} from "@limitless/exchange-ts-sdk";
+} from 'limitless-exchange-ts-sdk';
 
 // Load environment variables
 config();
@@ -38,40 +38,44 @@ const API_URL = process.env.API_URL;
 const CHAIN_ID = parseInt(process.env.CHAIN_ID); // Base mainnet
 
 // Contract addresses - use SDK defaults or override with env var
-const CLOB_CONTRACT_ADDRESS = process.env.CLOB_CONTRACT_ADDRESS || getContractAddress("CLOB", CHAIN_ID);
+const CLOB_CONTRACT_ADDRESS =
+  process.env.CLOB_CONTRACT_ADDRESS || getContractAddress('CLOB', CHAIN_ID);
 
 async function main() {
-  console.log("🚀 GTC (Good-Til-Cancelled) Order Placement Example\n");
+  console.log('🚀 GTC (Good-Til-Cancelled) Order Placement Example\n');
 
   // Show configuration
-  console.log("⚙️  Configuration:");
+  console.log('⚙️  Configuration:');
   console.log(`   API URL: ${API_URL}`);
   console.log(`   Chain ID: ${CHAIN_ID}`);
   console.log(`   CLOB Contract: ${CLOB_CONTRACT_ADDRESS}\n`);
 
   // Validate environment
   const privateKey = process.env.PRIVATE_KEY;
-  if (!privateKey || privateKey === "0x0000000000000000000000000000000000000000000000000000000000000000") {
-    throw new Error("Please set PRIVATE_KEY in .env file");
+  if (
+    !privateKey ||
+    privateKey === '0x0000000000000000000000000000000000000000000000000000000000000000'
+  ) {
+    throw new Error('Please set PRIVATE_KEY in .env file');
   }
 
   const marketSlug = process.env.CLOB_MARKET_SLUG;
   if (!marketSlug) {
-    throw new Error("Please set CLOB_MARKET_SLUG in .env file");
+    throw new Error('Please set CLOB_MARKET_SLUG in .env file');
   }
 
   const tokenId = process.env.CLOB_POSITION_ID;
   if (!tokenId) {
-    throw new Error("Please set CLOB_POSITION_ID in .env file");
+    throw new Error('Please set CLOB_POSITION_ID in .env file');
   }
 
-  const logger = new ConsoleLogger("info");
+  const logger = new ConsoleLogger('info');
 
   try {
     // ===========================================
     // STEP 1: Authentication
     // ===========================================
-    console.log("🔐 Step 1: Authenticating...");
+    console.log('🔐 Step 1: Authenticating...');
     const wallet = new ethers.Wallet(privateKey);
     console.log(`   Wallet: ${wallet.address}`);
 
@@ -84,7 +88,7 @@ async function main() {
     const authenticator = new Authenticator(httpClient, signer, logger);
 
     const authResult = await authenticator.authenticate({
-      client: "eoa",
+      client: 'eoa',
     });
 
     console.log(`   ✅ Authenticated as: ${authResult.profile.account}`);
@@ -102,7 +106,7 @@ async function main() {
     // ===========================================
     // STEP 2: Order Configuration
     // ===========================================
-    console.log("📋 Step 2: Configuring GTC order...");
+    console.log('📋 Step 2: Configuring GTC order...');
 
     // Example order parameters (adjust these for your market)
     const orderParams = {
@@ -115,7 +119,7 @@ async function main() {
 
     console.log(`   Market: ${marketSlug}`);
     console.log(`   Token ID: ${orderParams.tokenId}`);
-    console.log(`   Side: ${orderParams.side === Side.BUY ? "BUY" : "SELL"}`);
+    console.log(`   Side: ${orderParams.side === Side.BUY ? 'BUY' : 'SELL'}`);
     console.log(`   Price: ${orderParams.price}`);
     console.log(`   Size: ${orderParams.size} shares`);
     console.log(`   Type: GTC (order will remain on orderbook)\n`);
@@ -123,7 +127,7 @@ async function main() {
     // ===========================================
     // STEP 3: Create Order Client
     // ===========================================
-    console.log("🔨 Step 3: Creating order client...");
+    console.log('🔨 Step 3: Creating order client...');
 
     // Simple mode - auto-configures from marketType
     const orderClient = new OrderClient({
@@ -134,12 +138,12 @@ async function main() {
       logger,
     });
 
-    console.log("   ✅ Order client ready\n");
+    console.log('   ✅ Order client ready\n');
 
     // ===========================================
     // STEP 4: Create and Submit Order
     // ===========================================
-    console.log("📤 Step 4: Creating and submitting GTC order...");
+    console.log('📤 Step 4: Creating and submitting GTC order...');
 
     const orderResponse = await orderClient.createOrder({
       ...orderParams,
@@ -147,13 +151,13 @@ async function main() {
       marketSlug,
     });
 
-    console.log("   ✅ Order submitted successfully!");
+    console.log('   ✅ Order submitted successfully!');
     console.log(`   Order ID: ${orderResponse.order.id}`);
     console.log(`   Created at: ${orderResponse.order.createdAt}`);
     console.log(`   Market ID: ${orderResponse.order.marketId}`);
 
     // Print full response for inspection
-    console.log("\n📋 Full Order Response:");
+    console.log('\n📋 Full Order Response:');
     console.log(JSON.stringify(orderResponse, null, 2));
 
     // Check if order was partially matched
@@ -176,7 +180,7 @@ async function main() {
     // ===========================================
     // STEP 5: View Orderbook
     // ===========================================
-    console.log("\n🔍 Step 5: Fetching orderbook to verify order...");
+    console.log('\n🔍 Step 5: Fetching orderbook to verify order...');
 
     // Create separate unauthenticated client for public endpoints
     // Note: Orderbook, market info, and prices don't require authentication
@@ -194,7 +198,9 @@ async function main() {
 
     // Find our order in the orderbook
     const ordersToCheck = orderParams.side === Side.BUY ? orderbook.bids : orderbook.asks;
-    const ourOrder = ordersToCheck.find((order) => Math.abs(order.price - orderParams.price) < 0.001);
+    const ourOrder = ordersToCheck.find(
+      (order) => Math.abs(order.price - orderParams.price) < 0.001
+    );
 
     if (ourOrder) {
       console.log(`\n   ✅ Found our order on the orderbook!`);
@@ -208,9 +214,9 @@ async function main() {
     // ===========================================
     // STEP 6: Place SELL GTC Order
     // ===========================================
-    console.log("\n\n" + "=".repeat(60));
-    console.log("📤 STEP 6: Placing SELL GTC Order");
-    console.log("=".repeat(60));
+    console.log('\n\n' + '='.repeat(60));
+    console.log('📤 STEP 6: Placing SELL GTC Order');
+    console.log('='.repeat(60));
 
     const sellOrderParams = {
       tokenId: orderParams.tokenId,
@@ -220,7 +226,7 @@ async function main() {
       marketType: MarketType.CLOB,
     };
 
-    console.log("\n📋 SELL Order Configuration:");
+    console.log('\n📋 SELL Order Configuration:');
     console.log(`   Market: ${marketSlug}`);
     console.log(`   Token ID: ${sellOrderParams.tokenId}`);
     console.log(`   Side: SELL`);
@@ -228,7 +234,7 @@ async function main() {
     console.log(`   Size: ${sellOrderParams.size} shares`);
     console.log(`   Type: GTC (order will remain on orderbook)\n`);
 
-    console.log("📤 Creating and submitting SELL order...");
+    console.log('📤 Creating and submitting SELL order...');
 
     const sellOrderResponse = await orderClient.createOrder({
       ...sellOrderParams,
@@ -236,13 +242,13 @@ async function main() {
       marketSlug,
     });
 
-    console.log("   ✅ SELL Order submitted successfully!");
+    console.log('   ✅ SELL Order submitted successfully!');
     console.log(`   Order ID: ${sellOrderResponse.order.id}`);
     console.log(`   Created at: ${sellOrderResponse.order.createdAt}`);
     console.log(`   Market ID: ${sellOrderResponse.order.marketId}`);
 
     // Print full SELL order response
-    console.log("\n📋 Full SELL Order Response:");
+    console.log('\n📋 Full SELL Order Response:');
     console.log(JSON.stringify(sellOrderResponse, null, 2));
 
     // Check if SELL order was partially matched
@@ -265,7 +271,7 @@ async function main() {
     // ===========================================
     // STEP 7: View Updated Orderbook
     // ===========================================
-    console.log("\n🔍 Step 7: Fetching updated orderbook to verify both orders...");
+    console.log('\n🔍 Step 7: Fetching updated orderbook to verify both orders...');
 
     const updatedOrderbook = await marketFetcher.getOrderBook(marketSlug);
 
@@ -274,7 +280,9 @@ async function main() {
     console.log(`   Min size: ${updatedOrderbook.minSize}`);
 
     // Find our BUY order
-    const ourBuyOrder = updatedOrderbook.bids.find((order) => Math.abs(order.price - orderParams.price) < 0.001);
+    const ourBuyOrder = updatedOrderbook.bids.find(
+      (order) => Math.abs(order.price - orderParams.price) < 0.001
+    );
     if (ourBuyOrder) {
       console.log(`\n   ✅ Found BUY order on orderbook!`);
       console.log(`      Price: ${ourBuyOrder.price}`);
@@ -282,7 +290,9 @@ async function main() {
     }
 
     // Find our SELL order
-    const ourSellOrder = updatedOrderbook.asks.find((order) => Math.abs(order.price - sellOrderParams.price) < 0.001);
+    const ourSellOrder = updatedOrderbook.asks.find(
+      (order) => Math.abs(order.price - sellOrderParams.price) < 0.001
+    );
     if (ourSellOrder) {
       console.log(`\n   ✅ Found SELL order on orderbook!`);
       console.log(`      Price: ${ourSellOrder.price}`);
@@ -292,20 +302,20 @@ async function main() {
     // ===========================================
     // STEP 8: Cancel Orders (Optional Demo)
     // ===========================================
-    console.log("\n\n" + "=".repeat(60));
-    console.log("🗑️  STEP 8: Order Cancellation Demo (Optional)");
-    console.log("=".repeat(60));
-    console.log("\nThis step demonstrates order cancellation.");
-    console.log("Uncomment the code below to test cancellation:\n");
+    console.log('\n\n' + '='.repeat(60));
+    console.log('🗑️  STEP 8: Order Cancellation Demo (Optional)');
+    console.log('='.repeat(60));
+    console.log('\nThis step demonstrates order cancellation.');
+    console.log('Uncomment the code below to test cancellation:\n');
 
-    console.log("// Option 1: Cancel individual orders");
+    console.log('// Option 1: Cancel individual orders');
     console.log(`// const cancelBuy = await orderClient.cancel("${orderResponse.order.id}");`);
     console.log(`// console.log(cancelBuy.message);`);
     console.log(`//`);
     console.log(`// const cancelSell = await orderClient.cancel("${sellOrderResponse.order.id}");`);
     console.log(`// console.log(cancelSell.message);`);
-    console.log("");
-    console.log("// Option 2: Cancel all orders for this market");
+    console.log('');
+    console.log('// Option 2: Cancel all orders for this market');
     console.log(`// const cancelAllResult = await orderClient.cancelAll("${marketSlug}");`);
     console.log(`// console.log(cancelAllResult.message);`);
 
@@ -321,39 +331,41 @@ async function main() {
     // const cancelAllResult = await orderClient.cancelAll(marketSlug);
     // console.log(`   ✅ ${cancelAllResult.message}`);
 
-    console.log("\n🎉 GTC order example completed successfully!");
-    console.log("\n📚 Summary:");
+    console.log('\n🎉 GTC order example completed successfully!');
+    console.log('\n📚 Summary:');
     console.log(`   - BUY Order ID: ${orderResponse.order.id} (Price: ${orderParams.price})`);
-    console.log(`   - SELL Order ID: ${sellOrderResponse.order.id} (Price: ${sellOrderParams.price})`);
-    console.log("\n📚 Cancellation Methods:");
-    console.log("   - orderClient.cancel(orderId) - Cancel single order");
-    console.log("   - orderClient.cancelAll(marketSlug) - Cancel all orders for market");
-    console.log("\n📚 Next steps:");
-    console.log("   - Try FOK orders: pnpm run start:fok-order");
-    console.log("   - View full orderbook: pnpm run start:orderbook");
-    console.log("\n💡 Tip: GTC orders stay on the orderbook until:");
-    console.log("   1. Fully matched by another order");
-    console.log("   2. Manually cancelled");
-    console.log("   3. Market is resolved");
+    console.log(
+      `   - SELL Order ID: ${sellOrderResponse.order.id} (Price: ${sellOrderParams.price})`
+    );
+    console.log('\n📚 Cancellation Methods:');
+    console.log('   - orderClient.cancel(orderId) - Cancel single order');
+    console.log('   - orderClient.cancelAll(marketSlug) - Cancel all orders for market');
+    console.log('\n📚 Next steps:');
+    console.log('   - Try FOK orders: pnpm run start:fok-order');
+    console.log('   - View full orderbook: pnpm run start:orderbook');
+    console.log('\n💡 Tip: GTC orders stay on the orderbook until:');
+    console.log('   1. Fully matched by another order');
+    console.log('   2. Manually cancelled');
+    console.log('   3. Market is resolved');
   } catch (error) {
-    console.error("\n❌ Error occurred");
+    console.error('\n❌ Error occurred');
 
     // Check if it's an APIError with raw response data
     if (error && typeof error === 'object' && 'status' in error && 'data' in error) {
-      console.error("   Status:", (error as any).status);
-      console.error("   Message:", (error as any).message);
-      console.error("   URL:", (error as any).url);
-      console.error("   Method:", (error as any).method);
-      console.error("   Raw API Response:", JSON.stringify((error as any).data, null, 2));
+      console.error('   Status:', (error as any).status);
+      console.error('   Message:', (error as any).message);
+      console.error('   URL:', (error as any).url);
+      console.error('   Method:', (error as any).method);
+      console.error('   Raw API Response:', JSON.stringify((error as any).data, null, 2));
     } else if (error instanceof Error) {
-      console.error("   Message:", error.message);
+      console.error('   Message:', error.message);
     } else {
-      console.error("   Unknown error:", error);
+      console.error('   Unknown error:', error);
     }
 
     // Only show stack trace in debug mode
     if (process.env.DEBUG === 'true' && error instanceof Error && error.stack) {
-      console.error("\n   Stack trace:");
+      console.error('\n   Stack trace:');
       console.error(error.stack);
     }
 
@@ -365,6 +377,6 @@ async function main() {
 main()
   .then(() => process.exit(0))
   .catch((error) => {
-    console.error("Fatal error:", error);
+    console.error('Fatal error:', error);
     process.exit(1);
   });

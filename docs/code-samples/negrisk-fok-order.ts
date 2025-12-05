@@ -13,8 +13,8 @@
  * KEY DIFFERENCE: Use the SUBMARKET slug, not the group slug!
  */
 
-import { config } from "dotenv";
-import { ethers } from "ethers";
+import { config } from 'dotenv';
+import { ethers } from 'ethers';
 import {
   HttpClient,
   MessageSigner,
@@ -26,43 +26,47 @@ import {
   MarketType,
   ConsoleLogger,
   getContractAddress,
-} from "@limitless/exchange-ts-sdk";
+} from 'limitless-exchange-ts-sdk';
 
 // Load environment variables
 config();
 
 // Configuration constants
-const API_URL = process.env.API_URL || "https://api.limitless.exchange";
-const CHAIN_ID = parseInt(process.env.CHAIN_ID || "8453"); // Base mainnet
+const API_URL = process.env.API_URL || 'https://api.limitless.exchange';
+const CHAIN_ID = parseInt(process.env.CHAIN_ID || '8453'); // Base mainnet
 
 // Contract addresses - use SDK defaults or override with env var
-const NEGRISK_CONTRACT_ADDRESS = process.env.NEGRISK_CONTRACT_ADDRESS || getContractAddress("NEGRISK", CHAIN_ID);
+const NEGRISK_CONTRACT_ADDRESS =
+  process.env.NEGRISK_CONTRACT_ADDRESS || getContractAddress('NEGRISK', CHAIN_ID);
 
 // NegRisk group market example
-const NEGRISK_GROUP_SLUG = "largest-company-end-of-2025-1746118069282";
+const NEGRISK_GROUP_SLUG = 'largest-company-end-of-2025-1746118069282';
 
 async function main() {
-  console.log("🚀 NegRisk FOK (Fill-or-Kill) Order Example\n");
+  console.log('🚀 NegRisk FOK (Fill-or-Kill) Order Example\n');
 
   // Show configuration
-  console.log("⚙️  Configuration:");
+  console.log('⚙️  Configuration:');
   console.log(`   API URL: ${API_URL}`);
   console.log(`   Chain ID: ${CHAIN_ID}`);
   console.log(`   NegRisk Contract: ${NEGRISK_CONTRACT_ADDRESS}\n`);
 
   // Validate environment
   const privateKey = process.env.PRIVATE_KEY;
-  if (!privateKey || privateKey === "0x0000000000000000000000000000000000000000000000000000000000000000") {
-    throw new Error("Please set PRIVATE_KEY in .env file");
+  if (
+    !privateKey ||
+    privateKey === '0x0000000000000000000000000000000000000000000000000000000000000000'
+  ) {
+    throw new Error('Please set PRIVATE_KEY in .env file');
   }
 
-  const logger = new ConsoleLogger("info");
+  const logger = new ConsoleLogger('info');
 
   try {
     // ===========================================
     // STEP 1: Authentication
     // ===========================================
-    console.log("🔐 Step 1: Authenticating...");
+    console.log('🔐 Step 1: Authenticating...');
 
     const wallet = new ethers.Wallet(privateKey);
     console.log(`   Wallet: ${wallet.address}`);
@@ -76,7 +80,7 @@ async function main() {
     const authenticator = new Authenticator(httpClient, signer, logger);
 
     const authResult = await authenticator.authenticate({
-      client: "eoa",
+      client: 'eoa',
     });
 
     console.log(`   ✅ Authenticated as: ${authResult.profile.account}`);
@@ -93,7 +97,7 @@ async function main() {
     // ===========================================
     // STEP 2: Fetch NegRisk Group Market
     // ===========================================
-    console.log("📊 Step 2: Fetching NegRisk Group Market...");
+    console.log('📊 Step 2: Fetching NegRisk Group Market...');
 
     const marketFetcher = new MarketFetcher(httpClient, logger);
     const groupMarketResponse = await marketFetcher.getMarket(NEGRISK_GROUP_SLUG);
@@ -101,18 +105,18 @@ async function main() {
     // Cast to any to access properties not in the Market type definition
     const groupMarket = groupMarketResponse as any;
 
-    console.log("📦 Group Market Details:");
-    console.log("   Title:", groupMarket.title);
-    console.log("   Type:", groupMarket.marketType); // "group" for NegRisk
-    console.log("   Number of Submarkets:", groupMarket.markets?.length || 0, "\n");
+    console.log('📦 Group Market Details:');
+    console.log('   Title:', groupMarket.title);
+    console.log('   Type:', groupMarket.marketType); // "group" for NegRisk
+    console.log('   Number of Submarkets:', groupMarket.markets?.length || 0, '\n');
 
     if (!groupMarket.markets || groupMarket.markets.length === 0) {
-      console.log("   ⚠️  No submarkets found in this group");
+      console.log('   ⚠️  No submarkets found in this group');
       return;
     }
 
     // Display available submarkets
-    console.log("📋 Available Submarkets:");
+    console.log('📋 Available Submarkets:');
     groupMarket.markets.forEach((submarket: any, index: number) => {
       console.log(`   ${index + 1}. ${submarket.title} (${submarket.slug})`);
       console.log(`      Prices: Yes=${submarket.prices?.[0]} | No=${submarket.prices?.[1]}`);
@@ -126,14 +130,14 @@ async function main() {
     const detailedInfoResponse = await marketFetcher.getMarket(exampleSubmarket.slug);
     const detailedInfo = detailedInfoResponse as any;
 
-    console.log("   Token IDs:");
+    console.log('   Token IDs:');
     console.log(`      YES: ${detailedInfo.tokens?.yes}`);
     console.log(`      NO: ${detailedInfo.tokens?.no}\n`);
 
     // ===========================================
     // STEP 3: Create Order Client for NegRisk
     // ===========================================
-    console.log("🔨 Step 3: Creating NegRisk order client...");
+    console.log('🔨 Step 3: Creating NegRisk order client...');
 
     const orderClient = new OrderClient({
       httpClient,
@@ -143,12 +147,12 @@ async function main() {
       logger,
     });
 
-    console.log("   ✅ Order client ready\n");
+    console.log('   ✅ Order client ready\n');
 
     // ===========================================
     // STEP 4: Place FOK BUY Order
     // ===========================================
-    console.log("📤 Step 4: Placing FOK BUY Order on NegRisk Submarket...");
+    console.log('📤 Step 4: Placing FOK BUY Order on NegRisk Submarket...');
 
     const buyOrderParams = {
       tokenId: detailedInfo.tokens.yes, // YES token ID
@@ -156,7 +160,7 @@ async function main() {
       side: Side.BUY,
     };
 
-    console.log("\n📋 BUY Order Configuration:");
+    console.log('\n📋 BUY Order Configuration:');
     console.log(`   Market: ${exampleSubmarket.title}`);
     console.log(`   Submarket Slug: ${exampleSubmarket.slug}`);
     console.log(`   Token ID: ${buyOrderParams.tokenId}`);
@@ -164,7 +168,7 @@ async function main() {
     console.log(`   Amount: ${buyOrderParams.amount} USDC`);
     console.log(`   Type: FOK (market order - executes immediately at best price)\n`);
 
-    console.log("📤 Creating and submitting FOK BUY order...");
+    console.log('📤 Creating and submitting FOK BUY order...');
 
     // IMPORTANT: Use the SUBMARKET slug, not the group slug!
     const buyOrderResponse = await orderClient.createOrder({
@@ -173,13 +177,13 @@ async function main() {
       marketSlug: exampleSubmarket.slug, // ← Use submarket slug!
     });
 
-    console.log("   ✅ Order submitted successfully!");
+    console.log('   ✅ Order submitted successfully!');
     console.log(`   Order ID: ${buyOrderResponse.order.id}`);
     console.log(`   Created at: ${buyOrderResponse.order.createdAt}`);
     console.log(`   Market ID: ${buyOrderResponse.order.marketId}`);
 
     // Print full response for inspection
-    console.log("\n📋 Full BUY Order Response:");
+    console.log('\n📋 Full BUY Order Response:');
     console.log(JSON.stringify(buyOrderResponse, null, 2));
 
     // Check matches - FOK orders are ALWAYS matched or cancelled
@@ -206,9 +210,9 @@ async function main() {
     // ===========================================
     // STEP 5: Place FOK SELL Order
     // ===========================================
-    console.log("\n\n" + "=".repeat(60));
-    console.log("📤 STEP 5: Placing FOK SELL Order on NegRisk Submarket");
-    console.log("=".repeat(60));
+    console.log('\n\n' + '='.repeat(60));
+    console.log('📤 STEP 5: Placing FOK SELL Order on NegRisk Submarket');
+    console.log('='.repeat(60));
 
     const sellOrderParams = {
       tokenId: detailedInfo.tokens.yes, // YES token ID
@@ -216,7 +220,7 @@ async function main() {
       side: Side.SELL,
     };
 
-    console.log("\n📋 SELL Order Configuration:");
+    console.log('\n📋 SELL Order Configuration:');
     console.log(`   Market: ${exampleSubmarket.title}`);
     console.log(`   Submarket Slug: ${exampleSubmarket.slug}`);
     console.log(`   Token ID: ${sellOrderParams.tokenId}`);
@@ -224,7 +228,7 @@ async function main() {
     console.log(`   Amount: ${sellOrderParams.amount} USDC`);
     console.log(`   Type: FOK (market order - executes immediately at best price)\n`);
 
-    console.log("📤 Creating and submitting FOK SELL order...");
+    console.log('📤 Creating and submitting FOK SELL order...');
 
     const sellOrderResponse = await orderClient.createOrder({
       ...sellOrderParams,
@@ -232,13 +236,13 @@ async function main() {
       marketSlug: exampleSubmarket.slug, // ← Use submarket slug!
     });
 
-    console.log("   ✅ Order submitted successfully!");
+    console.log('   ✅ Order submitted successfully!');
     console.log(`   Order ID: ${sellOrderResponse.order.id}`);
     console.log(`   Created at: ${sellOrderResponse.order.createdAt}`);
     console.log(`   Market ID: ${sellOrderResponse.order.marketId}`);
 
     // Print full SELL order response
-    console.log("\n📋 Full SELL Order Response:");
+    console.log('\n📋 Full SELL Order Response:');
     console.log(JSON.stringify(sellOrderResponse, null, 2));
 
     // Check matches
@@ -265,52 +269,52 @@ async function main() {
     // ===========================================
     // STEP 6: Summary
     // ===========================================
-    console.log("\n\n📚 Key Points About NegRisk FOK Orders");
-    console.log("=".repeat(60));
+    console.log('\n\n📚 Key Points About NegRisk FOK Orders');
+    console.log('='.repeat(60));
 
-    console.log("\n1️⃣  Market Selection:");
+    console.log('\n1️⃣  Market Selection:');
     console.log("   - Use SUBMARKET slug for orders (e.g., 'apple-1746118069293')");
     console.log("   - NOT group slug (e.g., 'largest-company-end-of-2025-1746118069282')");
 
-    console.log("\n2️⃣  FOK Order Behavior:");
-    console.log("   - FOK = Fill-or-Kill (market order)");
-    console.log("   - Specify amount in USDC (human-readable, max 2 decimals)");
-    console.log("   - Order executes immediately at best price or cancels");
-    console.log("   - No partial fills - must be fully matched");
+    console.log('\n2️⃣  FOK Order Behavior:');
+    console.log('   - FOK = Fill-or-Kill (market order)');
+    console.log('   - Specify amount in USDC (human-readable, max 2 decimals)');
+    console.log('   - Order executes immediately at best price or cancels');
+    console.log('   - No partial fills - must be fully matched');
 
-    console.log("\n3️⃣  NegRisk Contract:");
-    console.log("   - Must use MarketType.NEGRISK for proper signature");
+    console.log('\n3️⃣  NegRisk Contract:');
+    console.log('   - Must use MarketType.NEGRISK for proper signature');
     console.log(`   - Contract address: ${NEGRISK_CONTRACT_ADDRESS}`);
-    console.log("   - Set NEGRISK_CONTRACT_ADDRESS env var to override");
+    console.log('   - Set NEGRISK_CONTRACT_ADDRESS env var to override');
 
-    console.log("\n4️⃣  Token IDs:");
-    console.log("   - Each submarket has unique YES/NO token IDs");
-    console.log("   - Get from: await marketFetcher.getMarket(submarketSlug)");
+    console.log('\n4️⃣  Token IDs:');
+    console.log('   - Each submarket has unique YES/NO token IDs');
+    console.log('   - Get from: await marketFetcher.getMarket(submarketSlug)');
 
-    console.log("\n\n✅ NegRisk FOK order example completed successfully!");
-    console.log("\n💡 Next steps:");
-    console.log("   - Try GTC orders: pnpm run start:negrisk-trading");
-    console.log("   - Explore other submarkets in the group");
-    console.log("   - Adjust order amounts based on available liquidity");
+    console.log('\n\n✅ NegRisk FOK order example completed successfully!');
+    console.log('\n💡 Next steps:');
+    console.log('   - Try GTC orders: pnpm run start:negrisk-trading');
+    console.log('   - Explore other submarkets in the group');
+    console.log('   - Adjust order amounts based on available liquidity');
   } catch (error) {
-    console.error("\n❌ Error occurred");
+    console.error('\n❌ Error occurred');
 
     // Check if it's an APIError with raw response data
-    if (error && typeof error === "object" && "status" in error && "data" in error) {
-      console.error("   Status:", (error as any).status);
-      console.error("   Message:", (error as any).message);
-      console.error("   URL:", (error as any).url);
-      console.error("   Method:", (error as any).method);
-      console.error("   Raw API Response:", JSON.stringify((error as any).data, null, 2));
+    if (error && typeof error === 'object' && 'status' in error && 'data' in error) {
+      console.error('   Status:', (error as any).status);
+      console.error('   Message:', (error as any).message);
+      console.error('   URL:', (error as any).url);
+      console.error('   Method:', (error as any).method);
+      console.error('   Raw API Response:', JSON.stringify((error as any).data, null, 2));
     } else if (error instanceof Error) {
-      console.error("   Message:", error.message);
+      console.error('   Message:', error.message);
     } else {
-      console.error("   Unknown error:", error);
+      console.error('   Unknown error:', error);
     }
 
     // Only show stack trace in debug mode
-    if (process.env.DEBUG === "true" && error instanceof Error && error.stack) {
-      console.error("\n   Stack trace:");
+    if (process.env.DEBUG === 'true' && error instanceof Error && error.stack) {
+      console.error('\n   Stack trace:');
       console.error(error.stack);
     }
 
@@ -322,6 +326,6 @@ async function main() {
 main()
   .then(() => process.exit(0))
   .catch((error) => {
-    console.error("Fatal error:", error);
+    console.error('Fatal error:', error);
     process.exit(1);
   });

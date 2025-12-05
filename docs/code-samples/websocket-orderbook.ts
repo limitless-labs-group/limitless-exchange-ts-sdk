@@ -8,16 +8,23 @@
  * 4. Calculate spread and market depth
  */
 
-import { config } from "dotenv";
-import { WebSocketClient, HttpClient, MarketFetcher, ConsoleLogger } from "@limitless/exchange-ts-sdk";
+import { config } from 'dotenv';
+import {
+  WebSocketClient,
+  HttpClient,
+  MarketFetcher,
+  ConsoleLogger,
+} from 'limitless-exchange-ts-sdk';
 
 // Load environment variables
 config();
 
 // Configuration
-const API_URL = process.env.API_URL || "https://api.limitless.exchange";
-const WS_URL = process.env.WS_URL || "wss://ws.limitless.exchange";
-const MARKET_SLUG = process.env.EXAMPLE_MARKET_SLUG || "dollarbtc-above-dollar9160011-on-dec-5-1000-utc-1764842436957";
+const API_URL = process.env.API_URL || 'https://api.limitless.exchange';
+const WS_URL = process.env.WS_URL || 'wss://ws.limitless.exchange';
+const MARKET_SLUG =
+  process.env.EXAMPLE_MARKET_SLUG ||
+  'dollarbtc-above-dollar9160011-on-dec-5-1000-utc-1764842436957';
 
 // Track orderbook state
 interface OrderbookState {
@@ -42,58 +49,60 @@ function formatSpread(spread: number): string {
 
 function displayOrderbook(state: OrderbookState, orderbook?: any) {
   console.clear();
-  console.log("=".repeat(60));
+  console.log('='.repeat(60));
   console.log(`📊 Real-Time Orderbook Monitor: ${MARKET_SLUG}`);
-  console.log("=".repeat(60));
+  console.log('='.repeat(60));
   console.log(`Last Update: ${state.lastUpdate.toLocaleTimeString()}\n`);
 
-  console.log("📈 Market Depth:");
+  console.log('📈 Market Depth:');
   console.log(`   Best Bid: ${formatPrice(state.bestBid)} (${state.bidDepth.toFixed(2)} shares)`);
   console.log(`   Best Ask: ${formatPrice(state.bestAsk)} (${state.askDepth.toFixed(2)} shares)`);
-  console.log(`   Spread:   ${formatSpread(state.spread)} (${formatSpread(state.spreadPercent)})\n`);
+  console.log(
+    `   Spread:   ${formatSpread(state.spread)} (${formatSpread(state.spreadPercent)})\n`
+  );
 
   const midPrice = (state.bestBid + state.bestAsk) / 2;
   console.log(`💎 Mid Price: ${formatPrice(midPrice)}\n`);
 
   // Show top 5 bids and asks
   if (orderbook) {
-    console.log("📋 Top Bids:");
+    console.log('📋 Top Bids:');
     const topBids = orderbook.bids.slice(0, 5);
     topBids.forEach((bid: any, i: number) => {
       console.log(`   ${i + 1}. ${formatPrice(bid.price)} - ${bid.size.toFixed(2)} shares`);
     });
 
-    console.log("\n📋 Top Asks:");
+    console.log('\n📋 Top Asks:');
     const topAsks = orderbook.asks.slice(0, 5);
     topAsks.forEach((ask: any, i: number) => {
       console.log(`   ${i + 1}. ${formatPrice(ask.price)} - ${ask.size.toFixed(2)} shares`);
     });
-    console.log("");
+    console.log('');
   }
 
-  console.log("📊 Market Status:");
+  console.log('📊 Market Status:');
   if (state.spread < 0.01) {
-    console.log("   🟢 Tight spread - Good liquidity");
+    console.log('   🟢 Tight spread - Good liquidity');
   } else if (state.spread < 0.05) {
-    console.log("   🟡 Moderate spread - Fair liquidity");
+    console.log('   🟡 Moderate spread - Fair liquidity');
   } else {
-    console.log("   🔴 Wide spread - Low liquidity");
+    console.log('   🔴 Wide spread - Low liquidity');
   }
 
-  console.log("\n💡 Press Ctrl+C to stop monitoring");
-  console.log("=".repeat(60));
+  console.log('\n💡 Press Ctrl+C to stop monitoring');
+  console.log('='.repeat(60));
 }
 
 async function main() {
-  console.log("🚀 WebSocket Orderbook Monitor\n");
+  console.log('🚀 WebSocket Orderbook Monitor\n');
 
-  const logger = new ConsoleLogger("info");
+  const logger = new ConsoleLogger('info');
 
   try {
     // ===========================================
     // STEP 1: Fetch Initial Orderbook
     // ===========================================
-    console.log("📖 Fetching initial orderbook...");
+    console.log('📖 Fetching initial orderbook...');
 
     const httpClient = new HttpClient({
       baseURL: API_URL,
@@ -104,7 +113,7 @@ async function main() {
     const orderbook = await marketFetcher.getOrderBook(MARKET_SLUG);
 
     if (orderbook.bids.length === 0 || orderbook.asks.length === 0) {
-      console.log("   ⚠️  No orders on orderbook. Try a different market.");
+      console.log('   ⚠️  No orders on orderbook. Try a different market.');
       return;
     }
 
@@ -113,7 +122,8 @@ async function main() {
       bestBid: orderbook.bids[0].price,
       bestAsk: orderbook.asks[0].price,
       spread: orderbook.asks[0].price - orderbook.bids[0].price,
-      spreadPercent: ((orderbook.asks[0].price - orderbook.bids[0].price) / orderbook.bids[0].price) * 100,
+      spreadPercent:
+        ((orderbook.asks[0].price - orderbook.bids[0].price) / orderbook.bids[0].price) * 100,
       bidDepth: orderbook.bids[0].size,
       askDepth: orderbook.asks[0].size,
       lastUpdate: new Date(),
@@ -124,7 +134,7 @@ async function main() {
     // ===========================================
     // STEP 2: Connect to WebSocket
     // ===========================================
-    console.log("\n🔌 Connecting to WebSocket...");
+    console.log('\n🔌 Connecting to WebSocket...');
 
     const wsClient = new WebSocketClient({
       url: WS_URL,
@@ -132,16 +142,16 @@ async function main() {
     }); // No logger = no SDK logs, completely silent
 
     // Setup event handlers
-    wsClient.on("connect", () => {
-      console.log("✅ WebSocket connected\n");
+    wsClient.on('connect', () => {
+      console.log('✅ WebSocket connected\n');
     });
 
-    wsClient.on("disconnect", (reason) => {
+    wsClient.on('disconnect', (reason) => {
       console.log(`\n⚠️  Disconnected: ${reason}`);
     });
 
-    wsClient.on("error", (error) => {
-      console.error("❌ WebSocket error:", error.message);
+    wsClient.on('error', (error) => {
+      console.error('❌ WebSocket error:', error.message);
     });
 
     // Log ALL events for debugging (like test-websocket-events)
@@ -151,14 +161,19 @@ async function main() {
     });
 
     // Subscribe to orderbook updates using the actual API event name
-    wsClient.on("orderbookUpdate" as any, (data: any) => {
-      console.log("\n🔔 Processing orderbookUpdate event...");
+    wsClient.on('orderbookUpdate' as any, (data: any) => {
+      console.log('\n🔔 Processing orderbookUpdate event...');
 
       // API sends { marketSlug, orderbook: { bids, asks }, timestamp }
       const orderbook = data.orderbook || data;
 
-      if (!orderbook.bids || !orderbook.asks || orderbook.bids.length === 0 || orderbook.asks.length === 0) {
-        console.log("⚠️  No bids/asks in orderbook");
+      if (
+        !orderbook.bids ||
+        !orderbook.asks ||
+        orderbook.bids.length === 0 ||
+        orderbook.asks.length === 0
+      ) {
+        console.log('⚠️  No bids/asks in orderbook');
         return;
       }
 
@@ -183,27 +198,27 @@ async function main() {
     await wsClient.connect();
 
     // Subscribe to market using raw API event name and format
-    await wsClient.subscribe("subscribe_market_prices", { marketSlugs: [MARKET_SLUG] });
+    await wsClient.subscribe('subscribe_market_prices', { marketSlugs: [MARKET_SLUG] });
     console.log(`✅ Subscribed to: ${MARKET_SLUG}\n`);
 
     // ===========================================
     // STEP 3: Monitor Updates
     // ===========================================
-    console.log("👀 Monitoring real-time updates...\n");
+    console.log('👀 Monitoring real-time updates...\n');
 
     // Keep running until Ctrl+C
     await new Promise(() => {});
   } catch (error) {
-    console.error("\n❌ Error occurred");
+    console.error('\n❌ Error occurred');
 
     if (error instanceof Error) {
-      console.error("   Message:", error.message);
+      console.error('   Message:', error.message);
     } else {
-      console.error("   Unknown error:", error);
+      console.error('   Unknown error:', error);
     }
 
-    if (process.env.DEBUG === "true" && error instanceof Error && error.stack) {
-      console.error("\n   Stack trace:");
+    if (process.env.DEBUG === 'true' && error instanceof Error && error.stack) {
+      console.error('\n   Stack trace:');
       console.error(error.stack);
     }
 
@@ -212,13 +227,13 @@ async function main() {
 }
 
 // Handle Ctrl+C gracefully
-process.on("SIGINT", () => {
-  console.log("\n\n👋 Stopping orderbook monitor...");
+process.on('SIGINT', () => {
+  console.log('\n\n👋 Stopping orderbook monitor...');
   process.exit(0);
 });
 
 // Run the example
 main().catch((error) => {
-  console.error("Fatal error:", error);
+  console.error('Fatal error:', error);
   process.exit(1);
 });

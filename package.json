@@ -1,5 +1,5 @@
 {
-  "name": "@limitless/exchange-ts-sdk",
+  "name": "limitless-exchange-ts-sdk",
   "version": "1.0.0",
   "description": "TypeScript SDK for Limitless Exchange CLOB and NegRisk trading",
   "main": "./dist/index.js",

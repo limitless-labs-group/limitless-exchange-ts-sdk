@@ -7,7 +7,7 @@
 
 import { config } from 'dotenv';
 import { ethers } from 'ethers';
-import { HttpClient, MessageSigner, Authenticator } from '@limitless/exchange-ts-sdk';
+import { HttpClient, MessageSigner, Authenticator } from 'limitless-exchange-ts-sdk';
 
 config();
 
@@ -64,7 +64,10 @@ async function main() {
   console.log('📝 Example 4: Recommended error handling pattern...');
 
   const privateKey = process.env.PRIVATE_KEY;
-  if (!privateKey || privateKey === '0x0000000000000000000000000000000000000000000000000000000000000000') {
+  if (
+    !privateKey ||
+    privateKey === '0x0000000000000000000000000000000000000000000000000000000000000000'
+  ) {
     console.log('   ⚠️  Skipping - PRIVATE_KEY not configured\n');
     return;
   }
@@ -84,7 +87,6 @@ async function main() {
 
     // Clean up
     await authenticator.logout(result.sessionCookie);
-
   } catch (error) {
     // Detailed error handling
     if (error instanceof Error) {

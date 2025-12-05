@@ -4,23 +4,18 @@
  * This script connects to the WebSocket and logs subscription responses
  */
 
-import { config } from "dotenv";
-import { ethers } from "ethers";
-import {
-  HttpClient,
-  MessageSigner,
-  Authenticator,
-  ConsoleLogger,
-} from "@limitless/exchange-ts-sdk";
+import { config } from 'dotenv';
+import { ethers } from 'ethers';
+import { HttpClient, MessageSigner, Authenticator, ConsoleLogger } from 'limitless-exchange-ts-sdk';
 
 config();
 
-const API_URL = process.env.API_URL || "https://api.limitless.exchange";
-const WS_URL = process.env.WS_URL || "wss://ws.limitless.exchange";
-const MARKET_SLUG = process.env.EXAMPLE_MARKET_SLUG || "";
+const API_URL = process.env.API_URL || 'https://api.limitless.exchange';
+const WS_URL = process.env.WS_URL || 'wss://ws.limitless.exchange';
+const MARKET_SLUG = process.env.EXAMPLE_MARKET_SLUG || '';
 
 async function main() {
-  console.log("🔍 WebSocket Event Debugger\n");
+  console.log('🔍 WebSocket Event Debugger\n');
 
   try {
     // Authenticate
@@ -29,14 +24,14 @@ async function main() {
     const signer = new MessageSigner(wallet);
     const authenticator = new Authenticator(httpClient, signer);
 
-    const { sessionCookie } = await authenticator.authenticate({ client: "eoa" });
-    console.log("✅ Authenticated\n");
-    console.log("Session Cookie:", sessionCookie.substring(0, 50) + "...\n");
+    const { sessionCookie } = await authenticator.authenticate({ client: 'eoa' });
+    console.log('✅ Authenticated\n');
+    console.log('Session Cookie:', sessionCookie.substring(0, 50) + '...\n');
 
     // Import socket.io-client dynamically from SDK's dependencies
-    const { io } = await import("socket.io-client");
+    const { io } = await import('socket.io-client');
 
-    console.log("🔌 Connecting to WebSocket...");
+    console.log('🔌 Connecting to WebSocket...');
     console.log(`   URL: ${WS_URL}/markets\n`);
 
     // Connect to the /markets namespace
@@ -44,8 +39,8 @@ async function main() {
     const socket = io(`${WS_URL}/markets`, {
       transports: ['websocket'],
       extraHeaders: {
-        cookie: `limitless_session=${sessionCookie}`
-      }
+        cookie: `limitless_session=${sessionCookie}`,
+      },
     });
 
     // Log ALL events using onAny
@@ -59,18 +54,26 @@ async function main() {
       console.log('📡 Subscribing to channels...\n');
 
       // Subscribe to market prices and orderbook
-      socket.emit('subscribe_market_prices', {
-        marketSlugs: [MARKET_SLUG]
-      }, (response: any) => {
-        console.log('📊 Market prices subscription response:', response);
-      });
+      socket.emit(
+        'subscribe_market_prices',
+        {
+          marketSlugs: [MARKET_SLUG],
+        },
+        (response: any) => {
+          console.log('📊 Market prices subscription response:', response);
+        }
+      );
 
       // Subscribe to positions (requires auth)
-      socket.emit('subscribe_positions', {
-        marketSlugs: [MARKET_SLUG]
-      }, (response: any) => {
-        console.log('📋 Positions subscription response:', response);
-      });
+      socket.emit(
+        'subscribe_positions',
+        {
+          marketSlugs: [MARKET_SLUG],
+        },
+        (response: any) => {
+          console.log('📋 Positions subscription response:', response);
+        }
+      );
 
       // Subscribe to transactions (requires auth)
       socket.emit('subscribe_transactions', {}, (response: any) => {
@@ -95,9 +98,8 @@ async function main() {
 
     // Keep alive
     await new Promise(() => {});
-
   } catch (error) {
-    console.error("❌ Error:", error);
+    console.error('❌ Error:', error);
     process.exit(1);
   }
 }

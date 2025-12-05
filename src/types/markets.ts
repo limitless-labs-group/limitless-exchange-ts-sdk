@@ -193,3 +193,48 @@ export interface MarketsResponse {
    */
   limit?: number;
 }
+
+/**
+ * Sort options for active markets.
+ * @public
+ */
+export type ActiveMarketsSortBy = 'lp_rewards' | 'ending_soon' | 'newest' | 'volume' | 'liquidity';
+
+/**
+ * Query parameters for active markets endpoint.
+ * @public
+ */
+export interface ActiveMarketsParams {
+  /**
+   * Maximum number of markets to return (max 25)
+   * @defaultValue 25
+   */
+  limit?: number;
+
+  /**
+   * Page number for pagination (starts at 1)
+   * @defaultValue 1
+   */
+  page?: number;
+
+  /**
+   * Sort order for markets
+   */
+  sortBy?: ActiveMarketsSortBy;
+}
+
+/**
+ * Active markets response from API.
+ * @public
+ */
+export interface ActiveMarketsResponse {
+  /**
+   * Array of active markets
+   */
+  data: Market[];
+
+  /**
+   * Total count of active markets
+   */
+  totalMarketsCount: number;
+}

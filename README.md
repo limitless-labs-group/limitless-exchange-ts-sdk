@@ -36,20 +36,50 @@ For production use, we strongly recommend:
 ## Installation
 
 ```bash
-npm install @limitless/exchange-sdk
+npm install limitless-exchange-ts-sdk
 # or
-yarn add @limitless/exchange-sdk
+yarn add limitless-exchange-ts-sdk
 # or
-pnpm add @limitless/exchange-sdk
+pnpm add limitless-exchange-ts-sdk
 ```
 
 ## Quick Start
+
+### Fetching Active Markets (No Authentication Required)
+
+```typescript
+import { HttpClient, MarketFetcher } from 'limitless-exchange-ts-sdk';
+
+// Create HTTP client (no authentication needed)
+const httpClient = new HttpClient({
+  baseURL: 'https://api.limitless.exchange',
+});
+
+const marketFetcher = new MarketFetcher(httpClient);
+
+// Get markets sorted by LP rewards
+const markets = await marketFetcher.getActiveMarkets({
+  limit: 8,
+  sortBy: 'lp_rewards', // 'lp_rewards' | 'ending_soon' | 'newest' | 'volume' | 'liquidity'
+});
+
+console.log(`Found ${markets.data.length} of ${markets.totalMarketsCount} markets`);
+
+// Pagination (page-based)
+const page2 = await marketFetcher.getActiveMarkets({
+  limit: 8,
+  page: 2,
+  sortBy: 'ending_soon',
+});
+```
+
+See [examples/project-integration/src/active-markets.ts](./examples/project-integration/src/active-markets.ts) for more examples.
 
 ### Authentication
 
 ```typescript
 import { ethers } from 'ethers';
-import { HttpClient, MessageSigner, Authenticator } from '@limitless/exchange-sdk';
+import { HttpClient, MessageSigner, Authenticator } from 'limitless-exchange-ts-sdk';
 
 // Create wallet from private key
 const wallet = new ethers.Wallet(process.env.PRIVATE_KEY);
@@ -85,7 +115,7 @@ const result = await authenticator.authenticate({
 NegRisk markets are group markets with multiple related outcomes. Here's a quick example:
 
 ```typescript
-import { OrderClient, MarketFetcher, MarketType, Side, OrderType } from '@limitless/exchange-sdk';
+import { OrderClient, MarketFetcher, MarketType, Side, OrderType } from 'limitless-exchange-ts-sdk';
 
 // Set the NegRisk contract address
 process.env.NEGRISK_CONTRACT_ADDRESS = '0x5a38afc17F7E97ad8d6C547ddb837E40B4aEDfC6';

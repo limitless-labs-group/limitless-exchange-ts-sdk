@@ -6,6 +6,10 @@ node_modules/
 dist/
 *.tsbuildinfo
 
+# Package artifacts
+*.tgz
+package/
+
 # Test coverage
 coverage/
 

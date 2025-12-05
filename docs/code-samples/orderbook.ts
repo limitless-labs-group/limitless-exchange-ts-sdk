@@ -8,14 +8,14 @@
  * 4. Monitor orderbook in real-time (polling)
  */
 
-import { config } from "dotenv";
-import { HttpClient, MarketFetcher, OrderBook, ConsoleLogger } from "@limitless/exchange-ts-sdk";
+import { config } from 'dotenv';
+import { HttpClient, MarketFetcher, OrderBook, ConsoleLogger } from 'limitless-exchange-ts-sdk';
 
 // Load environment variables
 config();
 
 // Configuration constants
-const API_URL = process.env.API_URL || "https://api.limitless.exchange";
+const API_URL = process.env.API_URL || 'https://api.limitless.exchange';
 
 /**
  * Format orderbook entry for display
@@ -28,7 +28,7 @@ function formatOrderbookEntry(entry: any, index: number): string {
  * Calculate and display orderbook statistics
  */
 function displayOrderbookStats(orderbook: OrderBook) {
-  console.log("\n📊 Orderbook Statistics:");
+  console.log('\n📊 Orderbook Statistics:');
 
   if (orderbook.bids.length > 0 && orderbook.asks.length > 0) {
     const bestBid = orderbook.bids[0].price;
@@ -57,7 +57,11 @@ function displayOrderbookStats(orderbook: OrderBook) {
   }
 }
 
-async function fetchAndDisplayOrderbook(marketFetcher: MarketFetcher, marketSlug: string, showTopN: number = 10) {
+async function fetchAndDisplayOrderbook(
+  marketFetcher: MarketFetcher,
+  marketSlug: string,
+  showTopN: number = 10
+) {
   console.log(`\n🔍 Fetching orderbook for: ${marketSlug}...`);
 
   const orderbook = await marketFetcher.getOrderBook(marketSlug);
@@ -100,15 +104,15 @@ async function fetchAndDisplayOrderbook(marketFetcher: MarketFetcher, marketSlug
 }
 
 async function main() {
-  console.log("🚀 Orderbook Viewing Example\n");
+  console.log('🚀 Orderbook Viewing Example\n');
 
-  const logger = new ConsoleLogger("info");
+  const logger = new ConsoleLogger('info');
 
   try {
     // ===========================================
     // STEP 1: Initialize HTTP Client
     // ===========================================
-    console.log("🌐 Step 1: Initializing HTTP client...");
+    console.log('🌐 Step 1: Initializing HTTP client...');
 
     // Note: No authentication needed - orderbook, markets, and prices are public endpoints
     const httpClient = new HttpClient({
@@ -120,7 +124,7 @@ async function main() {
     // ===========================================
     // STEP 2: Initialize Market Fetcher
     // ===========================================
-    console.log("📦 Step 2: Initializing market fetcher...");
+    console.log('📦 Step 2: Initializing market fetcher...');
     const marketFetcher = new MarketFetcher(httpClient, logger);
     console.log(`   Market fetcher ready\n`);
 
@@ -143,14 +147,15 @@ async function main() {
     // ===========================================
     // STEP 4: Fetch Single Market Orderbook
     // ===========================================
-    const marketSlug = process.env.MARKET_SLUG || "dollaraapl-above-dollar27883-on-dec-5-2100-utc-1764360008700";
+    const marketSlug =
+      process.env.MARKET_SLUG || 'dollaraapl-above-dollar27883-on-dec-5-2100-utc-1764360008700';
 
     await fetchAndDisplayOrderbook(marketFetcher, marketSlug, 10);
 
     // ===========================================
     // STEP 5: Monitor Orderbook (Optional)
     // ===========================================
-    const shouldMonitor = process.env.MONITOR_ORDERBOOK === "true";
+    const shouldMonitor = process.env.MONITOR_ORDERBOOK === 'true';
 
     if (shouldMonitor) {
       console.log(`\n\n🔄 Step 5: Monitoring orderbook (polling every 10s)...`);
@@ -159,51 +164,51 @@ async function main() {
       let iteration = 1;
       const monitorInterval = setInterval(async () => {
         try {
-          console.log(`\n${"=".repeat(60)}`);
+          console.log(`\n${'='.repeat(60)}`);
           console.log(`Refresh #${iteration} - ${new Date().toISOString()}`);
-          console.log("=".repeat(60));
+          console.log('='.repeat(60));
 
           await fetchAndDisplayOrderbook(marketFetcher, marketSlug, 5);
 
           iteration++;
         } catch (error) {
-          console.error("   ⚠️  Error fetching orderbook:", error);
+          console.error('   ⚠️  Error fetching orderbook:', error);
         }
       }, 10000);
 
       // Handle graceful shutdown
-      process.on("SIGINT", () => {
-        console.log("\n\n👋 Stopping orderbook monitor...");
+      process.on('SIGINT', () => {
+        console.log('\n\n👋 Stopping orderbook monitor...');
         clearInterval(monitorInterval);
         process.exit(0);
       });
     } else {
       console.log(`\n\n💡 Tip: Set MONITOR_ORDERBOOK=true to enable real-time monitoring`);
-      console.log("🎉 Orderbook example completed successfully!");
-      console.log("\n📚 Next steps:");
-      console.log("   - Place FOK order: pnpm run start:fok-order");
-      console.log("   - Place GTC order: pnpm run start:gtc-order");
-      console.log("   - View trading example: pnpm run start:trading");
+      console.log('🎉 Orderbook example completed successfully!');
+      console.log('\n📚 Next steps:');
+      console.log('   - Place FOK order: pnpm run start:fok-order');
+      console.log('   - Place GTC order: pnpm run start:gtc-order');
+      console.log('   - View trading example: pnpm run start:trading');
     }
   } catch (error) {
-    console.error("\n❌ Error occurred");
+    console.error('\n❌ Error occurred');
 
     // Check if it's an APIError with raw response data
     if (error && typeof error === 'object' && 'status' in error && 'data' in error) {
-      console.error("   Status:", (error as any).status);
-      console.error("   Message:", (error as any).message);
-      console.error("   URL:", (error as any).url);
-      console.error("   Method:", (error as any).method);
-      console.error("   Raw API Response:", JSON.stringify((error as any).data, null, 2));
+      console.error('   Status:', (error as any).status);
+      console.error('   Message:', (error as any).message);
+      console.error('   URL:', (error as any).url);
+      console.error('   Method:', (error as any).method);
+      console.error('   Raw API Response:', JSON.stringify((error as any).data, null, 2));
     } else if (error instanceof Error) {
-      console.error("   Message:", error.message);
+      console.error('   Message:', error.message);
     } else {
-      console.error("   Unknown error:", error);
+      console.error('   Unknown error:', error);
     }
 
     // Only show stack trace in debug mode
     if (process.env.DEBUG === 'true' && error instanceof Error && error.stack) {
-      console.error("\n   Stack trace:");
+      console.error('\n   Stack trace:');
       console.error(error.stack);
     }
 
@@ -214,11 +219,11 @@ async function main() {
 // Run the example
 main()
   .then(() => {
-    if (process.env.MONITOR_ORDERBOOK !== "true") {
+    if (process.env.MONITOR_ORDERBOOK !== 'true') {
       process.exit(0);
     }
   })
   .catch((error) => {
-    console.error("Fatal error:", error);
+    console.error('Fatal error:', error);
     process.exit(1);
   });

@@ -10,8 +10,8 @@
  * and the order fills at the best available price or cancels if not fully matched.
  */
 
-import { config } from "dotenv";
-import { ethers } from "ethers";
+import { config } from 'dotenv';
+import { ethers } from 'ethers';
 import {
   HttpClient,
   MessageSigner,
@@ -22,7 +22,7 @@ import {
   MarketType,
   ConsoleLogger,
   getContractAddress,
-} from "@limitless/exchange-ts-sdk";
+} from 'limitless-exchange-ts-sdk';
 
 // Load environment variables
 config();
@@ -32,30 +32,34 @@ const API_URL = process.env.API_URL;
 const CHAIN_ID = parseInt(process.env.CHAIN_ID); // Base mainnet
 
 // Contract addresses - use SDK defaults or override with env var
-const CLOB_CONTRACT_ADDRESS = process.env.CLOB_CONTRACT_ADDRESS || getContractAddress("CLOB", CHAIN_ID);
+const CLOB_CONTRACT_ADDRESS =
+  process.env.CLOB_CONTRACT_ADDRESS || getContractAddress('CLOB', CHAIN_ID);
 
 async function main() {
-  console.log("🚀 FOK (Fill-or-Kill) Order Placement Example\n");
+  console.log('🚀 FOK (Fill-or-Kill) Order Placement Example\n');
 
   // Show configuration
-  console.log("⚙️  Configuration:");
+  console.log('⚙️  Configuration:');
   console.log(`   API URL: ${API_URL}`);
   console.log(`   Chain ID: ${CHAIN_ID}`);
   console.log(`   CLOB Contract: ${CLOB_CONTRACT_ADDRESS}\n`);
 
   // Validate environment
   const privateKey = process.env.PRIVATE_KEY;
-  if (!privateKey || privateKey === "0x0000000000000000000000000000000000000000000000000000000000000000") {
-    throw new Error("Please set PRIVATE_KEY in .env file");
+  if (
+    !privateKey ||
+    privateKey === '0x0000000000000000000000000000000000000000000000000000000000000000'
+  ) {
+    throw new Error('Please set PRIVATE_KEY in .env file');
   }
 
-  const logger = new ConsoleLogger("info");
+  const logger = new ConsoleLogger('info');
 
   try {
     // ===========================================
     // STEP 1: Authentication
     // ===========================================
-    console.log("🔐 Step 1: Authenticating...");
+    console.log('🔐 Step 1: Authenticating...');
     const wallet = new ethers.Wallet(privateKey);
     console.log(`   Wallet: ${wallet.address}`);
 
@@ -68,7 +72,7 @@ async function main() {
     const authenticator = new Authenticator(httpClient, signer, logger);
 
     const authResult = await authenticator.authenticate({
-      client: "eoa",
+      client: 'eoa',
     });
 
     console.log(`   ✅ Authenticated as: ${authResult.profile.account}`);
@@ -86,7 +90,7 @@ async function main() {
     // ===========================================
     // STEP 2: Order Configuration
     // ===========================================
-    console.log("📋 Step 2: Configuring FOK order...");
+    console.log('📋 Step 2: Configuring FOK order...');
 
     // Example order parameters (adjust these for your market)
     // FOK orders are market orders - you specify amount in human-readable USDC
@@ -101,14 +105,14 @@ async function main() {
 
     console.log(`   Market: ${marketSlug}`);
     console.log(`   Token ID: ${orderParams.tokenId}`);
-    console.log(`   Side: ${orderParams.side === Side.BUY ? "BUY" : "SELL"}`);
+    console.log(`   Side: ${orderParams.side === Side.BUY ? 'BUY' : 'SELL'}`);
     console.log(`   Amount: ${orderParams.amount} USDC`);
     console.log(`   Type: FOK (market order - executes immediately at best price)\n`);
 
     // ===========================================
     // STEP 3: Create Order Client
     // ===========================================
-    console.log("🔨 Step 3: Creating order client...");
+    console.log('🔨 Step 3: Creating order client...');
 
     // Option 1: Simple mode - auto-configures from marketType
     const orderClient = new OrderClient({
@@ -132,12 +136,12 @@ async function main() {
     //   logger,
     // });
 
-    console.log("   ✅ Order client ready\n");
+    console.log('   ✅ Order client ready\n');
 
     // ===========================================
     // STEP 4: Create and Submit FOK Order
     // ===========================================
-    console.log("📤 Step 4: Creating and submitting FOK order...");
+    console.log('📤 Step 4: Creating and submitting FOK order...');
 
     const orderResponse = await orderClient.createOrder({
       ...orderParams,
@@ -145,13 +149,13 @@ async function main() {
       marketSlug,
     });
 
-    console.log("   ✅ Order submitted successfully!");
+    console.log('   ✅ Order submitted successfully!');
     console.log(`   Order ID: ${orderResponse.order.id}`);
     console.log(`   Created at: ${orderResponse.order.createdAt}`);
     console.log(`   Market ID: ${orderResponse.order.marketId}`);
 
     // Print full response for inspection
-    console.log("\n📋 Full Order Response:");
+    console.log('\n📋 Full Order Response:');
     console.log(JSON.stringify(orderResponse, null, 2));
 
     // Check if order was matched (FOK orders execute immediately or cancel)
@@ -169,29 +173,29 @@ async function main() {
       console.log(`\n   ⚠️  Order was NOT matched (cancelled as per FOK behavior)`);
     }
 
-    console.log("\n🎉 FOK order example completed successfully!");
-    console.log("\n📚 Next steps:");
-    console.log("   - Try GTC orders: pnpm run start:gtc-order");
-    console.log("   - View orderbook: pnpm run start:orderbook");
+    console.log('\n🎉 FOK order example completed successfully!');
+    console.log('\n📚 Next steps:');
+    console.log('   - Try GTC orders: pnpm run start:gtc-order');
+    console.log('   - View orderbook: pnpm run start:orderbook');
   } catch (error) {
-    console.error("\n❌ Error occurred");
+    console.error('\n❌ Error occurred');
 
     // Check if it's an APIError with raw response data
-    if (error && typeof error === "object" && "status" in error && "data" in error) {
-      console.error("   Status:", (error as any).status);
-      console.error("   Message:", (error as any).message);
-      console.error("   URL:", (error as any).url);
-      console.error("   Method:", (error as any).method);
-      console.error("   Raw API Response:", JSON.stringify((error as any).data, null, 2));
+    if (error && typeof error === 'object' && 'status' in error && 'data' in error) {
+      console.error('   Status:', (error as any).status);
+      console.error('   Message:', (error as any).message);
+      console.error('   URL:', (error as any).url);
+      console.error('   Method:', (error as any).method);
+      console.error('   Raw API Response:', JSON.stringify((error as any).data, null, 2));
     } else if (error instanceof Error) {
-      console.error("   Message:", error.message);
+      console.error('   Message:', error.message);
     } else {
-      console.error("   Unknown error:", error);
+      console.error('   Unknown error:', error);
     }
 
     // Only show stack trace in debug mode
-    if (process.env.DEBUG === "true" && error instanceof Error && error.stack) {
-      console.error("\n   Stack trace:");
+    if (process.env.DEBUG === 'true' && error instanceof Error && error.stack) {
+      console.error('\n   Stack trace:');
       console.error(error.stack);
     }
 
@@ -203,6 +207,6 @@ async function main() {
 main()
   .then(() => process.exit(0))
   .catch((error) => {
-    console.error("Fatal error:", error);
+    console.error('Fatal error:', error);
     process.exit(1);
   });

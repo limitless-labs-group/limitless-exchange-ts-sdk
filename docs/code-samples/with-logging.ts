@@ -7,12 +7,7 @@
 
 import { config } from 'dotenv';
 import { ethers } from 'ethers';
-import {
-  HttpClient,
-  MessageSigner,
-  Authenticator,
-  ConsoleLogger,
-} from '@limitless/exchange-ts-sdk';
+import { HttpClient, MessageSigner, Authenticator, ConsoleLogger } from 'limitless-exchange-ts-sdk';
 
 config();
 
@@ -20,7 +15,10 @@ async function main() {
   console.log('🚀 Limitless Exchange SDK - Authentication with Logging\n');
 
   const privateKey = process.env.PRIVATE_KEY;
-  if (!privateKey || privateKey === '0x0000000000000000000000000000000000000000000000000000000000000000') {
+  if (
+    !privateKey ||
+    privateKey === '0x0000000000000000000000000000000000000000000000000000000000000000'
+  ) {
     throw new Error('Please set PRIVATE_KEY in .env file');
   }
 
@@ -69,7 +67,6 @@ async function main() {
     console.log('\n--- End SDK Logs ---\n');
 
     console.log('✅ Logged out successfully!');
-
   } catch (error) {
     console.error('\n❌ Error occurred');
 
