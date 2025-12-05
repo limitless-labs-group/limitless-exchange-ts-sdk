@@ -10,18 +10,19 @@ Official TypeScript SDK for the Limitless Exchange API.
 - [Markets](./markets/README.md)
 - [Portfolio & Positions](./portfolio/README.md)
 - [WebSocket Streaming](./websocket/README.md)
-- [API Reference](./api/README.md)
+- [Error Handling & Retry](./api/README.md)
+- [Logging](./logging/LOGGING.md)
 
 ## Getting Started
 
 ### Installation
 
 ```bash
-npm install @limitless/exchange-ts-sdk
+npm install @limitless-exchange/sdk
 # or
-yarn add @limitless/exchange-ts-sdk
+yarn add @limitless-exchange/sdk
 # or
-pnpm add @limitless/exchange-ts-sdk
+pnpm add @limitless-exchange/sdk
 ```
 
 ### Quick Start
@@ -37,7 +38,7 @@ import {
   Side,
   OrderType,
   MarketType
-} from '@limitless/exchange-ts-sdk';
+} from '@limitless-exchange/sdk';
 
 // Initialize wallet
 const wallet = new ethers.Wallet(PRIVATE_KEY);
@@ -111,6 +112,13 @@ const order = await orderClient.createOrder({
 - Trade streaming
 - [Full Documentation](./websocket/README.md)
 
+### ⚡ Error Handling & Retry
+- Automatic retry on rate limits (429)
+- Configurable retry strategies
+- Exponential backoff support
+- Custom retry callbacks
+- [Full Documentation](./api/README.md)
+
 ## Architecture
 
 The SDK is organized into modules that mirror the API structure:
@@ -146,7 +154,7 @@ CLOB_CONTRACT_ADDRESS=0xa4409D988CA2218d956BeEFD3874100F444f0DC3
 The SDK uses typed errors for better error handling:
 
 ```typescript
-import { ApiError } from '@limitless/exchange-ts-sdk';
+import { ApiError } from '@limitless-exchange/sdk';
 
 try {
   await orderClient.createOrder(params);
@@ -169,7 +177,7 @@ import type {
   Position,
   OrderbookUpdate,
   WebSocketEvents
-} from '@limitless/exchange-ts-sdk';
+} from '@limitless-exchange/sdk';
 ```
 
 ## Examples

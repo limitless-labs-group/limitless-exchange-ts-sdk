@@ -7,7 +7,7 @@
 
 import { config } from 'dotenv';
 import { ethers } from 'ethers';
-import { HttpClient, MessageSigner, Authenticator } from 'limitless-exchange-ts-sdk';
+import { HttpClient, MessageSigner, Authenticator } from '@limitless-exchange/sdk';
 
 config();
 

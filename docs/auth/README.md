@@ -32,7 +32,7 @@ import {
   HttpClient,
   MessageSigner,
   Authenticator
-} from '@limitless/exchange-ts-sdk';
+} from '@limitless-exchange/sdk';
 
 // Initialize wallet
 const wallet = new ethers.Wallet(process.env.PRIVATE_KEY!);
@@ -89,7 +89,7 @@ import {
   HttpClient,
   EtherspotSigner,
   Authenticator
-} from '@limitless/exchange-ts-sdk';
+} from '@limitless-exchange/sdk';
 
 // Initialize EOA wallet (controls the smart wallet)
 const eoaWallet = new ethers.Wallet(process.env.PRIVATE_KEY!);
@@ -170,7 +170,7 @@ try {
 ### Authentication Retry Pattern
 
 ```typescript
-import { ApiError } from '@limitless/exchange-ts-sdk';
+import { ApiError } from '@limitless-exchange/sdk';
 
 async function authenticateWithRetry(
   authenticator: Authenticator,

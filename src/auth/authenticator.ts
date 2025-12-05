@@ -35,7 +35,7 @@ export class Authenticator {
    * const authenticator = new Authenticator(httpClient, signer);
    *
    * // With logging
-   * import { ConsoleLogger } from '@limitless/exchange-ts-sdk';
+   * import { ConsoleLogger } from '@limitless-exchange/sdk';
    * const logger = new ConsoleLogger('debug');
    * const authenticator = new Authenticator(httpClient, signer, logger);
    * ```

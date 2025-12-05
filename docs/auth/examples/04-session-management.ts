@@ -15,7 +15,7 @@
  */
 
 import { ethers } from 'ethers';
-import { HttpClient, MessageSigner, Authenticator } from '@limitless/exchange-ts-sdk';
+import { HttpClient, MessageSigner, Authenticator } from '@limitless-exchange/sdk';
 
 // Simple session storage (in-memory)
 // In production, use secure storage (database, Redis, etc.)

@@ -17,7 +17,7 @@ import {
   PortfolioFetcher,
   Position,
   ConsoleLogger,
-} from 'limitless-exchange-ts-sdk';
+} from '@limitless-exchange/sdk';
 
 // Load environment variables
 config();

@@ -29,7 +29,7 @@ The Limitless Exchange WebSocket API provides real-time streaming for:
 ### Public Data (No Authentication)
 
 ```typescript
-import { WebSocketClient } from '@limitless/exchange-ts-sdk';
+import { WebSocketClient } from '@limitless-exchange/sdk';
 
 // Create client - SDK is completely silent (no logs)
 const wsClient = new WebSocketClient({
@@ -51,7 +51,7 @@ import {
   MessageSigner,
   Authenticator,
   WebSocketClient
-} from '@limitless/exchange-ts-sdk';
+} from '@limitless-exchange/sdk';
 
 // 1. Authenticate first
 const wallet = new ethers.Wallet(process.env.PRIVATE_KEY!);
@@ -200,7 +200,7 @@ wsClient.on('error', (error: Error) => {
 ### Complete Example
 
 ```typescript
-import { WebSocketClient } from '@limitless/exchange-ts-sdk';
+import { WebSocketClient } from '@limitless-exchange/sdk';
 
 const MARKET_SLUG = 'your-market-slug';
 

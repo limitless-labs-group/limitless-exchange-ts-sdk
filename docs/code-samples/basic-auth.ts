@@ -7,8 +7,8 @@
 
 import { config } from 'dotenv';
 import { ethers } from 'ethers';
-import { HttpClient, MessageSigner, Authenticator } from 'limitless-exchange-ts-sdk';
-import { ConsoleLogger } from 'limitless-exchange-ts-sdk';
+import { HttpClient, MessageSigner, Authenticator } from '@limitless-exchange/sdk';
+import { ConsoleLogger } from '@limitless-exchange/sdk';
 // Load environment variables
 config();
 

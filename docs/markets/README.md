@@ -6,7 +6,13 @@ Complete guide to fetching market data and orderbooks from the Limitless Exchang
 
 - [Overview](#overview)
 - [Market Discovery](#market-discovery)
+  - [Basic Setup](#basic-setup)
+  - [Get Active Markets](#get-active-markets)
+  - [Get Market Details](#get-market-details)
 - [Orderbook Data](#orderbook-data)
+  - [Get Current Orderbook](#get-current-orderbook)
+  - [Orderbook Structure](#orderbook-structure)
+  - [Analyze Market Depth](#analyze-market-depth)
 - [Market Statistics](#market-statistics)
 - [Best Practices](#best-practices)
 
@@ -25,7 +31,7 @@ All market data is public and doesn't require authentication.
 ### Basic Setup
 
 ```typescript
-import { HttpClient, MarketFetcher } from '@limitless/exchange-ts-sdk';
+import { HttpClient, MarketFetcher } from '@limitless-exchange/sdk';
 
 const httpClient = new HttpClient({
   baseURL: 'https://api.limitless.exchange',
@@ -35,33 +41,213 @@ const httpClient = new HttpClient({
 const marketFetcher = new MarketFetcher(httpClient);
 ```
 
-### Find Markets
+### Get Active Markets
+
+The `getActiveMarkets` method allows you to fetch active prediction markets with sorting and pagination support.
+
+**No authentication required** - this is a public endpoint!
+
+#### Basic Usage
 
 ```typescript
-// Get all available markets
-const markets = await marketFetcher.getMarkets();
+// Get active markets (default behavior - returns all active markets)
+const markets = await marketFetcher.getActiveMarkets();
 
-console.log(\`Found \${markets.length} markets\`);
+console.log(`Found ${markets.data.length} of ${markets.totalMarketsCount} markets`);
 
-markets.forEach(market => {
-  console.log('Market:', market.slug);
+markets.data.forEach((market) => {
   console.log('Title:', market.title);
-  console.log('Type:', market.marketType); // CLOB or AMM
+  console.log('Slug:', market.slug);
+  console.log('Type:', market.type);
   console.log('---');
 });
 ```
 
-### Search Markets
+#### Sorting Options
+
+Fetch markets sorted by different criteria:
 
 ```typescript
-// Search by keyword
-const searchResults = await marketFetcher.searchMarkets('bitcoin');
+// Sort by LP rewards (markets with highest liquidity provider rewards)
+const lpRewardsMarkets = await marketFetcher.getActiveMarkets({
+  limit: 8,
+  sortBy: 'lp_rewards',
+});
 
-searchResults.forEach(market => {
-  console.log('Match:', market.title);
-  console.log('Slug:', market.slug);
+// Sort by ending soon (markets closing soonest)
+const endingSoonMarkets = await marketFetcher.getActiveMarkets({
+  limit: 8,
+  sortBy: 'ending_soon',
+});
+
+// Sort by newest markets
+const newestMarkets = await marketFetcher.getActiveMarkets({
+  limit: 8,
+  sortBy: 'newest',
+});
+
+// Sort by high value (markets with highest total value)
+const highValueMarkets = await marketFetcher.getActiveMarkets({
+  limit: 8,
+  sortBy: 'high_value',
 });
 ```
+
+**Available `sortBy` values**:
+
+- `'lp_rewards'` - Markets with highest LP rewards
+- `'ending_soon'` - Markets closing soonest
+- `'newest'` - Most recently created markets
+- `'high_value'` - Markets with highest total value
+
+#### Pagination
+
+Use pagination to fetch markets in batches:
+
+```typescript
+// Get first page (8 markets)
+const page1 = await marketFetcher.getActiveMarkets({
+  limit: 8,
+  page: 1,
+  sortBy: 'lp_rewards',
+});
+
+console.log(`Page 1: ${page1.data.length} markets`);
+console.log(`Total available: ${page1.totalMarketsCount} markets`);
+
+// Get second page
+const page2 = await marketFetcher.getActiveMarkets({
+  limit: 8,
+  page: 2,
+  sortBy: 'lp_rewards',
+});
+
+console.log(`Page 2: ${page2.data.length} markets`);
+```
+
+#### Paginate Through All Markets
+
+```typescript
+async function fetchAllActiveMarkets(
+  marketFetcher: MarketFetcher,
+  sortBy: 'lp_rewards' | 'ending_soon' | 'newest' | 'high_value' = 'newest'
+) {
+  const allMarkets = [];
+  let currentPage = 1;
+  const pageSize = 20;
+
+  while (true) {
+    const response = await marketFetcher.getActiveMarkets({
+      limit: pageSize,
+      page: currentPage,
+      sortBy,
+    });
+
+    allMarkets.push(...response.data);
+
+    console.log(`Fetched page ${currentPage} with ${response.data.length} markets`);
+
+    // Check if we've fetched all markets
+    if (response.data.length < pageSize || allMarkets.length >= response.totalMarketsCount) {
+      break;
+    }
+
+    currentPage++;
+  }
+
+  console.log(`Total markets fetched: ${allMarkets.length}`);
+  return allMarkets;
+}
+
+// Usage
+const allMarkets = await fetchAllActiveMarkets(marketFetcher, 'lp_rewards');
+```
+
+#### Response Structure
+
+```typescript
+interface ActiveMarketsResponse {
+  data: Market[]; // Array of market objects
+  totalMarketsCount: number; // Total number of active markets
+}
+
+interface Market {
+  id: string;
+  slug: string;
+  title: string;
+  description: string;
+  type: 'CLOB' | 'NEGRISK';
+  createdAt: string;
+  resolutionDate?: string;
+  // ... other market fields
+}
+```
+
+#### Filter and Process Markets
+
+```typescript
+// Get markets and filter by criteria
+const markets = await marketFetcher.getActiveMarkets({
+  limit: 50,
+  sortBy: 'newest',
+});
+
+// Filter markets ending within 7 days
+const endingSoon = markets.data.filter((market) => {
+  if (!market.resolutionDate) return false;
+  const daysUntilResolution =
+    (new Date(market.resolutionDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24);
+  return daysUntilResolution <= 7 && daysUntilResolution > 0;
+});
+
+console.log(`${endingSoon.length} markets ending within 7 days`);
+
+// Filter by market type
+const clobMarkets = markets.data.filter((m) => m.type === 'CLOB');
+const negriskMarkets = markets.data.filter((m) => m.type === 'NEGRISK');
+
+console.log(`CLOB markets: ${clobMarkets.length}`);
+console.log(`NegRisk markets: ${negriskMarkets.length}`);
+```
+
+#### Complete Example
+
+```typescript
+import { HttpClient, MarketFetcher } from '@limitless-exchange/sdk';
+
+async function displayTopMarkets() {
+  const httpClient = new HttpClient({
+    baseURL: 'https://api.limitless.exchange',
+  });
+
+  const marketFetcher = new MarketFetcher(httpClient);
+
+  // Get top 10 markets by LP rewards
+  const response = await marketFetcher.getActiveMarkets({
+    limit: 10,
+    sortBy: 'lp_rewards',
+  });
+
+  console.log(`Displaying top ${response.data.length} of ${response.totalMarketsCount} markets:\n`);
+
+  response.data.forEach((market, index) => {
+    console.log(`${index + 1}. ${market.title}`);
+    console.log(`   Slug: ${market.slug}`);
+    console.log(`   Type: ${market.type}`);
+
+    if (market.resolutionDate) {
+      const resolveDate = new Date(market.resolutionDate);
+      console.log(`   Resolves: ${resolveDate.toLocaleDateString()}`);
+    }
+
+    console.log('');
+  });
+}
+
+displayTopMarkets().catch(console.error);
+```
+
+For a complete working example, see [examples/project-integration/src/active-markets.ts](../../examples/project-integration/src/active-markets.ts).
 
 ### Get Market Details
 
@@ -107,14 +293,14 @@ console.log('Spread:', spread, \`(\${spreadPercent.toFixed(2)}%)\`);
 
 ```typescript
 interface OrderbookLevel {
-  price: number;  // Price level (0-1 representing 0%-100%)
-  size: number;   // Total shares available at this price
+  price: number; // Price level (0-1 representing 0%-100%)
+  size: number; // Total shares available at this price
 }
 
 interface Orderbook {
-  bids: OrderbookLevel[];  // Buy orders, sorted high to low
-  asks: OrderbookLevel[];  // Sell orders, sorted low to high
-  timestamp: number;       // Last update timestamp
+  bids: OrderbookLevel[]; // Buy orders, sorted high to low
+  asks: OrderbookLevel[]; // Sell orders, sorted low to high
+  timestamp: number; // Last update timestamp
 }
 ```
 
@@ -165,9 +351,6 @@ console.log('Current Price:', market.currentPrice);
 console.log('24h Change:', market.priceChange24h);
 console.log('24h High:', market.high24h);
 console.log('24h Low:', market.low24h);
-
-// Liquidity data
-console.log('Total Liquidity:', market.liquidity);
 ```
 
 ### Calculate Metrics
@@ -176,18 +359,20 @@ console.log('Total Liquidity:', market.liquidity);
 async function getMarketMetrics(marketSlug: string) {
   const [market, orderbook] = await Promise.all([
     marketFetcher.getMarket(marketSlug),
-    marketFetcher.getOrderBook(marketSlug)
+    marketFetcher.getOrderBook(marketSlug),
   ]);
 
   // Calculate mid price
-  const midPrice = orderbook.bids.length > 0 && orderbook.asks.length > 0
-    ? (orderbook.bids[0].price + orderbook.asks[0].price) / 2
-    : market.currentPrice;
+  const midPrice =
+    orderbook.bids.length > 0 && orderbook.asks.length > 0
+      ? (orderbook.bids[0].price + orderbook.asks[0].price) / 2
+      : market.currentPrice;
 
   // Calculate spread
-  const spread = orderbook.asks.length > 0 && orderbook.bids.length > 0
-    ? orderbook.asks[0].price - orderbook.bids[0].price
-    : 0;
+  const spread =
+    orderbook.asks.length > 0 && orderbook.bids.length > 0
+      ? orderbook.asks[0].price - orderbook.bids[0].price
+      : 0;
 
   // Total depth at top of book
   const topBidDepth = orderbook.bids[0]?.size || 0;
@@ -215,7 +400,7 @@ console.log('Market Metrics:', metrics);
 ### 1. Error Handling
 
 ```typescript
-import { ApiError } from '@limitless/exchange-ts-sdk';
+import { ApiError } from '@limitless-exchange/sdk';
 
 try {
   const orderbook = await marketFetcher.getOrderBook('market-slug');
@@ -248,19 +433,16 @@ class MarketCache {
   private cache = new Map<string, { data: any; timestamp: number }>();
   private ttl = 5000; // 5 seconds
 
-  async getOrderBook(
-    marketFetcher: MarketFetcher,
-    marketSlug: string
-  ): Promise<any> {
+  async getOrderBook(marketFetcher: MarketFetcher, marketSlug: string): Promise<any> {
     const cached = this.cache.get(marketSlug);
-    
+
     if (cached && Date.now() - cached.timestamp < this.ttl) {
       return cached.data;
     }
 
     const data = await marketFetcher.getOrderBook(marketSlug);
     this.cache.set(marketSlug, { data, timestamp: Date.now() });
-    
+
     return data;
   }
 
@@ -283,26 +465,24 @@ async function getMultipleOrderbooks(
   marketSlugs: string[]
 ): Promise<Map<string, any>> {
   const results = new Map();
-  
+
   // Fetch in parallel with limit
   const batchSize = 3;
   for (let i = 0; i < marketSlugs.length; i += batchSize) {
     const batch = marketSlugs.slice(i, i + batchSize);
-    
-    const orderbooks = await Promise.all(
-      batch.map(slug => marketFetcher.getOrderBook(slug))
-    );
-    
+
+    const orderbooks = await Promise.all(batch.map((slug) => marketFetcher.getOrderBook(slug)));
+
     batch.forEach((slug, index) => {
       results.set(slug, orderbooks[index]);
     });
-    
+
     // Delay between batches
     if (i + batchSize < marketSlugs.length) {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
     }
   }
-  
+
   return results;
 }
 ```
@@ -406,7 +586,7 @@ setInterval(async () => {
 }, 1000);
 
 // ✅ GOOD - WebSocket (efficient, real-time)
-import { WebSocketClient } from '@limitless/exchange-ts-sdk';
+import { WebSocketClient } from '@limitless-exchange/sdk';
 
 const wsClient = new WebSocketClient({
   url: 'wss://ws.limitless.exchange',
@@ -415,7 +595,7 @@ const wsClient = new WebSocketClient({
 
 await wsClient.connect();
 await wsClient.subscribe('subscribe_market_prices', {
-  marketSlugs: ['market-slug']
+  marketSlugs: ['market-slug'],
 });
 
 wsClient.on('orderbookUpdate' as any, (data: any) => {
@@ -425,8 +605,11 @@ wsClient.on('orderbookUpdate' as any, (data: any) => {
 
 ## Examples
 
-- [Fetching Orderbooks](../../examples/project-integration/src/orderbook.ts)
-- [Real-time Orderbook Monitoring](../../examples/project-integration/src/websocket-orderbook.ts)
+Complete working examples available:
+
+- **[Active Markets](../../examples/project-integration/src/active-markets.ts)** - Fetching and sorting active markets with pagination
+- **[Fetching Orderbooks](../../examples/project-integration/src/orderbook.ts)** - Getting and analyzing orderbook data
+- **[Real-time Orderbook Monitoring](../../examples/project-integration/src/websocket-orderbook.ts)** - Live orderbook updates via WebSocket
 
 ## Next Steps
 

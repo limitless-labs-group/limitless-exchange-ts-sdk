@@ -78,13 +78,32 @@ export class HttpClient {
         if (this.sessionCookie) {
           config.headers['Cookie'] = `limitless_session=${this.sessionCookie}`;
         }
+
+        // Log outgoing request - concise format
+        const fullUrl = `${config.baseURL || ''}${config.url || ''}`;
+        const method = config.method?.toUpperCase() || 'GET';
+
+        this.logger.debug(`→ ${method} ${fullUrl}`, {
+          headers: config.headers,
+          body: config.data,
+        });
+
         return config;
       },
       (error) => Promise.reject(error)
     );
 
     this.client.interceptors.response.use(
-      (response) => response,
+      (response) => {
+        // Log successful response - concise format
+        const method = response.config.method?.toUpperCase() || 'GET';
+        const url = response.config.url || '';
+
+        this.logger.debug(`✓ ${response.status} ${method} ${url}`, {
+          data: response.data,
+        });
+        return response;
+      },
       (error) => {
         if (error.response) {
           // Handle error response data
@@ -95,12 +114,9 @@ export class HttpClient {
           let message = error.message;
 
           if (data) {
-            // Log the full raw response through logger (respects user's logging preference)
-            this.logger.debug('Raw API Error Response', {
-              status,
-              url,
-              method,
-              data,
+            // Log error response - concise format
+            this.logger.debug(`✗ ${status} ${method} ${url}`, {
+              error: data,
             });
 
             // If data is an object, try to extract message or stringify

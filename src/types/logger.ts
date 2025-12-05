@@ -45,7 +45,7 @@ export class NoOpLogger implements ILogger {
  *
  * @example
  * ```typescript
- * import { ConsoleLogger } from '@limitless/exchange-ts-sdk';
+ * import { ConsoleLogger } from '@limitless-exchange/sdk';
  *
  * const logger = new ConsoleLogger('debug');
  * const authenticator = new Authenticator(httpClient, signer, logger);
@@ -85,7 +85,9 @@ export class ConsoleLogger implements ILogger {
 
   error(message: string, error?: Error, meta?: Record<string, any>): void {
     if (this.shouldLog('error')) {
-      console.error('[Limitless SDK]', message, error, meta || '');
+      // Only log error message, not the full error object (which includes stack trace)
+      const errorMsg = error ? error.message : '';
+      console.error('[Limitless SDK]', message, errorMsg ? `- ${errorMsg}` : '', meta || '');
     }
   }
 }

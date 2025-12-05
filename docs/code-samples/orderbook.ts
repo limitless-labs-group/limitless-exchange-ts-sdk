@@ -9,7 +9,7 @@
  */
 
 import { config } from 'dotenv';
-import { HttpClient, MarketFetcher, OrderBook, ConsoleLogger } from 'limitless-exchange-ts-sdk';
+import { HttpClient, MarketFetcher, OrderBook, ConsoleLogger } from '@limitless-exchange/sdk';
 
 // Load environment variables
 config();

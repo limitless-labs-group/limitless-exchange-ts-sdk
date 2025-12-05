@@ -17,7 +17,7 @@ import {
   Authenticator,
   ConsoleLogger,
   ILogger,
-} from '@limitless/exchange-ts-sdk';
+} from '@limitless-exchange/sdk';
 
 async function main() {
   console.log('🔍 Authentication with Debug Logging Example\n');

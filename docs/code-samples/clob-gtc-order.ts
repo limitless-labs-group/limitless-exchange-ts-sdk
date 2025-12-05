@@ -28,7 +28,7 @@ import {
   MarketType,
   ConsoleLogger,
   getContractAddress,
-} from 'limitless-exchange-ts-sdk';
+} from '@limitless-exchange/sdk';
 
 // Load environment variables
 config();

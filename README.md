@@ -29,6 +29,7 @@ For production use, we strongly recommend:
 - ✅ **Order Management**: Create, cancel, and manage orders on CLOB and NegRisk markets
 - ✅ **Market Data**: Access real-time market data and orderbooks
 - ✅ **NegRisk Markets**: Full support for group markets with multiple outcomes
+- ✅ **Error Handling & Retry**: Automatic retry logic for rate limits and transient failures
 - ✅ **Type Safety**: Full TypeScript support with comprehensive type definitions
 - ✅ **TSDoc Documentation**: Complete API documentation with examples
 - ✅ **WebSocket**: Real-time price and position updates
@@ -36,11 +37,11 @@ For production use, we strongly recommend:
 ## Installation
 
 ```bash
-npm install limitless-exchange-ts-sdk
+npm install @limitless-exchange/sdk
 # or
-yarn add limitless-exchange-ts-sdk
+yarn add @limitless-exchange/sdk
 # or
-pnpm add limitless-exchange-ts-sdk
+pnpm add @limitless-exchange/sdk
 ```
 
 ## Quick Start
@@ -48,7 +49,7 @@ pnpm add limitless-exchange-ts-sdk
 ### Fetching Active Markets (No Authentication Required)
 
 ```typescript
-import { HttpClient, MarketFetcher } from 'limitless-exchange-ts-sdk';
+import { HttpClient, MarketFetcher } from '@limitless-exchange/sdk';
 
 // Create HTTP client (no authentication needed)
 const httpClient = new HttpClient({
@@ -60,7 +61,7 @@ const marketFetcher = new MarketFetcher(httpClient);
 // Get markets sorted by LP rewards
 const markets = await marketFetcher.getActiveMarkets({
   limit: 8,
-  sortBy: 'lp_rewards', // 'lp_rewards' | 'ending_soon' | 'newest' | 'high_value' | 'liquidity'
+  sortBy: 'lp_rewards', // 'lp_rewards' | 'ending_soon' | 'newest' | 'high_value'
 });
 
 console.log(`Found ${markets.data.length} of ${markets.totalMarketsCount} markets`);
@@ -79,7 +80,7 @@ See [examples/project-integration/src/active-markets.ts](./examples/project-inte
 
 ```typescript
 import { ethers } from 'ethers';
-import { HttpClient, MessageSigner, Authenticator } from 'limitless-exchange-ts-sdk';
+import { HttpClient, MessageSigner, Authenticator } from '@limitless-exchange/sdk';
 
 // Create wallet from private key
 const wallet = new ethers.Wallet(process.env.PRIVATE_KEY);
@@ -115,7 +116,7 @@ const result = await authenticator.authenticate({
 NegRisk markets are group markets with multiple related outcomes. Here's a quick example:
 
 ```typescript
-import { OrderClient, MarketFetcher, MarketType, Side, OrderType } from 'limitless-exchange-ts-sdk';
+import { OrderClient, MarketFetcher, MarketType, Side, OrderType } from '@limitless-exchange/sdk';
 
 // Set the NegRisk contract address
 process.env.NEGRISK_CONTRACT_ADDRESS = '0x5a38afc17F7E97ad8d6C547ddb837E40B4aEDfC6';
@@ -153,6 +154,46 @@ const order = await orderClient.createOrder({
 **Important**: Always use the **submarket slug** for NegRisk orders, not the group market slug!
 
 For more details, see the [NegRisk Trading Guide](./docs/orders/README.md#negrisk-markets).
+
+### Error Handling & Retry
+
+The SDK provides automatic retry logic for handling transient failures like rate limits and server errors:
+
+```typescript
+import { withRetry, retryOnErrors } from '@limitless-exchange/sdk';
+
+// Option 1: Wrapper function approach
+const result = await withRetry(async () => await orderClient.createOrder(orderData), {
+  statusCodes: [429, 500, 503], // Retry on rate limits and server errors
+  maxRetries: 3,
+  delays: [2, 5, 10], // Wait 2s, then 5s, then 10s
+  onRetry: (attempt, error, delay) => {
+    console.log(`Retry ${attempt + 1} after ${delay}s: ${error.message}`);
+  },
+});
+
+// Option 2: Decorator approach (requires experimentalDecorators: true)
+class TradingService {
+  @retryOnErrors({
+    statusCodes: [429, 500, 503],
+    maxRetries: 3,
+    exponentialBase: 2, // Exponential backoff: 1s, 2s, 4s
+    maxDelay: 30,
+  })
+  async placeOrder(orderData: any) {
+    return await this.orderClient.createOrder(orderData);
+  }
+}
+```
+
+**Key Features**:
+
+- Automatic retry on configurable status codes (429, 500, 502, 503, 504)
+- Fixed delays or exponential backoff strategies
+- Callback hooks for monitoring retry attempts
+- Three approaches: decorator, wrapper function, or global client wrapper
+
+For detailed documentation, see the [Error Handling & Retry Guide](./docs/api/README.md).
 
 ## API Documentation
 
@@ -220,6 +261,7 @@ For detailed documentation, see the [docs](./docs) directory:
 - **[Market Data](./docs/markets/README.md)** - Market discovery and orderbook access
 - **[Portfolio & Positions](./docs/portfolio/README.md)** - Position tracking and balances
 - **[WebSocket Streaming](./docs/websocket/README.md)** - Real-time data updates
+- **[Error Handling & Retry](./docs/api/README.md)** - API error handling and retry mechanisms
 - **[Logging](./docs/logging/LOGGING.md)** - Logging configuration
 
 ## Code Examples
@@ -310,7 +352,7 @@ src/
 tests/
 ├── auth/           # Authentication tests
 └── markets/        # Market fetcher tests
-    └── fetcher.test.ts
+    └── fetcher.test.ts //etc.
 
 docs/
 ├── code-samples/   # Production-ready examples
@@ -319,10 +361,6 @@ docs/
 │   └── ...
 └── */              # Documentation guides
 
-examples/
-└── project-integration/  # Integration example project
-    └── src/
-        └── active-markets.ts
 ```
 
 ## License

@@ -11,7 +11,7 @@
  */
 
 import { ethers } from 'ethers';
-import { HttpClient, MessageSigner, Authenticator } from '@limitless/exchange-ts-sdk';
+import { HttpClient, MessageSigner, Authenticator } from '@limitless-exchange/sdk';
 
 async function main() {
   console.log('⚠️  Authentication Error Handling Examples\n');

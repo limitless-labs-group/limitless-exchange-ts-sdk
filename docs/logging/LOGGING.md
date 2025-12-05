@@ -7,7 +7,7 @@ The SDK provides **optional logging** support through a simple interface pattern
 ### No Logging (Default)
 
 ```typescript
-import { Authenticator, HttpClient, MessageSigner } from '@limitless/exchange-ts-sdk';
+import { Authenticator, HttpClient, MessageSigner } from '@limitless-exchange/sdk';
 
 // No logging - zero overhead
 const authenticator = new Authenticator(httpClient, signer);
@@ -16,7 +16,7 @@ const authenticator = new Authenticator(httpClient, signer);
 ### Development Logging
 
 ```typescript
-import { Authenticator, HttpClient, MessageSigner, ConsoleLogger } from '@limitless/exchange-ts-sdk';
+import { Authenticator, HttpClient, MessageSigner, ConsoleLogger } from '@limitless-exchange/sdk';
 
 // Simple console logging for development
 const logger = new ConsoleLogger('debug'); // or 'info', 'warn', 'error'
@@ -36,7 +36,7 @@ For production, implement your own logger using the `ILogger` interface:
 
 ```typescript
 import winston from 'winston';
-import { ILogger } from '@limitless/exchange-ts-sdk';
+import { ILogger } from '@limitless-exchange/sdk';
 
 class WinstonLogger implements ILogger {
   constructor(private winston: winston.Logger) {}
@@ -80,7 +80,7 @@ const authenticator = new Authenticator(httpClient, signer, logger);
 
 ```typescript
 import pino from 'pino';
-import { ILogger } from '@limitless/exchange-ts-sdk';
+import { ILogger } from '@limitless-exchange/sdk';
 
 class PinoLogger implements ILogger {
   constructor(private pino: pino.Logger) {}
@@ -121,7 +121,7 @@ const authenticator = new Authenticator(httpClient, signer, logger);
 ### Datadog Example
 
 ```typescript
-import { ILogger } from '@limitless/exchange-ts-sdk';
+import { ILogger } from '@limitless-exchange/sdk';
 
 class DatadogLogger implements ILogger {
   private ddLogs: any; // Datadog logger instance
@@ -166,7 +166,7 @@ const authenticator = new Authenticator(httpClient, signer, logger);
 
 ```typescript
 import * as Sentry from '@sentry/node';
-import { ILogger } from '@limitless/exchange-ts-sdk';
+import { ILogger } from '@limitless-exchange/sdk';
 
 class SentryLogger implements ILogger {
   debug(message: string, meta?: Record<string, any>): void {
@@ -214,7 +214,7 @@ const authenticator = new Authenticator(httpClient, signer, logger);
 
 ```typescript
 import LogRocket from 'logrocket';
-import { ILogger } from '@limitless/exchange-ts-sdk';
+import { ILogger } from '@limitless-exchange/sdk';
 
 class LogRocketLogger implements ILogger {
   debug(message: string, meta?: Record<string, any>): void {
@@ -315,7 +315,7 @@ The SDK automatically sanitizes sensitive data:
 ## Example: Environment-Based Logging
 
 ```typescript
-import { ILogger, ConsoleLogger } from '@limitless/exchange-ts-sdk';
+import { ILogger, ConsoleLogger } from '@limitless-exchange/sdk';
 import { WinstonLogger } from './winston-logger'; // Your implementation
 
 function createLogger(): ILogger | undefined {
@@ -338,7 +338,7 @@ const authenticator = new Authenticator(httpClient, signer, logger);
 ## Testing with Logging
 
 ```typescript
-import { ILogger } from '@limitless/exchange-ts-sdk';
+import { ILogger } from '@limitless-exchange/sdk';
 import { vi } from 'vitest';
 
 // Create mock logger for tests

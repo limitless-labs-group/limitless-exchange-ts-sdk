@@ -7,7 +7,7 @@
  * NOTE: This is a PUBLIC endpoint - no authentication required!
  */
 
-import { HttpClient, MarketFetcher } from '@limitless/exchange-ts-sdk';
+import { HttpClient, MarketFetcher } from '@limitless-exchange/sdk';
 
 async function main() {
   // Create HTTP client (no authentication needed for public market data)

@@ -113,7 +113,7 @@ import {
   Side,
   OrderType,
   MarketType
-} from '@limitless/exchange-ts-sdk';
+} from '@limitless-exchange/sdk';
 
 // 1. Authenticate
 const wallet = new ethers.Wallet(process.env.PRIVATE_KEY!);
@@ -216,7 +216,7 @@ import {
   Side,
   OrderType,
   MarketType,
-} from '@limitless/exchange-ts-sdk';
+} from '@limitless-exchange/sdk';
 
 // Set the NegRisk contract address
 process.env.NEGRISK_CONTRACT_ADDRESS = '0x5a38afc17F7E97ad8d6C547ddb837E40B4aEDfC6';
@@ -406,7 +406,7 @@ console.log('Remaining:', orderDetails.size - orderDetails.filled);
 ### 1. Error Handling
 
 ```typescript
-import { ApiError } from '@limitless/exchange-ts-sdk';
+import { ApiError } from '@limitless-exchange/sdk';
 
 try {
   const order = await orderClient.createOrder(params);

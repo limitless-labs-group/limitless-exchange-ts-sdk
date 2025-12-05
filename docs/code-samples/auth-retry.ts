@@ -16,7 +16,7 @@ import {
   AuthenticatedClient,
   APIError,
   ConsoleLogger,
-} from "@limitless/exchange-ts-sdk";
+} from "@limitless-exchange/sdk";
 
 // Load environment variables
 config();

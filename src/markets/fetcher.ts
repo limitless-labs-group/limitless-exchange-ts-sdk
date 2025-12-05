@@ -44,32 +44,6 @@ export class MarketFetcher {
     this.logger = logger || new NoOpLogger();
   }
 
-  /**
-   * Gets all active markets.
-   *
-   * @returns Promise resolving to array of markets
-   * @throws Error if API request fails
-   *
-   * @example
-   * ```typescript
-   * const markets = await fetcher.getMarkets();
-   * console.log(`Found ${markets.length} markets`);
-   * ```
-   */
-  async getMarkets(): Promise<Market[]> {
-    this.logger.debug('Fetching all markets');
-
-    try {
-      const response = await this.httpClient.get<MarketsResponse>('/markets');
-      const markets = response.markets || [];
-
-      this.logger.info('Markets fetched successfully', { count: markets.length });
-      return markets;
-    } catch (error) {
-      this.logger.error('Failed to fetch markets', error as Error);
-      throw error;
-    }
-  }
 
   /**
    * Gets active markets with query parameters and pagination support.

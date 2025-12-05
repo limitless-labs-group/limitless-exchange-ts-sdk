@@ -31,7 +31,7 @@ import {
   MessageSigner,
   Authenticator,
   PositionFetcher
-} from '@limitless/exchange-ts-sdk';
+} from '@limitless-exchange/sdk';
 
 // Authenticate
 const wallet = new ethers.Wallet(process.env.PRIVATE_KEY!);
@@ -231,7 +231,7 @@ console.table(stats);
 Use WebSocket for real-time position tracking instead of polling:
 
 ```typescript
-import { WebSocketClient } from '@limitless/exchange-ts-sdk';
+import { WebSocketClient } from '@limitless-exchange/sdk';
 
 // Create WebSocket client with authentication
 const wsClient = new WebSocketClient({
@@ -407,7 +407,7 @@ console.table(summary);
 ### 5. Error Handling
 
 ```typescript
-import { ApiError } from '@limitless/exchange-ts-sdk';
+import { ApiError } from '@limitless-exchange/sdk';
 
 async function safeGetPositions(positionFetcher: PositionFetcher) {
   try {
