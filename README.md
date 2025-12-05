@@ -248,6 +248,7 @@ Production-ready code samples are available in [docs/code-samples](./docs/code-s
 
 ### Market Data Examples
 
+- `get-active-markets.ts` - Fetching active markets with sorting and pagination
 - `orderbook.ts` - Fetching and analyzing orderbooks
 - `positions.ts` - Portfolio and position tracking
 - `trading.ts` - Complete trading workflow
@@ -285,9 +286,43 @@ pnpm format
 ```
 src/
 ├── types/          # TypeScript type definitions
+│   ├── markets.ts  # Market and active markets types
+│   ├── orders.ts   # Order types
+│   ├── auth.ts     # Authentication types
+│   └── ...
 ├── auth/           # Authentication modules
+│   ├── signer.ts   # Message signing
+│   └── authenticator.ts
+├── markets/        # Market data modules
+│   ├── fetcher.ts  # Market and orderbook fetching
+│   └── index.ts
+├── orders/         # Order management
+│   └── client.ts   # Order creation and management
+├── portfolio/      # Portfolio and positions
+│   └── fetcher.ts
+├── websocket/      # Real-time data streaming
+│   └── client.ts
 ├── api/            # HTTP client and API utilities
+│   ├── http.ts     # HTTP client
+│   └── errors.ts   # API error handling
 └── utils/          # Shared utilities and constants
+
+tests/
+├── auth/           # Authentication tests
+└── markets/        # Market fetcher tests
+    └── fetcher.test.ts
+
+docs/
+├── code-samples/   # Production-ready examples
+│   ├── get-active-markets.ts
+│   ├── clob-fok-order.ts
+│   └── ...
+└── */              # Documentation guides
+
+examples/
+└── project-integration/  # Integration example project
+    └── src/
+        └── active-markets.ts
 ```
 
 ## License
