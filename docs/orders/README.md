@@ -28,16 +28,19 @@ The SDK supports two market types, each requiring a different smart contract add
 Standard prediction markets with a single outcome to trade.
 
 **Contract Address** (Base mainnet):
+
 ```
 0xa4409D988CA2218d956BeEFD3874100F444f0DC3
 ```
 
 **Environment Variable**:
+
 ```bash
 CLOB_CONTRACT_ADDRESS=0xa4409D988CA2218d956BeEFD3874100F444f0DC3
 ```
 
 **Characteristics**:
+
 - `marketType = "single"`
 - One outcome per market
 - Direct market slug for orders
@@ -48,16 +51,19 @@ CLOB_CONTRACT_ADDRESS=0xa4409D988CA2218d956BeEFD3874100F444f0DC3
 Group markets with multiple related outcomes traded together (e.g., "Largest Company 2025" with Apple, Microsoft, NVIDIA, etc.).
 
 **Contract Address** (Base mainnet):
+
 ```
 0x5a38afc17F7E97ad8d6C547ddb837E40B4aEDfC6
 ```
 
 **Environment Variable**:
+
 ```bash
 NEGRISK_CONTRACT_ADDRESS=0x5a38afc17F7E97ad8d6C547ddb837E40B4aEDfC6
 ```
 
 **Characteristics**:
+
 - `marketType = "group"` (parent market)
 - Multiple submarkets with `marketType = "single"`
 - Use **submarket slug** for orders (NOT group slug)
@@ -72,12 +78,14 @@ NEGRISK_CONTRACT_ADDRESS=0x5a38afc17F7E97ad8d6C547ddb837E40B4aEDfC6
 Best for immediate execution when you want guaranteed fill at current market price.
 
 **Characteristics**:
+
 - Executes immediately at best available price
 - No price slippage protection
 - Fails if insufficient liquidity
 - No partial fills - all or nothing
 
 **Use Cases**:
+
 - Quick entry/exit positions
 - Market timing trades
 - High liquidity markets
@@ -87,12 +95,14 @@ Best for immediate execution when you want guaranteed fill at current market pri
 Best for price-specific execution when you can wait for your target price.
 
 **Characteristics**:
+
 - Executes only at specified price or better
 - Remains on orderbook until filled or cancelled
 - Allows partial fills
 - Full price control
 
 **Use Cases**:
+
 - Price targeting
 - Patient position building
 - Avoiding slippage
@@ -112,19 +122,19 @@ import {
   OrderClient,
   Side,
   OrderType,
-  MarketType
+  MarketType,
 } from '@limitless-exchange/sdk';
 
 // 1. Authenticate
 const wallet = new ethers.Wallet(process.env.PRIVATE_KEY!);
 const httpClient = new HttpClient({
-  baseURL: 'https://api.limitless.exchange'
+  baseURL: 'https://api.limitless.exchange',
 });
 
 const signer = new MessageSigner(wallet);
 const authenticator = new Authenticator(httpClient, signer);
 const { sessionCookie, profile } = await authenticator.authenticate({
-  client: 'eoa'
+  client: 'eoa',
 });
 
 // 2. Setup OrderClient
@@ -142,11 +152,10 @@ const orderClient = new OrderClient({
 ### FOK Orders (Market Orders)
 
 ```typescript
-// Buy 10 shares at market price
+// Buy with 50 USDC at market price
 const buyOrder = await orderClient.createOrder({
   tokenId: 'YOUR_TOKEN_ID',
-  price: 0.65,  // Maximum price you're willing to pay
-  size: 10,
+  makerAmount: 50, // 50 USDC to spend
   side: Side.BUY,
   orderType: OrderType.FOK,
   marketSlug: 'market-slug',
@@ -155,11 +164,10 @@ const buyOrder = await orderClient.createOrder({
 
 console.log('Buy order executed:', buyOrder.id);
 
-// Sell 5 shares at market price
+// Sell 120 shares at market price
 const sellOrder = await orderClient.createOrder({
   tokenId: 'YOUR_TOKEN_ID',
-  price: 0.70,  // Minimum price you'll accept
-  size: 5,
+  makerAmount: 120, // 120 shares to sell
   side: Side.SELL,
   orderType: OrderType.FOK,
   marketSlug: 'market-slug',
@@ -175,7 +183,7 @@ console.log('Sell order executed:', sellOrder.id);
 // Place limit buy at specific price
 const limitBuy = await orderClient.createOrder({
   tokenId: 'YOUR_TOKEN_ID',
-  price: 0.60,  // Exact price or better
+  price: 0.6, // Exact price or better
   size: 20,
   side: Side.BUY,
   orderType: OrderType.GTC,
@@ -188,7 +196,7 @@ console.log('Limit buy placed:', limitBuy.id);
 // Place limit sell at specific price
 const limitSell = await orderClient.createOrder({
   tokenId: 'YOUR_TOKEN_ID',
-  price: 0.75,  // Exact price or better
+  price: 0.75, // Exact price or better
   size: 15,
   side: Side.SELL,
   orderType: OrderType.GTC,
@@ -224,13 +232,13 @@ process.env.NEGRISK_CONTRACT_ADDRESS = '0x5a38afc17F7E97ad8d6C547ddb837E40B4aEDf
 // 1. Authenticate
 const wallet = new ethers.Wallet(process.env.PRIVATE_KEY!);
 const httpClient = new HttpClient({
-  baseURL: 'https://api.limitless.exchange'
+  baseURL: 'https://api.limitless.exchange',
 });
 
 const signer = new MessageSigner(wallet);
 const authenticator = new Authenticator(httpClient, signer);
 const authResult = await authenticator.authenticate({
-  client: 'eoa'
+  client: 'eoa',
 });
 
 const userData = {
@@ -243,7 +251,7 @@ const orderClient = new OrderClient({
   httpClient,
   wallet,
   userData,
-  marketType: MarketType.NEGRISK,  // ← Important: Use NEGRISK
+  marketType: MarketType.NEGRISK, // ← Important: Use NEGRISK
 });
 ```
 
@@ -286,11 +294,11 @@ console.log('  NO:', detailedInfo.tokens?.no);
 // ✅ CORRECT: Use submarket slug
 const order = await orderClient.createOrder({
   tokenId: detailedInfo.tokens.yes,
-  price: 0.50,
+  price: 0.5,
   size: 10,
   side: Side.BUY,
   orderType: OrderType.GTC,
-  marketSlug: submarket.slug,  // ← Use SUBMARKET slug (e.g., "apple-1746118069293")
+  marketSlug: submarket.slug, // ← Use SUBMARKET slug (e.g., "apple-1746118069293")
 });
 
 // ❌ WRONG: Don't use group slug
@@ -303,10 +311,10 @@ const order = await orderClient.createOrder({
 // Market buy on NegRisk submarket
 const buyOrder = await orderClient.createOrder({
   tokenId: detailedInfo.tokens.yes,
-  amount: 1.0,  // 1 USDC to spend
+  makerAmount: 1.0, // 1 USDC to spend
   side: Side.BUY,
   orderType: OrderType.FOK,
-  marketSlug: submarket.slug,  // ← Submarket slug
+  marketSlug: submarket.slug, // ← Submarket slug
 });
 
 console.log('Bought shares:', buyOrder.makerMatches);
@@ -314,10 +322,10 @@ console.log('Bought shares:', buyOrder.makerMatches);
 // Market sell on NegRisk submarket
 const sellOrder = await orderClient.createOrder({
   tokenId: detailedInfo.tokens.yes,
-  amount: 0.5,  // 0.5 USDC to receive
+  makerAmount: 120.0, // 120.0 shares to sell
   side: Side.SELL,
   orderType: OrderType.FOK,
-  marketSlug: submarket.slug,  // ← Submarket slug
+  marketSlug: submarket.slug, // ← Submarket slug
 });
 
 console.log('Sold shares:', sellOrder.makerMatches);
@@ -326,39 +334,39 @@ console.log('Sold shares:', sellOrder.makerMatches);
 ### NegRisk GTC Orders
 
 ```typescript
-// Limit buy on NegRisk submarket
+// Limit Order buy on NegRisk submarket
 const limitBuy = await orderClient.createOrder({
   tokenId: detailedInfo.tokens.yes,
-  price: 0.30,
+  price: 0.3,
   size: 20,
   side: Side.BUY,
   orderType: OrderType.GTC,
-  marketSlug: submarket.slug,  // ← Submarket slug
+  marketSlug: submarket.slug, // ← Submarket slug
 });
 
-// Limit sell on NegRisk submarket
+// Limit Order sell on NegRisk submarket
 const limitSell = await orderClient.createOrder({
   tokenId: detailedInfo.tokens.yes,
-  price: 0.80,
+  price: 0.8,
   size: 15,
   side: Side.SELL,
   orderType: OrderType.GTC,
-  marketSlug: submarket.slug,  // ← Submarket slug
+  marketSlug: submarket.slug, // ← Submarket slug
 });
 ```
 
 ### Key Differences: NegRisk vs CLOB
 
-| Aspect | CLOB Markets | NegRisk Markets |
-|--------|--------------|-----------------|
-| **Market Type** | `marketType = "single"` | Group: `"group"`, Submarket: `"single"` |
-| **Structure** | Single outcome | Group with multiple submarkets |
-| **Order Slug** | Market slug directly | **Submarket slug** (not group!) |
-| **Token IDs** | One set per market | Unique set per submarket |
-| **Contract** | `0xa4409D988CA2218d956BeEFD3874100F444f0DC3` | `0x5a38afc17F7E97ad8d6C547ddb837E40B4aEDfC6` |
-| **MarketType** | `MarketType.CLOB` | `MarketType.NEGRISK` |
-| **Fetching** | Direct market fetch | Group → submarkets array |
-| **Order Placement** | Same slug | **Must use submarket slug** |
+| Aspect              | CLOB Markets                                 | NegRisk Markets                              |
+| ------------------- | -------------------------------------------- | -------------------------------------------- |
+| **Market Type**     | `marketType = "single"`                      | Group: `"group"`, Submarket: `"single"`      |
+| **Structure**       | Single outcome                               | Group with multiple submarkets               |
+| **Order Slug**      | Market slug directly                         | **Submarket slug** (not group!)              |
+| **Token IDs**       | One set per market                           | Unique set per submarket                     |
+| **Contract**        | `0xa4409D988CA2218d956BeEFD3874100F444f0DC3` | `0x5a38afc17F7E97ad8d6C547ddb837E40B4aEDfC6` |
+| **MarketType**      | `MarketType.CLOB`                            | `MarketType.NEGRISK`                         |
+| **Fetching**        | Direct market fetch                          | Group → submarkets array                     |
+| **Order Placement** | Same slug                                    | **Must use submarket slug**                  |
 
 ## Order Management
 
@@ -393,13 +401,13 @@ console.log('Remaining:', orderDetails.size - orderDetails.filled);
 
 ### Order States
 
-| State | Description |
-|-------|-------------|
-| `OPEN` | Order is on the orderbook, waiting to fill |
-| `PARTIALLY_FILLED` | Order has been partially filled |
-| `FILLED` | Order has been completely filled |
-| `CANCELLED` | Order was cancelled before filling |
-| `REJECTED` | Order was rejected (insufficient funds, etc.) |
+| State              | Description                                   |
+| ------------------ | --------------------------------------------- |
+| `OPEN`             | Order is on the orderbook, waiting to fill    |
+| `PARTIALLY_FILLED` | Order has been partially filled               |
+| `FILLED`           | Order has been completely filled              |
+| `CANCELLED`        | Order was cancelled before filling            |
+| `REJECTED`         | Order was rejected (insufficient funds, etc.) |
 
 ## Best Practices
 
@@ -483,7 +491,7 @@ async function checkBalance(
   price: number
 ): Promise<boolean> {
   const balances = await orderClient.getBalances();
-  
+
   if (side === Side.BUY) {
     const requiredBalance = size * price;
     return balances.available >= requiredBalance;
@@ -510,24 +518,24 @@ async function waitForOrderFill(
   timeout = 30000
 ): Promise<boolean> {
   const startTime = Date.now();
-  
+
   while (Date.now() - startTime < timeout) {
     const order = await orderClient.getOrder(orderId);
-    
+
     if (order.status === 'FILLED') {
       console.log('Order filled!');
       return true;
     }
-    
+
     if (order.status === 'CANCELLED' || order.status === 'REJECTED') {
       console.log('Order not filled:', order.status);
       return false;
     }
-    
+
     // Wait 1 second before checking again
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
   }
-  
+
   console.log('Order fill timeout');
   return false;
 }
@@ -552,22 +560,22 @@ class OrderQueue {
           reject(error);
         }
       });
-      
+
       this.process();
     });
   }
 
   private async process() {
     if (this.processing || this.queue.length === 0) return;
-    
+
     this.processing = true;
-    
+
     while (this.queue.length > 0) {
       const fn = this.queue.shift()!;
       await fn();
-      await new Promise(resolve => setTimeout(resolve, this.minDelay));
+      await new Promise((resolve) => setTimeout(resolve, this.minDelay));
     }
-    
+
     this.processing = false;
   }
 }
@@ -583,16 +591,19 @@ await orderQueue.add(() => orderClient.createOrder(params3));
 ## Examples
 
 ### CLOB Market Examples
+
 - [FOK Order Creation](../../examples/project-integration/src/fok-order.ts) - Market orders on CLOB markets
 - [GTC Order Creation](../../examples/project-integration/src/gtc-order.ts) - Limit orders on CLOB markets
 - [Complete Trading Workflow](../../examples/project-integration/src/trading.ts) - Full trading example
 - [WebSocket Order Monitoring](../../examples/project-integration/src/websocket-trading.ts) - Real-time order updates
 
 ### NegRisk Market Examples
+
 - [NegRisk GTC Trading](../../examples/project-integration/src/negrisk-gtc-trading-example.ts) - Complete GTC order workflow for NegRisk markets
 - [NegRisk FOK Orders](../../examples/project-integration/src/negrisk-fok-order.ts) - Market orders on NegRisk submarkets
 
 **Run the examples:**
+
 ```bash
 # CLOB examples
 pnpm start:fok-order

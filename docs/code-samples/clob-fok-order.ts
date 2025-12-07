@@ -3,10 +3,10 @@
  *
  * This example demonstrates how to:
  * 1. Authenticate with the API
- * 2. Create a FOK market order with amount (USDC collateral)
+ * 2. Create a FOK market order with makerAmount (USDC for BUY, shares for SELL)
  * 3. Submit order that executes immediately at best price or cancels
  *
- * FOK orders are market orders - you specify the amount of USDC to spend/receive,
+ * FOK orders are market orders - you specify makerAmount (USDC to spend for BUY, shares to sell for SELL),
  * and the order fills at the best available price or cancels if not fully matched.
  */
 
@@ -93,10 +93,10 @@ async function main() {
     console.log('📋 Step 2: Configuring FOK order...');
 
     // Example order parameters (adjust these for your market)
-    // FOK orders are market orders - you specify amount in human-readable USDC
+    // FOK orders are market orders - you specify makerAmount (USDC for BUY, shares for SELL)
     const orderParams = {
       tokenId: process.env.CLOB_POSITION_ID, // Example token ID - can be found in Market response YES/NO
-      amount: 0.0007, // 1 USDC (human-readable, max 2 decimals: 1, 1.5, 10.25, etc.)
+      makerAmount: 32.05, // BUY: 32.05 USDC to spend | SELL: 32.05 shares to sell
       side: Side.BUY, // BUY order
       marketType: MarketType.CLOB,
     };
@@ -106,7 +106,7 @@ async function main() {
     console.log(`   Market: ${marketSlug}`);
     console.log(`   Token ID: ${orderParams.tokenId}`);
     console.log(`   Side: ${orderParams.side === Side.BUY ? 'BUY' : 'SELL'}`);
-    console.log(`   Amount: ${orderParams.amount} USDC`);
+    console.log(`   Maker Amount: ${orderParams.makerAmount} ${orderParams.side === Side.BUY ? 'USDC' : 'shares'}`);
     console.log(`   Type: FOK (market order - executes immediately at best price)\n`);
 
     // ===========================================

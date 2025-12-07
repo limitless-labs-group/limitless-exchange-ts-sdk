@@ -90,29 +90,24 @@ export interface BaseOrderArgs {
  *
  * @remarks
  * FOK orders are market orders that execute immediately at the best available price.
- * You specify the amount in human-readable USDC (max 2 decimals).
- * The SDK automatically converts to collateral units (6 decimals).
+ * Specify the maker amount (human-readable, max 6 decimals).
+ *
+ * For BUY orders: Amount in USDC to spend (e.g., 50.0 = spend $50 USDC)
+ * For SELL orders: Number of shares to sell (e.g., 18.64 = sell 18.64 shares)
  *
  * @example
  * ```typescript
- * // BUY: Spend 1 USDC worth of collateral
+ * // BUY: Spend 50 USDC
  * {
  *   tokenId: '123...',
- *   amount: 1,      // 1 USDC
+ *   makerAmount: 50,      // Spend $50 USDC
  *   side: Side.BUY
  * }
  *
- * // BUY: Spend 1.5 USDC with precision
+ * // SELL: Sell 18.64 shares
  * {
  *   tokenId: '123...',
- *   amount: 1.5,    // 1.5 USDC (max 2 decimals)
- *   side: Side.BUY
- * }
- *
- * // SELL: Receive collateral for shares
- * {
- *   tokenId: '123...',
- *   amount: 0.5,    // 0.5 USDC
+ *   makerAmount: 18.64,   // Sell 18.64 shares
  *   side: Side.SELL
  * }
  * ```
@@ -121,18 +116,22 @@ export interface BaseOrderArgs {
  */
 export interface FOKOrderArgs extends BaseOrderArgs {
   /**
-   * Amount of USDC (human-readable, max 2 decimals)
+   * Maker amount (human-readable, max 6 decimals)
    *
    * For BUY orders: Amount of USDC to spend
-   * For SELL orders: Amount of USDC worth of shares to sell
+   * For SELL orders: Number of shares to sell
    *
    * @example
-   * 1 = 1 USDC
-   * 1.5 = 1.5 USDC
-   * 0.75 = 0.75 USDC
-   * 10.25 = 10.25 USDC
+   * // BUY examples
+   * 50 = Spend $50 USDC
+   * 1.5 = Spend $1.50 USDC
+   * 0.75 = Spend $0.75 USDC
+   *
+   * // SELL examples
+   * 18.64 = Sell 18.64 shares
+   * 44.111 = Sell 44.111 shares
    */
-  amount: number;
+  makerAmount: number;
 }
 
 /**

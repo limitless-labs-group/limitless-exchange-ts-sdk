@@ -4,13 +4,7 @@
  */
 
 import { ethers } from 'ethers';
-import {
-  OrderArgs,
-  UnsignedOrder,
-  Side,
-  MarketType,
-  SignatureType,
-} from '../types/orders';
+import { OrderArgs, UnsignedOrder, Side, MarketType, SignatureType } from '../types/orders';
 
 /**
  * Zero address constant for any-taker orders.
@@ -61,7 +55,7 @@ export class OrderBuilder {
    * ```typescript
    * const builder = new OrderBuilder(
    *   '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb',
-   *   100, // 1% fee
+   *   300, // 3% fee
    *   0.001 // 3 decimal price precision
    * );
    * ```
@@ -82,10 +76,10 @@ export class OrderBuilder {
    *
    * @example
    * ```typescript
-   * // FOK order (amount-based)
+   * // FOK order (market order)
    * const fokOrder = builder.buildOrder({
    *   tokenId: '123456',
-   *   amount: 1000000,  // 1 USDC
+   *   makerAmount: 50,  // 50 USDC to spend
    *   side: Side.BUY,
    *   marketType: MarketType.CLOB
    * });
@@ -101,15 +95,12 @@ export class OrderBuilder {
    * ```
    */
   buildOrder(args: OrderArgs): UnsignedOrder {
-    // Validate inputs
     this.validateOrderArgs(args);
 
-    // Calculate amounts based on order type
     const { makerAmount, takerAmount, price } = this.isFOKOrder(args)
-      ? this.calculateFOKAmounts(args.amount, args.side)
+      ? this.calculateFOKAmounts(args.makerAmount)
       : this.calculateGTCAmountsTickAligned(args.price, args.size, args.side);
 
-    // Build unsigned order
     const order: UnsignedOrder = {
       salt: this.generateSalt(),
       maker: this.makerAddress,
@@ -125,7 +116,6 @@ export class OrderBuilder {
       signatureType: SignatureType.EOA,
     };
 
-    // Add price for GTC orders (required by API)
     if (price !== undefined) {
       order.price = price;
     }
@@ -159,15 +149,9 @@ export class OrderBuilder {
    * @internal
    */
   private generateSalt(): number {
-    // Use millisecond timestamp
     const timestamp = Date.now();
-
-    // Use performance.now() for sub-millisecond precision
     const nanoOffset = Math.floor(performance.now() * 1000) % 1000000;
-
-    // Add 24 hours in milliseconds to ensure future timestamp
     const oneDayMs = 1000 * 60 * 60 * 24;
-
     return timestamp * 1000 + nanoOffset + oneDayMs;
   }
 
@@ -243,7 +227,6 @@ export class OrderBuilder {
     const collateralScale = 1_000_000n;
     const priceScale = 1_000_000n;
 
-    // Parse inputs to BigInt with proper scaling
     const shares = this.parseDecToInt(size.toString(), sharesScale);
     const priceInt = this.parseDecToInt(price.toString(), priceScale);
     const tickInt = this.parseDecToInt(this.priceTick.toString(), priceScale);
@@ -275,7 +258,7 @@ export class OrderBuilder {
 
       throw new Error(
         `Invalid size: ${size}. Size must produce contracts divisible by ${sharesStep} (sharesStep). ` +
-        `Try ${validSizeDown} (rounded down) or ${validSizeUp} (rounded up) instead.`
+          `Try ${validSizeDown} (rounded down) or ${validSizeUp} (rounded up) instead.`
       );
     }
 
@@ -283,9 +266,10 @@ export class OrderBuilder {
     const numerator = shares * priceInt * collateralScale;
     const denominator = sharesScale * priceScale;
 
-    const collateral = side === Side.BUY
-      ? this.divCeil(numerator, denominator)  // BUY: Round UP (maker pays more)
-      : numerator / denominator;               // SELL: Round DOWN (maker receives less)
+    const collateral =
+      side === Side.BUY
+        ? this.divCeil(numerator, denominator) // BUY: Round UP (maker pays more)
+        : numerator / denominator; // SELL: Round DOWN (maker receives less)
 
     // Assign maker/taker amounts based on side
     let makerAmount: bigint;
@@ -312,48 +296,41 @@ export class OrderBuilder {
    * Calculates maker and taker amounts for FOK (market) orders.
    *
    * @remarks
-   * FOK orders use amount-based calculation:
-   * - makerAmount = USDC amount (in collateral units, 6 decimals)
-   * - takerAmount = always 1 (constant for FOK orders)
+   * FOK orders use makerAmount for both BUY and SELL:
+   * - BUY: makerAmount = USDC amount to spend (e.g., 50 = $50 USDC)
+   * - SELL: makerAmount = number of shares to sell (e.g., 18.64 shares)
    *
-   * The amount is provided in human-readable USDC (e.g., 1.5 for 1.5 USDC)
-   * and converted to collateral units (6 decimals). Supports up to 6 decimal
-   * places for precise amount control.
+   * takerAmount is always 1 (constant for FOK orders)
    *
-   * @param usdcAmount - Amount in human-readable USDC (e.g., 1.5, 1.216667)
-   * @param side - Order side (BUY or SELL)
-   * @returns Object with makerAmount, takerAmount (always 1), and undefined price
+   * @param makerAmount - Amount in human-readable format (max 6 decimals)
+   * @returns Object with makerAmount (scaled), takerAmount (always 1), and undefined price
    *
    * @internal
    */
-  private calculateFOKAmounts(
-    usdcAmount: number,
-    side: Side
-  ): { makerAmount: number; takerAmount: number; price: undefined } {
-    // Convert USDC to collateral units (6 decimals)
-    // Example: 1.5 USDC → 1500000 collateral units
-    // Example: 1.216667 USDC → 1216667 collateral units
-    const USDC_DECIMALS = 6;
+  private calculateFOKAmounts(makerAmount: number): {
+    makerAmount: number;
+    takerAmount: number;
+    price: undefined;
+  } {
+    const DECIMALS = 6;
 
-    // Validate amount has max 6 decimal places (USDC precision limit)
-    const amountStr = usdcAmount.toString();
+    // Validate makerAmount has max 6 decimal places
+    const amountStr = makerAmount.toString();
     const decimalIndex = amountStr.indexOf('.');
     if (decimalIndex !== -1) {
       const decimalPlaces = amountStr.length - decimalIndex - 1;
-      if (decimalPlaces > USDC_DECIMALS) {
+      if (decimalPlaces > DECIMALS) {
         throw new Error(
-          `Invalid amount: ${usdcAmount}. Amount can have max ${USDC_DECIMALS} decimal places (USDC precision). ` +
-          `Try ${usdcAmount.toFixed(USDC_DECIMALS)} instead.`
+          `Invalid makerAmount: ${makerAmount}. Can have max ${DECIMALS} decimal places. ` +
+            `Try ${makerAmount.toFixed(DECIMALS)} instead.`
         );
       }
     }
 
-    // Convert to string with sufficient precision to preserve all decimals
-    const amountFormatted = usdcAmount.toFixed(USDC_DECIMALS);
-    const amountScaled = ethers.parseUnits(amountFormatted, USDC_DECIMALS);
+    const amountFormatted = makerAmount.toFixed(DECIMALS);
+    const amountScaled = ethers.parseUnits(amountFormatted, DECIMALS);
     const collateralAmount = Number(amountScaled);
 
-    // FOK orders: makerAmount = collateral, takerAmount = always 1
     return {
       makerAmount: collateralAmount,
       takerAmount: 1,
@@ -382,9 +359,12 @@ export class OrderBuilder {
 
     // Type-specific validation
     if (this.isFOKOrder(args)) {
-      // FOK order validation
-      if (args.amount <= 0) {
-        throw new Error(`Invalid amount: ${args.amount}. Amount must be positive.`);
+      // FOK order validation - must have makerAmount
+      if (!args.makerAmount) {
+        throw new Error('FOK orders require makerAmount');
+      }
+      if (args.makerAmount <= 0) {
+        throw new Error(`Invalid makerAmount: ${args.makerAmount}. Maker amount must be positive.`);
       }
     } else {
       // GTC order validation

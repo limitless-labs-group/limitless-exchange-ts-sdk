@@ -4,7 +4,13 @@
  */
 
 import { ethers } from 'ethers';
-import type { OrderArgs, UnsignedOrder, SignedOrder, FOKOrderArgs, GTCOrderArgs } from '../types/orders';
+import type {
+  OrderArgs,
+  UnsignedOrder,
+  SignedOrder,
+  FOKOrderArgs,
+  GTCOrderArgs,
+} from '../types/orders';
 
 /**
  * Validation error class.
@@ -78,23 +84,23 @@ export function validateOrderArgs(args: OrderArgs): void {
   // Type-specific validation
   if (isFOKOrder(args)) {
     // FOK order validation
-    if (typeof args.amount !== 'number' || isNaN(args.amount)) {
+    if (typeof args.makerAmount !== 'number' || isNaN(args.makerAmount)) {
       throw new ValidationError('Amount must be a valid number');
     }
 
-    if (args.amount <= 0) {
-      throw new ValidationError(`Amount must be positive, got: ${args.amount}`);
+    if (args.makerAmount <= 0) {
+      throw new ValidationError(`Amount must be positive, got: ${args.makerAmount}`);
     }
 
     // Validate max 2 decimal places
     // Convert to string and check decimal places
-    const amountStr = args.amount.toString();
+    const amountStr = args.makerAmount.toString();
     const decimalIndex = amountStr.indexOf('.');
     if (decimalIndex !== -1) {
       const decimalPlaces = amountStr.length - decimalIndex - 1;
       if (decimalPlaces > 2) {
         throw new ValidationError(
-          `Amount must have max 2 decimal places, got: ${args.amount} (${decimalPlaces} decimals)`
+          `Amount must have max 2 decimal places, got: ${args.makerAmount} (${decimalPlaces} decimals)`
         );
       }
     }

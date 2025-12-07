@@ -7,7 +7,7 @@
  * 3. Create FOK market orders on NegRisk submarkets
  * 4. Execute immediate BUY and SELL orders at best available price
  *
- * FOK orders are market orders - you specify the amount of USDC to spend/receive,
+ * FOK orders are market orders - you specify makerAmount (USDC to spend for BUY, shares to sell for SELL),
  * and the order fills at the best available price or cancels if not fully matched.
  *
  * KEY DIFFERENCE: Use the SUBMARKET slug, not the group slug!
@@ -156,7 +156,7 @@ async function main() {
 
     const buyOrderParams = {
       tokenId: detailedInfo.tokens.yes, // YES token ID
-      amount: 0.2, // 1 USDC to spend (human-readable)
+      makerAmount: 2.05, // 1 USDC to spend (human-readable)
       side: Side.BUY,
     };
 
@@ -216,7 +216,7 @@ async function main() {
 
     const sellOrderParams = {
       tokenId: detailedInfo.tokens.yes, // YES token ID
-      amount: 0.5, // 0.5 USDC to receive (human-readable)
+      makerAmount: 0.5, // 0.5 shares to sell
       side: Side.SELL,
     };
 
@@ -225,7 +225,7 @@ async function main() {
     console.log(`   Submarket Slug: ${exampleSubmarket.slug}`);
     console.log(`   Token ID: ${sellOrderParams.tokenId}`);
     console.log(`   Side: SELL`);
-    console.log(`   Amount: ${sellOrderParams.amount} USDC`);
+    console.log(`   Maker Amount: ${sellOrderParams.makerAmount} shares`);
     console.log(`   Type: FOK (market order - executes immediately at best price)\n`);
 
     console.log('📤 Creating and submitting FOK SELL order...');
