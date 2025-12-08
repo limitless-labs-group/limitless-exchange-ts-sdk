@@ -40,6 +40,7 @@ function displayOrderbookStats(orderbook: OrderBook) {
     console.log(`   Best Ask: ${bestAsk.toFixed(4)}`);
     console.log(`   Spread: ${spread.toFixed(4)} (${(spread * 100).toFixed(2)}%)`);
     console.log(`   Mid Price: ${midPrice.toFixed(4)}`);
+    console.log(`   Adjusted Midpoint: ${orderbook.adjustedMidpoint.toFixed(4)}`);
   } else {
     console.log(`   No complete bid/ask spread available`);
   }
@@ -51,10 +52,8 @@ function displayOrderbookStats(orderbook: OrderBook) {
   console.log(`   Total Bid Volume: ${totalBidVolume.toFixed(2)} shares`);
   console.log(`   Total Ask Volume: ${totalAskVolume.toFixed(2)} shares`);
   console.log(`   Min Order Size: ${orderbook.minSize}`);
-
-  if (orderbook.lastTradePrice) {
-    console.log(`   Last Trade Price: ${orderbook.lastTradePrice.toFixed(4)}`);
-  }
+  console.log(`   Max Spread: ${orderbook.maxSpread}`);
+  console.log(`   Last Trade Price: ${orderbook.lastTradePrice.toFixed(4)}`);
 }
 
 async function fetchAndDisplayOrderbook(

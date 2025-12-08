@@ -62,7 +62,24 @@ function displayOrderbook(state: OrderbookState, orderbook?: any) {
   );
 
   const midPrice = (state.bestBid + state.bestAsk) / 2;
-  console.log(`💎 Mid Price: ${formatPrice(midPrice)}\n`);
+  console.log(`💎 Mid Price: ${formatPrice(midPrice)}`);
+
+  // Display additional orderbook metadata
+  if (orderbook) {
+    if (orderbook.adjustedMidpoint !== undefined) {
+      console.log(`📊 Adjusted Midpoint: ${formatPrice(orderbook.adjustedMidpoint)}`);
+    }
+    if (orderbook.maxSpread !== undefined) {
+      console.log(`📏 Max Spread: ${formatSpread(orderbook.maxSpread)}`);
+    }
+    if (orderbook.minSize !== undefined) {
+      console.log(`📦 Min Size: ${orderbook.minSize.toFixed(2)} shares`);
+    }
+    if (orderbook.tokenId) {
+      console.log(`🪙 Token ID: ${orderbook.tokenId.substring(0, 20)}...`);
+    }
+  }
+  console.log('');
 
   // Show top 5 bids and asks
   if (orderbook) {
@@ -164,7 +181,7 @@ async function main() {
     wsClient.on('orderbookUpdate' as any, (data: any) => {
       console.log('\n🔔 Processing orderbookUpdate event...');
 
-      // API sends { marketSlug, orderbook: { bids, asks }, timestamp }
+      // API sends nested structure: { marketSlug, orderbook: { bids, asks, tokenId, adjustedMidpoint, maxSpread, minSize }, timestamp }
       const orderbook = data.orderbook || data;
 
       if (
@@ -192,6 +209,21 @@ async function main() {
       };
 
       displayOrderbook(currentState, orderbook);
+    });
+
+    // Listen to AMM price updates (optional - shows newPriceData structure)
+    wsClient.on('newPriceData' as any, (data: any) => {
+      console.log('\n💹 AMM Price Update:');
+      console.log(`   Market Address: ${data.marketAddress}`);
+      console.log(`   Block Number: ${data.blockNumber}`);
+
+      if (data.updatedPrices && data.updatedPrices.length > 0) {
+        console.log(`   Updated Prices (${data.updatedPrices.length}):`);
+        data.updatedPrices.slice(0, 3).forEach((entry: any, i: number) => {
+          console.log(`     ${i + 1}. Market ${entry.marketId}:`);
+          console.log(`        YES: ${formatPrice(entry.yesPrice)}, NO: ${formatPrice(entry.noPrice)}`);
+        });
+      }
     });
 
     // Connect

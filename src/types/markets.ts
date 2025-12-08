@@ -5,37 +5,40 @@
 
 /**
  * Orderbook entry (bid or ask).
+ * Matches API response format exactly.
+ *
+ * Note: Side is implicit based on array position:
+ * - Items in 'bids' array are BUY orders
+ * - Items in 'asks' array are SELL orders
+ *
  * @public
  */
 export interface OrderbookEntry {
   /**
-   * Price per share
+   * Price per share (0-1 range)
    */
   price: number;
 
   /**
-   * Size in shares (scaled by 1e6)
+   * Size in shares
    */
   size: number;
-
-  /**
-   * Order side (BUY or SELL)
-   */
-  side: string;
 }
 
 /**
  * Complete orderbook for a market.
+ * Matches API response format exactly (1:1 parity).
+ *
  * @public
  */
 export interface OrderBook {
   /**
-   * Bid orders (buy orders)
+   * Bid orders (buy orders) sorted by price descending
    */
   bids: OrderbookEntry[];
 
   /**
-   * Ask orders (sell orders)
+   * Ask orders (sell orders) sorted by price ascending
    */
   asks: OrderbookEntry[];
 
@@ -45,14 +48,24 @@ export interface OrderBook {
   tokenId: string;
 
   /**
-   * Minimum order size
+   * Adjusted midpoint price between best bid and ask
    */
-  minSize: string;
+  adjustedMidpoint: number;
 
   /**
-   * Last trade price
+   * Maximum allowed spread for the market
    */
-  lastTradePrice?: number;
+  maxSpread: number;
+
+  /**
+   * Minimum order size allowed
+   */
+  minSize: number;
+
+  /**
+   * Last trade price for the market
+   */
+  lastTradePrice: number;
 }
 
 /**

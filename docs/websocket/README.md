@@ -84,8 +84,8 @@ Subscribe to live orderbook updates and price changes for specific markets.
 **Event Name**: `subscribe_market_prices`
 
 **Events Received**:
-- `orderbookUpdate`: Complete orderbook state with bids/asks
-- `newPriceData`: Price change notifications
+- `orderbookUpdate`: Complete orderbook state with bids/asks/metadata (CLOB markets)
+- `newPriceData`: AMM price updates with market addresses and block numbers
 
 ```typescript
 // Subscribe to market
@@ -93,23 +93,39 @@ await wsClient.subscribe('subscribe_market_prices', {
   marketSlugs: ['market-slug-here']
 });
 
-// Listen to orderbook updates
+// Listen to orderbook updates (CLOB markets)
 wsClient.on('orderbookUpdate' as any, (data: any) => {
   console.log('Market:', data.marketSlug);
   console.log('Timestamp:', data.timestamp);
-  
-  // Parse orderbook (raw API format)
-  const orderbook = data.orderbook || data;
-  
+
+  // API sends nested orderbook structure
+  const { orderbook } = data;
+
   if (orderbook.bids && orderbook.asks) {
     console.log('Best Bid:', orderbook.bids[0]);
     console.log('Best Ask:', orderbook.asks[0]);
+
+    // Additional orderbook metadata (new fields)
+    console.log('Token ID:', orderbook.tokenId);
+    console.log('Adjusted Midpoint:', orderbook.adjustedMidpoint);
+    console.log('Max Spread:', orderbook.maxSpread);
+    console.log('Min Size:', orderbook.minSize);
   }
 });
 
-// Listen to price updates
+// Listen to AMM price updates (uses marketAddress, not marketSlug!)
 wsClient.on('newPriceData' as any, (data: any) => {
-  console.log('Price update:', data);
+  console.log('Market Address:', data.marketAddress);  // Contract address
+  console.log('Block Number:', data.blockNumber);
+  console.log('Timestamp:', data.timestamp);
+
+  // updatedPrices is an array of price entries
+  data.updatedPrices.forEach((entry: any) => {
+    console.log(`  Market ${entry.marketId}:`);
+    console.log(`    Address: ${entry.marketAddress}`);
+    console.log(`    YES Price: ${entry.yesPrice}`);
+    console.log(`    NO Price: ${entry.noPrice}`);
+  });
 });
 ```
 
@@ -404,6 +420,94 @@ wsClient.on('orderbookUpdate' as any, (data: any) => {
   // ...
 });
 ```
+
+## Type Definitions
+
+### OrderbookUpdate (CLOB Markets)
+
+Complete orderbook state with nested structure.
+
+```typescript
+interface OrderbookUpdate {
+  marketSlug: string;           // Market slug identifier (camelCase)
+  orderbook: OrderbookData;      // Nested orderbook object
+  timestamp: Date | number | string;  // Event timestamp
+}
+
+interface OrderbookData {
+  bids: OrderbookEntry[];        // List of bid orders (descending)
+  asks: OrderbookEntry[];        // List of ask orders (ascending)
+  tokenId: string;               // Token ID for the orderbook
+  adjustedMidpoint: number;      // Adjusted midpoint price
+  maxSpread: number;             // Maximum spread allowed
+  minSize: number;               // Minimum order size
+}
+
+interface OrderbookEntry {
+  price: number;                 // Price per share (0-1 range)
+  size: number;                  // Size in shares
+}
+```
+
+**Example Data:**
+```json
+{
+  "marketSlug": "btc-price-100k",
+  "orderbook": {
+    "bids": [{"price": 0.52, "size": 100}],
+    "asks": [{"price": 0.55, "size": 150}],
+    "tokenId": "0x123...",
+    "adjustedMidpoint": 0.535,
+    "maxSpread": 0.1,
+    "minSize": 10
+  },
+  "timestamp": "2025-12-08T10:30:00Z"
+}
+```
+
+### NewPriceData (AMM Markets)
+
+AMM price updates with market addresses.
+
+```typescript
+interface NewPriceData {
+  marketAddress: string;         // Market contract address (NOT marketSlug!)
+  updatedPrices: AmmPriceEntry[]; // Array of price updates
+  blockNumber: number;           // Blockchain block number
+  timestamp: Date | number | string;  // Event timestamp
+}
+
+interface AmmPriceEntry {
+  marketId: number;              // Market ID
+  marketAddress: string;         // Market contract address
+  yesPrice: number;              // YES token price (0-1 range)
+  noPrice: number;               // NO token price (0-1 range)
+}
+```
+
+**Example Data:**
+```json
+{
+  "marketAddress": "0xabc...",
+  "updatedPrices": [
+    {
+      "marketId": 123,
+      "marketAddress": "0xabc...",
+      "yesPrice": 0.65,
+      "noPrice": 0.35
+    }
+  ],
+  "blockNumber": 12345678,
+  "timestamp": "2025-12-08T10:30:00Z"
+}
+```
+
+### Important Notes
+
+- **Nested Structure**: `orderbookUpdate` sends `orderbook` as a nested object, not flattened
+- **Field Naming**: All fields use camelCase (e.g., `marketSlug`, `tokenId`, `updatedPrices`)
+- **AMM vs CLOB**: `newPriceData` uses `marketAddress` while `orderbookUpdate` uses `marketSlug`
+- **Type Safety**: See `/src/types/websocket.ts` for complete TypeScript definitions
 
 ## Examples
 

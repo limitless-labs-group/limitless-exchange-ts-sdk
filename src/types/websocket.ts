@@ -3,6 +3,11 @@
  * @module types/websocket
  */
 
+import type { OrderbookEntry } from './markets';
+
+// Re-export OrderbookEntry for convenience
+export type { OrderbookEntry };
+
 /**
  * WebSocket connection configuration.
  * @public
@@ -61,17 +66,41 @@ export type SubscriptionChannel =
   | 'orders'
   | 'fills'
   | 'markets'
-  | 'prices';
+  | 'prices'
+  | 'subscribe_market_prices'
+  | 'subscribe_positions'
+  | 'subscribe_transactions';
 
 /**
- * Orderbook update event.
+ * Orderbook data structure (nested object in OrderbookUpdate).
+ * @public
+ */
+export interface OrderbookData {
+  /** List of bid orders sorted by price descending */
+  bids: OrderbookEntry[];
+  /** List of ask orders sorted by price ascending */
+  asks: OrderbookEntry[];
+  /** Token ID for the orderbook */
+  tokenId: string;
+  /** Adjusted midpoint price */
+  adjustedMidpoint: number;
+  /** Maximum spread allowed */
+  maxSpread: number;
+  /** Minimum order size */
+  minSize: number;
+}
+
+/**
+ * Orderbook update event - matches API format exactly.
  * @public
  */
 export interface OrderbookUpdate {
+  /** Market slug identifier (camelCase to match API) */
   marketSlug: string;
-  bids: Array<{ price: number; size: number }>;
-  asks: Array<{ price: number; size: number }>;
-  timestamp: number;
+  /** Nested orderbook data object */
+  orderbook: OrderbookData;
+  /** Timestamp as Date or number after serialization */
+  timestamp: Date | number | string;
 }
 
 /**
@@ -129,13 +158,81 @@ export interface MarketUpdate {
 }
 
 /**
- * Price update event.
+ * Price update event (deprecated - use NewPriceData for AMM prices).
+ *
+ * Note: This type does not match the actual API response.
+ * Use NewPriceData for the correct AMM price update format.
+ *
  * @public
+ * @deprecated
  */
 export interface PriceUpdate {
   marketSlug: string;
   price: number;
   timestamp: number;
+}
+
+/**
+ * Single AMM price entry in updatedPrices array.
+ * @public
+ */
+export interface AmmPriceEntry {
+  /** Market ID */
+  marketId: number;
+  /** Market contract address */
+  marketAddress: string;
+  /** YES token price (0-1 range) */
+  yesPrice: number;
+  /** NO token price (0-1 range) */
+  noPrice: number;
+}
+
+/**
+ * AMM price update event (newPriceData) - matches API format exactly.
+ * @public
+ */
+export interface NewPriceData {
+  /** Market contract address (camelCase to match API) */
+  marketAddress: string;
+  /** Array of price updates for this market */
+  updatedPrices: AmmPriceEntry[];
+  /** Blockchain block number */
+  blockNumber: number;
+  /** Timestamp as Date or number after serialization */
+  timestamp: Date | number | string;
+}
+
+/**
+ * Transaction event (blockchain transaction status).
+ * @public
+ */
+export interface TransactionEvent {
+  /** User ID (optional) */
+  userId?: number;
+  /** Transaction hash (optional) */
+  txHash?: string;
+  /** Transaction status */
+  status: 'CONFIRMED' | 'FAILED';
+  /** Transaction source */
+  source: string;
+  /** Transaction timestamp */
+  timestamp: Date | string;
+  /** Market address (optional) */
+  marketAddress?: string;
+  /** Market slug identifier (optional) */
+  marketSlug?: string;
+  /** Token ID (optional) */
+  tokenId?: string;
+  /** Condition ID (optional) */
+  conditionId?: string;
+  /** Amount of contracts (optional, in string format) */
+  amountContracts?: string;
+  /** Amount of collateral (optional, in string format) */
+  amountCollateral?: string;
+  /** Price (optional, in string format) */
+  price?: string;
+  /** Trade side (optional) */
+  side?: 'BUY' | 'SELL';
 }
 
 /**
@@ -164,9 +261,14 @@ export interface WebSocketEvents {
   reconnecting: (attempt: number) => void;
 
   /**
-   * Orderbook updates
+   * Orderbook updates (CLOB markets) - API event name: orderbookUpdate
    */
-  orderbook: (data: OrderbookUpdate) => void;
+  orderbookUpdate: (data: OrderbookUpdate) => void;
+
+  /**
+   * AMM price updates - API event name: newPriceData
+   */
+  newPriceData: (data: NewPriceData) => void;
 
   /**
    * Trade events
@@ -189,7 +291,18 @@ export interface WebSocketEvents {
   market: (data: MarketUpdate) => void;
 
   /**
-   * Price updates
+   * Position updates
+   */
+  positions: (data: any) => void;
+
+  /**
+   * Transaction events (blockchain confirmations)
+   */
+  tx: (data: TransactionEvent) => void;
+
+  /**
+   * Price updates (deprecated - use newPriceData)
+   * @deprecated
    */
   price: (data: PriceUpdate) => void;
 }
