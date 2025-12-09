@@ -54,6 +54,12 @@ import { HttpClient, MarketFetcher } from '@limitless-exchange/sdk';
 // Create HTTP client (no authentication needed)
 const httpClient = new HttpClient({
   baseURL: 'https://api.limitless.exchange',
+
+  // Optional: Add custom headers to all requests
+  additionalHeaders: {
+    'X-Custom-Header': 'my-value',
+    'X-API-Version': 'v1',
+  },
 });
 
 const marketFetcher = new MarketFetcher(httpClient);

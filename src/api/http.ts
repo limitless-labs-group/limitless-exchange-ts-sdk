@@ -68,6 +68,24 @@ export interface HttpClientConfig {
    * Time to wait before closing an idle socket connection.
    */
   socketTimeout?: number;
+
+  /**
+   * Additional headers to include in all requests
+   * @remarks
+   * These headers will be merged with default headers and sent with every request.
+   * Can be overridden by per-request headers.
+   *
+   * @example
+   * ```typescript
+   * const client = new HttpClient({
+   *   additionalHeaders: {
+   *     'X-Custom-Header': 'value',
+   *     'X-API-Version': 'v1'
+   *   }
+   * });
+   * ```
+   */
+  additionalHeaders?: Record<string, string>;
 }
 
 /**
@@ -123,6 +141,7 @@ export class HttpClient {
       headers: {
         'Content-Type': 'application/json',
         Accept: 'application/json',
+        ...config.additionalHeaders,
       },
     });
 
