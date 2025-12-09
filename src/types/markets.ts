@@ -4,12 +4,170 @@
  */
 
 /**
+ * Collateral token information.
+ * @public
+ */
+export interface CollateralToken {
+  /**
+   * Token contract address
+   */
+  address: string;
+
+  /**
+   * Token decimals
+   */
+  decimals: number;
+
+  /**
+   * Token symbol (e.g., "USDC")
+   */
+  symbol: string;
+}
+
+/**
+ * Market creator information.
+ * @public
+ */
+export interface MarketCreator {
+  /**
+   * Creator name
+   */
+  name: string;
+
+  /**
+   * Creator image URL
+   */
+  imageURI?: string;
+
+  /**
+   * Creator link URL
+   */
+  link?: string;
+}
+
+/**
+ * Market metadata.
+ * @public
+ */
+export interface MarketMetadata {
+  /**
+   * Fee enabled flag
+   */
+  fee: boolean;
+
+  /**
+   * Banner flag
+   */
+  isBannered?: boolean;
+
+  /**
+   * Polymarket arbitrage flag
+   */
+  isPolyArbitrage?: boolean;
+
+  /**
+   * Market making flag
+   */
+  shouldMarketMake?: boolean;
+
+  /**
+   * Opening price for oracle markets
+   */
+  openPrice?: string;
+}
+
+/**
+ * Market settings for CLOB markets.
+ * @public
+ */
+export interface MarketSettings {
+  /**
+   * Minimum order size
+   */
+  minSize: string;
+
+  /**
+   * Maximum spread allowed
+   */
+  maxSpread: number;
+
+  /**
+   * Daily reward amount
+   */
+  dailyReward: string;
+
+  /**
+   * Rewards epoch duration
+   */
+  rewardsEpoch: string;
+
+  /**
+   * Constant parameter
+   */
+  c: string;
+}
+
+/**
+ * Trade prices for different order types.
+ * @public
+ */
+export interface TradePrices {
+  /**
+   * Buy prices (market and limit) for yes/no tokens
+   */
+  buy: {
+    market: [number, number];
+    limit: [number, number];
+  };
+
+  /**
+   * Sell prices (market and limit) for yes/no tokens
+   */
+  sell: {
+    market: [number, number];
+    limit: [number, number];
+  };
+}
+
+/**
+ * Price oracle metadata for oracle-based markets.
+ * @public
+ */
+export interface PriceOracleMetadata {
+  /**
+   * Asset ticker symbol
+   */
+  ticker: string;
+
+  /**
+   * Asset type (e.g., "CRYPTO")
+   */
+  assetType: string;
+
+  /**
+   * Pyth Network price feed address
+   */
+  pythAddress: string;
+
+  /**
+   * Price feed symbol
+   */
+  symbol: string;
+
+  /**
+   * Asset name
+   */
+  name: string;
+
+  /**
+   * Logo URL
+   */
+  logo: string;
+}
+
+/**
  * Orderbook entry (bid or ask).
- * Matches API response format exactly.
- *
- * Note: Side is implicit based on array position:
- * - Items in 'bids' array are BUY orders
- * - Items in 'asks' array are SELL orders
+ * Matches API response format exactly (1:1 parity).
  *
  * @public
  */
@@ -23,6 +181,11 @@ export interface OrderbookEntry {
    * Size in shares
    */
   size: number;
+
+  /**
+   * Order side ("BUY" or "SELL")
+   */
+  side: string;
 }
 
 /**
@@ -55,12 +218,12 @@ export interface OrderBook {
   /**
    * Maximum allowed spread for the market
    */
-  maxSpread: number;
+  maxSpread: string;
 
   /**
    * Minimum order size allowed
    */
-  minSize: number;
+  minSize: string;
 
   /**
    * Last trade price for the market
@@ -116,19 +279,31 @@ export interface MarketOutcome {
 }
 
 /**
- * Complete market information.
+ * Market token IDs for CLOB markets.
+ * @public
+ */
+export interface MarketTokens {
+  yes: string;
+  no: string;
+}
+
+/**
+ * Complete market information (1:1 with API response).
+ * Handles both CLOB single markets and NegRisk group markets.
+ *
  * @public
  */
 export interface Market {
+  // Common fields (both single and group)
   /**
    * Market database ID
    */
   id: number;
 
   /**
-   * Market contract address
+   * Market slug identifier
    */
-  address: string | null;
+  slug: string;
 
   /**
    * Market title
@@ -143,22 +318,27 @@ export interface Market {
   /**
    * Market description
    */
-  description: string;
+  description?: string;
 
   /**
-   * Market slug identifier
+   * Collateral token information
    */
-  slug: string;
+  collateralToken: CollateralToken;
 
   /**
-   * Market type (CLOB or AMM)
+   * Human-readable expiration date
    */
-  type?: string;
+  expirationDate: string;
 
   /**
-   * Market outcomes
+   * Expiration timestamp in milliseconds
    */
-  outcomes?: MarketOutcome[];
+  expirationTimestamp: number;
+
+  /**
+   * Whether market is expired
+   */
+  expired?: boolean;
 
   /**
    * Creation timestamp
@@ -171,12 +351,164 @@ export interface Market {
   updatedAt: string;
 
   /**
+   * Market categories
+   */
+  categories: string[];
+
+  /**
    * Market status
    */
-  status?: string;
+  status: string;
+
+  /**
+   * Creator information
+   */
+  creator: MarketCreator;
+
+  /**
+   * Market tags
+   */
+  tags: string[];
+
+  /**
+   * Trade type (clob or amm)
+   */
+  tradeType: string;
+
+  /**
+   * Market type (single or group)
+   */
+  marketType: string;
+
+  /**
+   * Priority index for sorting
+   */
+  priorityIndex: number;
+
+  /**
+   * Market metadata
+   */
+  metadata: MarketMetadata;
+
+  /**
+   * Trading volume
+   */
+  volume?: string;
+
+  /**
+   * Formatted trading volume
+   */
+  volumeFormatted?: string;
+
+  // CLOB single market fields
+  /**
+   * Condition ID (CLOB only)
+   */
+  conditionId?: string;
+
+  /**
+   * NegRisk request ID (CLOB only)
+   */
+  negRiskRequestId?: string | null;
+
+  /**
+   * Token IDs for yes/no outcomes (CLOB only)
+   * @example
+   * {
+   *   yes: "27687694610130623013351012526567944730242898906227824547270172934678693687246",
+   *   no: "9288900480010863316984252765488448624297561656655547117581633191173128271467"
+   * }
+   */
+  tokens?: MarketTokens;
+
+  /**
+   * Current prices [yes, no] (CLOB only)
+   */
+  prices?: number[];
+
+  /**
+   * Trade prices for buy/sell market/limit orders (CLOB only)
+   */
+  tradePrices?: TradePrices;
+
+  /**
+   * Whether market is rewardable (CLOB only)
+   */
+  isRewardable?: boolean;
+
+  /**
+   * Market settings (CLOB only)
+   */
+  settings?: MarketSettings;
+
+  /**
+   * Market logo URL
+   */
+  logo?: string | null;
+
+  /**
+   * Price oracle metadata (oracle markets only)
+   */
+  priceOracleMetadata?: PriceOracleMetadata;
+
+  /**
+   * Order within group (group markets only)
+   */
+  orderInGroup?: number;
+
+  /**
+   * Winning outcome index
+   */
+  winningOutcomeIndex?: number | null;
+
+  // NegRisk group market fields
+  /**
+   * Outcome token names (group only)
+   */
+  outcomeTokens?: string[];
+
+  /**
+   * OG image URI (group only)
+   */
+  ogImageURI?: string;
+
+  /**
+   * NegRisk market ID (group only)
+   */
+  negRiskMarketId?: string;
+
+  /**
+   * Child markets in group (group only)
+   */
+  markets?: Market[];
+
+  /**
+   * Daily reward for group (group only)
+   */
+  dailyReward?: string;
+
+  // Legacy/deprecated fields (kept for backwards compatibility)
+  /**
+   * Market contract address
+   * @deprecated Use conditionId instead
+   */
+  address?: string | null;
+
+  /**
+   * Market type (CLOB or AMM)
+   * @deprecated Use tradeType instead
+   */
+  type?: string;
+
+  /**
+   * Market outcomes
+   * @deprecated Use tokens for CLOB markets
+   */
+  outcomes?: MarketOutcome[];
 
   /**
    * Resolution timestamp
+   * @deprecated Use expirationTimestamp instead
    */
   resolutionDate?: string;
 }
@@ -211,7 +543,7 @@ export interface MarketsResponse {
  * Sort options for active markets.
  * @public
  */
-export type ActiveMarketsSortBy = 'lp_rewards' | 'ending_soon' | 'newest' | 'high_value';
+export type ActiveMarketsSortBy = 'lp_rewards' | 'ending_soon' | 'newest' | 'high_value' | 'liquidity';
 
 /**
  * Query parameters for active markets endpoint.

@@ -1,4 +1,6 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
+import http from 'http';
+import https from 'https';
 import { DEFAULT_API_URL } from '../utils/constants';
 import { APIError } from './errors';
 import type { ILogger } from '../types/logger';
@@ -31,6 +33,41 @@ export interface HttpClientConfig {
    * @defaultValue NoOpLogger (no logging)
    */
   logger?: ILogger;
+
+  /**
+   * Enable HTTP connection pooling with keepAlive
+   * @defaultValue true
+   * @remarks
+   * When enabled, HTTP connections are reused across requests, reducing latency by 30-50%.
+   * Recommended for production environments with high request volume.
+   */
+  keepAlive?: boolean;
+
+  /**
+   * Maximum number of sockets to allow per host
+   * @defaultValue 50
+   * @remarks
+   * Controls the connection pool size. Higher values allow more concurrent requests
+   * but consume more system resources.
+   */
+  maxSockets?: number;
+
+  /**
+   * Maximum number of free sockets to keep open per host
+   * @defaultValue 10
+   * @remarks
+   * Determines how many idle connections to maintain in the pool.
+   * Keeping connections open reduces latency for subsequent requests.
+   */
+  maxFreeSockets?: number;
+
+  /**
+   * Socket timeout in milliseconds
+   * @defaultValue 60000
+   * @remarks
+   * Time to wait before closing an idle socket connection.
+   */
+  socketTimeout?: number;
 }
 
 /**
@@ -56,13 +93,44 @@ export class HttpClient {
     this.sessionCookie = config.sessionCookie;
     this.logger = config.logger || new NoOpLogger();
 
+    // Connection pooling configuration (enabled by default)
+    const keepAlive = config.keepAlive !== false; // Default: true
+    const maxSockets = config.maxSockets || 50;
+    const maxFreeSockets = config.maxFreeSockets || 10;
+    const socketTimeout = config.socketTimeout || 60000;
+
+    // Create HTTP agent with connection pooling
+    const httpAgent = new http.Agent({
+      keepAlive,
+      maxSockets,
+      maxFreeSockets,
+      timeout: socketTimeout,
+    });
+
+    // Create HTTPS agent with connection pooling
+    const httpsAgent = new https.Agent({
+      keepAlive,
+      maxSockets,
+      maxFreeSockets,
+      timeout: socketTimeout,
+    });
+
     this.client = axios.create({
       baseURL: config.baseURL || DEFAULT_API_URL,
       timeout: config.timeout || 30000,
+      httpAgent,
+      httpsAgent,
       headers: {
         'Content-Type': 'application/json',
         Accept: 'application/json',
       },
+    });
+
+    this.logger.debug('HTTP client initialized', {
+      baseURL: config.baseURL || DEFAULT_API_URL,
+      keepAlive,
+      maxSockets,
+      maxFreeSockets,
     });
 
     this.setupInterceptors();

@@ -32,19 +32,113 @@ export interface SignatureHeaders {
 }
 
 /**
- * User profile information returned after authentication.
+ * User rank information.
+ * @public
+ */
+export interface UserRank {
+  /**
+   * Rank ID
+   */
+  id: number;
+
+  /**
+   * Rank name
+   */
+  name: string;
+
+  /**
+   * Fee rate in basis points
+   */
+  feeRateBps: number;
+}
+
+/**
+ * Referral data for a user.
+ * @public
+ */
+export interface ReferralData {
+  /**
+   * Referral creation timestamp
+   */
+  createdAt: string;
+
+  /**
+   * Referral ID
+   */
+  id: number;
+
+  /**
+   * Referred user's profile ID
+   */
+  referredProfileId: number;
+
+  /**
+   * Profile picture URL
+   */
+  pfpUrl: string | null;
+
+  /**
+   * Display name
+   */
+  displayName: string;
+}
+
+/**
+ * User profile information returned after authentication (1:1 with API response).
  * @public
  */
 export interface UserProfile {
+  // Core fields
+  /**
+   * User ID (used as ownerId for orders)
+   */
+  id: number;
+
   /**
    * User's Ethereum address (EOA)
    */
   account: string;
 
   /**
+   * Client type used for authentication
+   */
+  client: ClientType;
+
+  /**
+   * User rank information containing feeRateBps
+   */
+  rank?: UserRank;
+
+  /**
+   * Account creation timestamp
+   */
+  createdAt?: string;
+
+  // Profile information
+  /**
+   * Username
+   */
+  username?: string;
+
+  /**
    * Display name for the user
    */
-  displayName: string;
+  displayName?: string;
+
+  /**
+   * Profile picture URL
+   */
+  pfpUrl?: string;
+
+  /**
+   * User bio
+   */
+  bio?: string;
+
+  /**
+   * Social media URL
+   */
+  socialUrl?: string;
 
   /**
    * Smart wallet address (optional, required for ETHERSPOT client)
@@ -52,9 +146,56 @@ export interface UserProfile {
   smartWallet?: string;
 
   /**
-   * Client type used for authentication
+   * Trade wallet option
    */
-  client: ClientType;
+  tradeWalletOption?: string;
+
+  /**
+   * Embedded account address
+   */
+  embeddedAccount?: string;
+
+  // Points and gamification
+  /**
+   * Total points
+   */
+  points?: number;
+
+  /**
+   * Accumulative points
+   */
+  accumulativePoints?: number;
+
+  /**
+   * Whether enrolled in points program
+   */
+  enrolledInPointsProgram?: boolean;
+
+  /**
+   * Position on leaderboard
+   */
+  leaderboardPosition?: number;
+
+  /**
+   * Whether user is in top 100
+   */
+  isTop100?: boolean;
+
+  /**
+   * Whether user is a captain
+   */
+  isCaptain?: boolean;
+
+  // Referral data
+  /**
+   * List of referral information
+   */
+  referralData?: ReferralData[];
+
+  /**
+   * Count of referred users
+   */
+  referredUsersCount?: number;
 }
 
 /**
