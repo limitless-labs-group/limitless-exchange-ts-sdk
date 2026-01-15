@@ -76,9 +76,6 @@ export class Authenticator {
    * ```typescript
    * // EOA authentication
    * const result = await authenticator.authenticate({ client: 'eoa' });
-   *
-   * // Base client authentication
-   * const result = await authenticator.authenticate({ client: 'base' });
    * ```
    */
   async authenticate(options: LoginOptions = {}): Promise<AuthResult> {

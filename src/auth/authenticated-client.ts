@@ -26,9 +26,9 @@ export interface AuthenticatedClientConfig {
   authenticator: Authenticator;
 
   /**
-   * Authentication client type ('eoa' or 'base')
+   * Authentication client type ('eoa')
    */
-  client: 'eoa' | 'base';
+  client: 'eoa';
 
   /**
    * Optional logger for debugging
@@ -69,7 +69,7 @@ export interface AuthenticatedClientConfig {
 export class AuthenticatedClient {
   private httpClient: HttpClient;
   private authenticator: Authenticator;
-  private client: 'eoa' | 'base';
+  private client: 'eoa';
   private logger: ILogger;
   private maxRetries: number;
 

@@ -2,7 +2,7 @@
  * Client type for authentication.
  * @public
  */
-export type ClientType = 'eoa' | 'base';
+export type ClientType = 'eoa';
 
 /**
  * Trading mode for user interface.
