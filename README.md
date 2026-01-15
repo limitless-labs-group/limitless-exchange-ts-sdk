@@ -105,7 +105,7 @@ const authenticator = new Authenticator(httpClient, signer);
 
 // Authenticate
 const result = await authenticator.authenticate({
-  client: 'eoa', // 'eoa' or 'base'
+  client: 'eoa',
 });
 
 console.log('Session cookie:', result.sessionCookie);
@@ -119,10 +119,12 @@ console.log('Profile:', result.profile);
 #### Required Approvals
 
 **CLOB Markets:**
+
 - **BUY orders**: Approve USDC → `market.venue.exchange`
 - **SELL orders**: Approve Conditional Tokens → `market.venue.exchange`
 
 **NegRisk Markets:**
+
 - **BUY orders**: Approve USDC → `market.venue.exchange`
 - **SELL orders**: Approve Conditional Tokens → **both** `market.venue.exchange` AND `market.venue.adapter`
 
@@ -220,6 +222,7 @@ For more details, see the [NegRisk Trading Guide](./docs/orders/README.md#negris
 FOK orders execute immediately at the best available price or cancel entirely. Unlike GTC orders that use `price` + `size`, FOK orders use `makerAmount`.
 
 **Parameter Semantics**:
+
 - **BUY**: `makerAmount` = total USDC to spend
 - **SELL**: `makerAmount` = number of shares to sell
 
@@ -229,7 +232,7 @@ import { OrderClient, Side, OrderType } from '@limitless-exchange/sdk';
 // BUY FOK - spend 50 USDC at market price
 const buyOrder = await orderClient.createOrder({
   tokenId: marketDetails.tokens.yes,
-  makerAmount: 50,         // 50 USDC to spend
+  makerAmount: 50, // 50 USDC to spend
   side: Side.BUY,
   orderType: OrderType.FOK,
   marketSlug: 'market-slug',
@@ -238,7 +241,7 @@ const buyOrder = await orderClient.createOrder({
 // SELL FOK - sell 120 shares at market price
 const sellOrder = await orderClient.createOrder({
   tokenId: marketDetails.tokens.no,
-  makerAmount: 120,        // 120 shares to sell
+  makerAmount: 120, // 120 shares to sell
   side: Side.SELL,
   orderType: OrderType.FOK,
   marketSlug: 'market-slug',
@@ -253,6 +256,7 @@ if (buyOrder.makerMatches && buyOrder.makerMatches.length > 0) {
 ```
 
 **Key Differences from GTC**:
+
 - FOK uses `makerAmount` (not `price` + `size`)
 - Executes immediately or cancels (no orderbook placement)
 - All-or-nothing execution (no partial fills)
