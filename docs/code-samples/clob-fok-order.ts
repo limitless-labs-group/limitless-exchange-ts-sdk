@@ -19,7 +19,6 @@ import {
   OrderClient,
   Side,
   OrderType,
-  MarketType,
   ConsoleLogger,
   getContractAddress,
 } from '@limitless-exchange/sdk';
@@ -98,7 +97,6 @@ async function main() {
       tokenId: process.env.CLOB_POSITION_ID, // Example token ID - can be found in Market response YES/NO
       makerAmount: 32.05, // BUY: 32.05 USDC to spend | SELL: 32.05 shares to sell
       side: Side.BUY, // BUY order
-      marketType: MarketType.CLOB,
     };
 
     const marketSlug = process.env.CLOB_MARKET_SLUG; // Example market
@@ -114,16 +112,15 @@ async function main() {
     // ===========================================
     console.log('🔨 Step 3: Creating order client...');
 
-    // Option 1: Simple mode - auto-configures from marketType
+    // Option 1: Simple mode - auto-configures from venue
     const orderClient = new OrderClient({
       httpClient,
       wallet,
       userData,
-      marketType: MarketType.CLOB, // Auto-loads contract from env/defaults
       logger,
     });
 
-    // Option 2:  Custom signing configuration
+    // Option 2: Custom signing configuration
     // const orderClient = new OrderClient({
     //   httpClient,
     //   wallet,
@@ -131,7 +128,6 @@ async function main() {
     //   signingConfig: {
     //     chainId: CHAIN_ID,
     //     contractAddress: CLOB_CONTRACT_ADDRESS,
-    //     marketType: MarketType.CLOB,
     //   },
     //   logger,
     // });

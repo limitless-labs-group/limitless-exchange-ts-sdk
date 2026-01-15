@@ -68,34 +68,23 @@ export class Authenticator {
   /**
    * Authenticates with the API and obtains session cookie.
    *
-   * @param options - Login options including client type and smart wallet
+   * @param options - Login options including client type
    * @returns Promise resolving to authentication result
-   * @throws Error if authentication fails or smart wallet is required but not provided
+   * @throws Error if authentication fails
    *
    * @example
    * ```typescript
    * // EOA authentication
    * const result = await authenticator.authenticate({ client: 'eoa' });
    *
-   * // ETHERSPOT with smart wallet
-   * const result = await authenticator.authenticate({
-   *   client: 'etherspot',
-   *   smartWallet: '0x...'
-   * });
+   * // Base client authentication
+   * const result = await authenticator.authenticate({ client: 'base' });
    * ```
    */
   async authenticate(options: LoginOptions = {}): Promise<AuthResult> {
     const client = options.client || 'eoa';
 
-    this.logger.info('Starting authentication', {
-      client,
-      hasSmartWallet: !!options.smartWallet,
-    });
-
-    if (client === 'etherspot' && !options.smartWallet) {
-      this.logger.error('Smart wallet address required for ETHERSPOT client');
-      throw new Error('Smart wallet address is required for ETHERSPOT client');
-    }
+    this.logger.info('Starting authentication', { client });
 
     try {
       const signingMessage = await this.getSigningMessage();
@@ -106,7 +95,7 @@ export class Authenticator {
       this.logger.debug('Sending authentication request', { client });
       const response = await this.httpClient.postWithResponse<UserProfile>(
         '/auth/login',
-        { client, smartWallet: options.smartWallet },
+        { client },
         {
           headers: headers as any,
           validateStatus: (status) => status < 500,

@@ -2,7 +2,7 @@
  * Client type for authentication.
  * @public
  */
-export type ClientType = 'eoa' | 'base' | 'etherspot';
+export type ClientType = 'eoa' | 'base';
 
 /**
  * Trading mode for user interface.
@@ -141,11 +141,6 @@ export interface UserProfile {
   socialUrl?: string;
 
   /**
-   * Smart wallet address (optional, required for ETHERSPOT client)
-   */
-  smartWallet?: string;
-
-  /**
    * Trade wallet option
    */
   tradeWalletOption?: string;
@@ -262,9 +257,4 @@ export interface LoginOptions {
    * @defaultValue 'eoa'
    */
   client?: ClientType;
-
-  /**
-   * Smart wallet address (required when client is 'etherspot')
-   */
-  smartWallet?: string;
 }

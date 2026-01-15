@@ -24,26 +24,8 @@ async function main() {
   }
   console.log();
 
-  // Example 2: Missing smart wallet for ETHERSPOT
-  console.log('📝 Example 2: Missing smart wallet address...');
-  try {
-    const wallet = ethers.Wallet.createRandom();
-    const httpClient = new HttpClient();
-    const signer = new MessageSigner(wallet);
-    const authenticator = new Authenticator(httpClient, signer);
-
-    await authenticator.authenticate({
-      client: 'etherspot',
-      // smartWallet not provided - should throw
-    });
-    console.log('   ❌ Should have thrown an error');
-  } catch (error) {
-    console.log('   ✅ Caught error:', error instanceof Error ? error.message : error);
-  }
-  console.log();
-
-  // Example 3: Network timeout
-  console.log('📝 Example 3: Network timeout handling...');
+  // Example 2: Network timeout
+  console.log('📝 Example 2: Network timeout handling...');
   try {
     const wallet = ethers.Wallet.createRandom();
     const httpClient = new HttpClient({
@@ -60,8 +42,8 @@ async function main() {
   }
   console.log();
 
-  // Example 4: Proper error handling pattern
-  console.log('📝 Example 4: Recommended error handling pattern...');
+  // Example 3: Proper error handling pattern
+  console.log('📝 Example 3: Recommended error handling pattern...');
 
   const privateKey = process.env.PRIVATE_KEY;
   if (

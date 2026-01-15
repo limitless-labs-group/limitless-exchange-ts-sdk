@@ -36,8 +36,7 @@ import {
   OrderClient,
   MarketFetcher,
   Side,
-  OrderType,
-  MarketType
+  OrderType
 } from '@limitless-exchange/sdk';
 
 // Initialize wallet
@@ -55,7 +54,11 @@ const { sessionCookie, profile } = await authenticator.authenticate({
   client: 'eoa'
 });
 
-// Place an order
+// Fetch market details (caches venue for efficient order signing)
+const marketFetcher = new MarketFetcher(httpClient);
+const market = await marketFetcher.getMarket('market-slug');
+
+// Create order client with shared marketFetcher for optimal performance
 const orderClient = new OrderClient({
   httpClient,
   wallet,
@@ -63,17 +66,17 @@ const orderClient = new OrderClient({
     userId: profile.id,
     feeRateBps: profile.rank?.feeRateBps || 300,
   },
-  marketType: MarketType.CLOB,
+  marketFetcher,  // Share instance for venue caching
 });
 
+// Place an order (uses cached venue - no extra API calls)
 const order = await orderClient.createOrder({
-  tokenId: 'YOUR_TOKEN_ID',
+  tokenId: market.tokens.yes,
   price: 0.65,
   size: 10,
   side: Side.BUY,
   orderType: OrderType.GTC,
   marketSlug: 'market-slug',
-  marketType: MarketType.CLOB,
 });
 ```
 
@@ -81,7 +84,6 @@ const order = await orderClient.createOrder({
 
 ### 🔐 Authentication
 - EOA (Externally Owned Account) authentication
-- Smart wallet support via Etherspot
 - Automatic session management
 - [Full Documentation](./auth/README.md)
 

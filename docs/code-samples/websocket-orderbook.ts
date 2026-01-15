@@ -230,6 +230,7 @@ async function main() {
     await wsClient.connect();
 
     // Subscribe to market using raw API event name and format
+    // Note: subscribe() is fire-and-forget (server doesn't send ACK), but kept async for API compatibility
     await wsClient.subscribe('subscribe_market_prices', { marketSlugs: [MARKET_SLUG] });
     console.log(`✅ Subscribed to: ${MARKET_SLUG}\n`);
 

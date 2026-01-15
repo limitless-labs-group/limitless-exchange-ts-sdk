@@ -7,7 +7,6 @@ import { ethers } from 'ethers';
 import type {
   UnsignedOrder,
   OrderSigningConfig,
-  MarketType,
 } from '../types/orders';
 import type { ILogger } from '../types/logger';
 import { NoOpLogger } from '../types/logger';
@@ -70,8 +69,7 @@ export class OrderSigner {
    * ```typescript
    * const signature = await signer.signOrder(unsignedOrder, {
    *   chainId: 8453,
-   *   contractAddress: '0x...',
-   *   marketType: MarketType.CLOB
+   *   contractAddress: '0x...'
    * });
    * ```
    */
@@ -82,7 +80,7 @@ export class OrderSigner {
     this.logger.debug('Signing order with EIP-712', {
       tokenId: order.tokenId,
       side: order.side,
-      marketType: config.marketType,
+      verifyingContract: config.contractAddress,
     });
 
     // Verify wallet address matches signer

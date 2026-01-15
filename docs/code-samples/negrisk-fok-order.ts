@@ -23,7 +23,6 @@ import {
   MarketFetcher,
   Side,
   OrderType,
-  MarketType,
   ConsoleLogger,
   getContractAddress,
 } from '@limitless-exchange/sdk';
@@ -143,7 +142,6 @@ async function main() {
       httpClient,
       wallet,
       userData,
-      marketType: MarketType.NEGRISK, // Use NEGRISK for proper contract
       logger,
     });
 
@@ -283,8 +281,8 @@ async function main() {
     console.log('   - No partial fills - must be fully matched');
 
     console.log('\n3️⃣  NegRisk Contract:');
-    console.log('   - Must use MarketType.NEGRISK for proper signature');
-    console.log(`   - Contract address: ${NEGRISK_CONTRACT_ADDRESS}`);
+    console.log('   - Contract address dynamically resolved from venue data');
+    console.log(`   - NegRisk Contract: ${NEGRISK_CONTRACT_ADDRESS}`);
     console.log('   - Set NEGRISK_CONTRACT_ADDRESS env var to override');
 
     console.log('\n4️⃣  Token IDs:');

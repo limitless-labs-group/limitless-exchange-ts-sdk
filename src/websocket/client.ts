@@ -122,8 +122,9 @@ export class WebSocketClient {
    * ```
    */
   async connect(): Promise<void> {
-    if (this.socket?.connected) {
-      this.logger.info('Already connected');
+    // Fix: Prevent race condition by checking CONNECTING state
+    if (this.socket?.connected || this.state === WebSocketState.CONNECTING) {
+      this.logger.info('Already connected or connecting');
       return;
     }
 
@@ -206,13 +207,13 @@ export class WebSocketClient {
    *
    * @param channel - Channel to subscribe to
    * @param options - Subscription options
-   * @returns Promise that resolves when subscribed
+   * @returns Promise that resolves immediately (kept async for API compatibility)
    * @throws Error if not connected
    *
    * @example
    * ```typescript
    * // Subscribe to orderbook for a specific market
-   * await wsClient.subscribe('orderbook', { marketSlug: 'market-123' });
+   * await wsClient.subscribe('orderbook', { marketSlugs: ['market-123'] });
    *
    * // Subscribe to all trades
    * await wsClient.subscribe('trades');
@@ -232,18 +233,10 @@ export class WebSocketClient {
     this.logger.info('Subscribing to channel', { channel, options });
 
     // Pass channel and options as-is to the server - no transformation
-    return new Promise((resolve, reject) => {
-      this.socket!.emit(channel, options, (response: any) => {
-        if (response?.error) {
-          this.logger.error('Subscription failed', response.error);
-          this.subscriptions.delete(subscriptionKey);
-          reject(new Error(response.error));
-        } else {
-          this.logger.info('Subscribed successfully', { channel, options });
-          resolve();
-        }
-      });
-    });
+    // Note: Server returns Promise<void>, so no acknowledgment callback is used
+    // This is fire-and-forget to avoid timeout issues when server doesn't send ACK
+    this.socket!.emit(channel, options);
+    this.logger.info('Subscription request sent', { channel, options });
   }
 
   /**
@@ -251,11 +244,11 @@ export class WebSocketClient {
    *
    * @param channel - Channel to unsubscribe from
    * @param options - Subscription options (must match subscribe call)
-   * @returns Promise that resolves when unsubscribed
+   * @returns Promise that resolves immediately (kept async for API compatibility)
    *
    * @example
    * ```typescript
-   * await wsClient.unsubscribe('orderbook', { marketSlug: 'market-123' });
+   * await wsClient.unsubscribe('orderbook', { marketSlugs: ['market-123'] });
    * ```
    */
   async unsubscribe(channel: SubscriptionChannel, options: SubscriptionOptions = {}): Promise<void> {
@@ -268,18 +261,9 @@ export class WebSocketClient {
 
     this.logger.info('Unsubscribing from channel', { channel, options });
 
-    // Pass raw unsubscribe event with channel and options
-    return new Promise((resolve, reject) => {
-      this.socket!.emit('unsubscribe', { channel, ...options }, (response: any) => {
-        if (response?.error) {
-          this.logger.error('Unsubscribe failed', response.error);
-          reject(new Error(response.error));
-        } else {
-          this.logger.info('Unsubscribed successfully', { channel, options });
-          resolve();
-        }
-      });
-    });
+    // Pass raw unsubscribe event with channel and options (fire-and-forget)
+    this.socket!.emit('unsubscribe', { channel, ...options });
+    this.logger.info('Unsubscribe request sent', { channel, options });
   }
 
   /**

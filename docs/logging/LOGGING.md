@@ -355,6 +355,5 @@ const authenticator = new Authenticator(httpClient, signer, mockLogger);
 // Assert logging behavior
 expect(mockLogger.info).toHaveBeenCalledWith('Starting authentication', {
   client: 'eoa',
-  hasSmartWallet: false,
 });
 ```

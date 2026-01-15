@@ -21,7 +21,6 @@ import {
   MarketFetcher,
   Side,
   OrderType,
-  MarketType,
   ConsoleLogger,
   getContractAddress,
 } from '@limitless-exchange/sdk';
@@ -199,7 +198,6 @@ async function main() {
       httpClient,
       wallet,
       userData,
-      marketType: MarketType.NEGRISK,
       logger,
     });
 
@@ -213,7 +211,7 @@ async function main() {
     console.log(`      Size: 10 shares`);
 
     // IMPORTANT: For NegRisk markets, use the SUBMARKET slug, not the group slug
-    // The order placement uses MarketType.NEGRISK for proper signature
+    // Contract address is dynamically resolved from venue data
     const orderResponse = await orderClient.createOrder({
       tokenId: detailedInfo.tokens.yes, // YES token ID from submarket
       price: 0.1, // Limit price

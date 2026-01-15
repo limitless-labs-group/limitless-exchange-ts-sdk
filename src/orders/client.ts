@@ -13,20 +13,23 @@ import type {
   UnsignedOrder,
   OrderSigningConfig,
 } from '../types/orders';
-import { OrderType, MarketType } from '../types/orders';
+import { OrderType } from '../types/orders';
 import { OrderBuilder } from './builder';
 import { OrderSigner } from './signer';
 import type { ethers } from 'ethers';
 import type { UserData } from '../types/auth';
-import { getContractAddress } from '../utils/constants';
+import { ZERO_ADDRESS } from '../utils/constants';
+import { MarketFetcher } from '../markets/fetcher';
 
 /**
  * Configuration for the order client.
  *
  * @remarks
- * The order client supports two configuration modes:
- * 1. Simple mode: Provide userData and marketType (auto-configures signing)
- * 2. Advanced mode: Provide userData and custom signingConfig
+ * The order client auto-configures signing based on venue data from the API.
+ * Custom signingConfig is optional for advanced use cases.
+ *
+ * Performance tip: Provide a shared marketFetcher instance to enable venue caching
+ * across market fetches and order creation, avoiding redundant API calls.
  *
  * @public
  */
@@ -55,24 +58,42 @@ export interface OrderClientConfig {
   userData: UserData;
 
   /**
-   * Market type for auto-configuration (optional if signingConfig provided)
-   *
-   * @remarks
-   * When provided without signingConfig, automatically loads contract address
-   * from environment variables or SDK defaults.
-   *
-   * @defaultValue MarketType.CLOB
-   */
-  marketType?: MarketType;
-
-  /**
    * Custom signing configuration (optional)
    *
    * @remarks
-   * If not provided, SDK will auto-configure based on marketType.
+   * If not provided, SDK will auto-configure from venue data.
    * Useful for custom deployments or testing.
    */
   signingConfig?: OrderSigningConfig;
+
+  /**
+   * Shared MarketFetcher instance for venue caching (optional)
+   *
+   * @remarks
+   * When provided, enables efficient venue caching across market fetches and order creation.
+   * If not provided, OrderClient creates its own internal MarketFetcher instance.
+   *
+   * Best practice: Share the same MarketFetcher instance between market operations
+   * and order creation for optimal performance.
+   *
+   * @example
+   * ```typescript
+   * const marketFetcher = new MarketFetcher(httpClient);
+   * const orderClient = new OrderClient({
+   *   httpClient,
+   *   wallet,
+   *   userData,
+   *   marketFetcher  // Shared instance
+   * });
+   *
+   * // Venue is cached
+   * await marketFetcher.getMarket('bitcoin-2024');
+   *
+   * // Uses cached venue, no extra API call
+   * await orderClient.createOrder({ marketSlug: 'bitcoin-2024', ... });
+   * ```
+   */
+  marketFetcher?: MarketFetcher;
 
   /**
    * Optional logger
@@ -87,17 +108,21 @@ export interface OrderClientConfig {
  * This class provides high-level methods for order operations,
  * abstracting away HTTP details and order signing complexity.
  *
+ * Uses dynamic venue addressing for EIP-712 order signing. For best performance,
+ * always call marketFetcher.getMarket() before creating orders to cache venue data.
+ *
  * @example
  * ```typescript
  * const orderClient = new OrderClient({
  *   httpClient,
  *   wallet,
- *   ownerId: 123,
- *   feeRateBps: 100,
+ *   userData: {
+ *     userId: 123,
+ *     feeRateBps: 100
+ *   },
  *   signingConfig: {
  *     chainId: 8453,
- *     contractAddress: '0x...',
- *     marketType: MarketType.CLOB
+ *     contractAddress: '0x...'
  *   }
  * });
  *
@@ -117,6 +142,7 @@ export class OrderClient {
   private httpClient: HttpClient;
   private orderBuilder: OrderBuilder;
   private orderSigner: OrderSigner;
+  private marketFetcher: MarketFetcher;
   private ownerId: number;
   private signingConfig: OrderSigningConfig;
   private logger: ILogger;
@@ -125,62 +151,39 @@ export class OrderClient {
    * Creates a new order client instance.
    *
    * @param config - Order client configuration
-   *
-   * @throws Error if neither marketType nor signingConfig is provided
    */
   constructor(config: OrderClientConfig) {
     this.httpClient = config.httpClient;
     this.logger = config.logger || new NoOpLogger();
 
-    // Extract user data
     this.ownerId = config.userData.userId;
     const feeRateBps = config.userData.feeRateBps;
 
-    // Initialize order builder with default price tick (0.001 = 3 decimals)
     this.orderBuilder = new OrderBuilder(config.wallet.address, feeRateBps, 0.001);
-
-    // Initialize order signer
     this.orderSigner = new OrderSigner(config.wallet, this.logger);
 
-    // Configure signing: use provided config or auto-configure from marketType
+    this.marketFetcher = config.marketFetcher || new MarketFetcher(config.httpClient, this.logger);
+
+    // Configure signing: use provided config or auto-configure
     if (config.signingConfig) {
       // Use custom signing configuration
       this.signingConfig = config.signingConfig;
-    } else if (config.marketType) {
-      // Auto-configure from market type
+    } else {
+      // Auto-configure base settings
       const chainId = parseInt(process.env.CHAIN_ID || '8453'); // Base mainnet default
 
-      // Check for market-type specific env var first, then fall back to SDK defaults
-      const contractAddress = config.marketType === MarketType.NEGRISK
-        ? (process.env.NEGRISK_CONTRACT_ADDRESS || getContractAddress('NEGRISK', chainId))
-        : (process.env.CLOB_CONTRACT_ADDRESS || getContractAddress('CLOB', chainId));
+      // Note: contractAddress is a placeholder here and will be dynamically replaced
+      // with venue.exchange in createOrder(). The actual contract address comes from
+      // the venue system (market.venue.exchange).
+      const contractAddress = ZERO_ADDRESS;
 
       this.signingConfig = {
         chainId,
         contractAddress,
-        marketType: config.marketType,
       };
 
-      this.logger.info('Auto-configured signing', {
+      this.logger.info('Auto-configured signing (contract address from venue)', {
         chainId,
-        contractAddress,
-        marketType: config.marketType,
-      });
-    } else {
-      // Default to CLOB if neither provided
-      const chainId = parseInt(process.env.CHAIN_ID || '8453');
-      const contractAddress = process.env.CLOB_CONTRACT_ADDRESS ||
-        getContractAddress('CLOB', chainId);
-
-      this.signingConfig = {
-        chainId,
-        contractAddress,
-        marketType: MarketType.CLOB,
-      };
-
-      this.logger.debug('Using default CLOB configuration', {
-        chainId,
-        contractAddress,
       });
     }
   }
@@ -190,24 +193,31 @@ export class OrderClient {
    *
    * @remarks
    * This method handles the complete order creation flow:
-   * 1. Build unsigned order
-   * 2. Sign with EIP-712
-   * 3. Submit to API
+   * 1. Resolve venue address (from cache or API)
+   * 2. Build unsigned order
+   * 3. Sign with EIP-712 using venue.exchange as verifyingContract
+   * 4. Submit to API
+   *
+   * Performance best practice: Always call marketFetcher.getMarket(marketSlug)
+   * before createOrder() to cache venue data and avoid additional API requests.
    *
    * @param params - Order parameters
    * @returns Promise resolving to order response
    *
-   * @throws Error if order creation fails
+   * @throws Error if order creation fails or venue not found
    *
    * @example
    * ```typescript
+   * // Best practice: fetch market first to cache venue
+   * const market = await marketFetcher.getMarket('bitcoin-2024');
+   *
    * const order = await orderClient.createOrder({
-   *   tokenId: '123456',
+   *   tokenId: market.tokens.yes,
    *   price: 0.65,
    *   size: 100,
    *   side: Side.BUY,
    *   orderType: OrderType.GTC,
-   *   marketSlug: 'market-slug'
+   *   marketSlug: 'bitcoin-2024'
    * });
    *
    * console.log(`Order created: ${order.order.id}`);
@@ -225,7 +235,38 @@ export class OrderClient {
       marketSlug: params.marketSlug,
     });
 
-    // Step 1: Build unsigned order
+    let venue = this.marketFetcher.getVenue(params.marketSlug);
+
+    if (!venue) {
+      this.logger.warn(
+        'Venue not cached, fetching market details. ' +
+          'For better performance, call marketFetcher.getMarket() before createOrder().',
+        { marketSlug: params.marketSlug }
+      );
+
+      const market = await this.marketFetcher.getMarket(params.marketSlug);
+
+      if (!market.venue) {
+        throw new Error(
+          `Market ${params.marketSlug} does not have venue information. ` +
+            'Venue data is required for order signing.'
+        );
+      }
+
+      venue = market.venue;
+    }
+
+    const dynamicSigningConfig: OrderSigningConfig = {
+      ...this.signingConfig,
+      contractAddress: venue.exchange,
+    };
+
+    this.logger.debug('Using venue for order signing', {
+      marketSlug: params.marketSlug,
+      exchange: venue.exchange,
+      adapter: venue.adapter,
+    });
+
     const unsignedOrder = this.orderBuilder.buildOrder(params);
 
     this.logger.debug('Built unsigned order', {
@@ -234,11 +275,7 @@ export class OrderClient {
       takerAmount: unsignedOrder.takerAmount,
     });
 
-    // Step 2: Sign order with EIP-712
-    const signature = await this.orderSigner.signOrder(
-      unsignedOrder,
-      this.signingConfig
-    );
+    const signature = await this.orderSigner.signOrder(unsignedOrder, dynamicSigningConfig);
 
     // Step 3: Prepare payload for API
     const payload: NewOrderPayload = {
@@ -254,10 +291,7 @@ export class OrderClient {
     // Step 4: Submit to API
     this.logger.debug('Submitting order to API');
     console.log('[OrderClient] Full API request payload:', JSON.stringify(payload, null, 2));
-    const apiResponse = await this.httpClient.post<any>(
-      '/orders',
-      payload
-    );
+    const apiResponse = await this.httpClient.post<any>('/orders', payload);
 
     this.logger.info('Order created successfully', {
       orderId: apiResponse.order.id,
@@ -329,13 +363,11 @@ export class OrderClient {
   async cancel(orderId: string): Promise<{ message: string }> {
     this.logger.info('Cancelling order', { orderId });
 
-    const response = await this.httpClient.delete<{ message: string }>(
-      `/orders/${orderId}`
-    );
+    const response = await this.httpClient.delete<{ message: string }>(`/orders/${orderId}`);
 
     this.logger.info('Order cancellation response', {
       orderId,
-      message: response.message
+      message: response.message,
     });
 
     return response;
@@ -358,13 +390,11 @@ export class OrderClient {
   async cancelAll(marketSlug: string): Promise<{ message: string }> {
     this.logger.info('Cancelling all orders for market', { marketSlug });
 
-    const response = await this.httpClient.delete<{ message: string }>(
-      `/orders/all/${marketSlug}`
-    );
+    const response = await this.httpClient.delete<{ message: string }>(`/orders/all/${marketSlug}`);
 
     this.logger.info('All orders cancellation response', {
       marketSlug,
-      message: response.message
+      message: response.message,
     });
 
     return response;
@@ -394,9 +424,7 @@ export class OrderClient {
   async getOrder(orderId: string): Promise<OrderResponse> {
     this.logger.debug('Fetching order', { orderId });
 
-    const response = await this.httpClient.get<OrderResponse>(
-      `/orders/${orderId}`
-    );
+    const response = await this.httpClient.get<OrderResponse>(`/orders/${orderId}`);
 
     return response;
   }

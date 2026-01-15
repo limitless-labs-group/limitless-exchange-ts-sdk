@@ -1,6 +1,10 @@
 # Limitless Exchange TypeScript SDK
 
+**v1.0.0 LTS (Long-Term Support)** | Production-Ready | Type-Safe | Fully Documented
+
 A TypeScript SDK for interacting with the Limitless Exchange platform, providing type-safe access to CLOB and NegRisk prediction markets.
+
+> 🎉 **v1.0.0 LTS Release**: This is the first stable, production-ready release with long-term support. Recommended for all production deployments. See [Changelog](#changelog) for details.
 
 ## ⚠️ Disclaimer
 
@@ -101,31 +105,82 @@ const authenticator = new Authenticator(httpClient, signer);
 
 // Authenticate
 const result = await authenticator.authenticate({
-  client: 'eoa', // 'eoa', 'base', or 'etherspot'
+  client: 'eoa', // 'eoa' or 'base'
 });
 
 console.log('Session cookie:', result.sessionCookie);
 console.log('Profile:', result.profile);
 ```
 
-### ETHERSPOT Authentication (Smart Wallet)
+### Token Approvals
+
+**Important**: Before placing orders, you must approve tokens for the exchange contracts. This is a **one-time setup** per wallet.
+
+#### Required Approvals
+
+**CLOB Markets:**
+- **BUY orders**: Approve USDC → `market.venue.exchange`
+- **SELL orders**: Approve Conditional Tokens → `market.venue.exchange`
+
+**NegRisk Markets:**
+- **BUY orders**: Approve USDC → `market.venue.exchange`
+- **SELL orders**: Approve Conditional Tokens → **both** `market.venue.exchange` AND `market.venue.adapter`
+
+#### Quick Setup
+
+Run the approval setup script:
+
+```bash
+# Copy .env.example and configure your wallet
+cp docs/code-samples/.env.example docs/code-samples/.env
+
+# Edit .env and set your PRIVATE_KEY and market slug
+# Then run the approval script
+npx tsx docs/code-samples/setup-approvals.ts
+```
+
+#### Manual Approval Example
 
 ```typescript
-const result = await authenticator.authenticate({
-  client: 'etherspot',
-  smartWallet: '0x...', // Your smart wallet address
-});
+import { ethers } from 'ethers';
+import { MarketFetcher, getContractAddress } from '@limitless-exchange/sdk';
+
+// 1. Fetch market to get venue addresses
+const market = await marketFetcher.getMarket('market-slug');
+
+// 2. Create contract instances
+const usdc = new ethers.Contract(
+  getContractAddress('USDC'),
+  ['function approve(address spender, uint256 amount) returns (bool)'],
+  wallet
+);
+
+const ctf = new ethers.Contract(
+  getContractAddress('CTF'),
+  ['function setApprovalForAll(address operator, bool approved)'],
+  wallet
+);
+
+// 3. Approve USDC for BUY orders
+await usdc.approve(market.venue.exchange, ethers.MaxUint256);
+
+// 4. Approve CT for SELL orders
+await ctf.setApprovalForAll(market.venue.exchange, true);
+
+// 5. For NegRisk SELL orders, also approve adapter
+if (market.negRiskRequestId) {
+  await ctf.setApprovalForAll(market.venue.adapter, true);
+}
 ```
+
+For complete examples, see [docs/code-samples/setup-approvals.ts](./docs/code-samples/setup-approvals.ts).
 
 ### Trading on NegRisk Markets
 
 NegRisk markets are group markets with multiple related outcomes. Here's a quick example:
 
 ```typescript
-import { OrderClient, MarketFetcher, MarketType, Side, OrderType } from '@limitless-exchange/sdk';
-
-// Set the NegRisk contract address
-process.env.NEGRISK_CONTRACT_ADDRESS = '0x5a38afc17F7E97ad8d6C547ddb837E40B4aEDfC6';
+import { OrderClient, MarketFetcher, Side, OrderType } from '@limitless-exchange/sdk';
 
 // 1. Fetch NegRisk group market
 const marketFetcher = new MarketFetcher(httpClient);
@@ -135,7 +190,7 @@ const groupMarket = await marketFetcher.getMarket('largest-company-end-of-2025-1
 const appleMarket = groupMarket.markets[0];
 const marketDetails = await marketFetcher.getMarket(appleMarket.slug);
 
-// 3. Create order client for NegRisk
+// 3. Create order client (contract address from venue)
 const orderClient = new OrderClient({
   httpClient,
   wallet,
@@ -143,7 +198,6 @@ const orderClient = new OrderClient({
     userId: (authResult.profile as any).id,
     feeRateBps: (authResult.profile as any).rank?.feeRateBps || 300,
   },
-  marketType: MarketType.NEGRISK, // Important: Use NEGRISK
 });
 
 // 4. Place order on submarket (not group!)
@@ -160,6 +214,51 @@ const order = await orderClient.createOrder({
 **Important**: Always use the **submarket slug** for NegRisk orders, not the group market slug!
 
 For more details, see the [NegRisk Trading Guide](./docs/orders/README.md#negrisk-markets).
+
+### FOK Orders (Fill-or-Kill Market Orders)
+
+FOK orders execute immediately at the best available price or cancel entirely. Unlike GTC orders that use `price` + `size`, FOK orders use `makerAmount`.
+
+**Parameter Semantics**:
+- **BUY**: `makerAmount` = total USDC to spend
+- **SELL**: `makerAmount` = number of shares to sell
+
+```typescript
+import { OrderClient, Side, OrderType } from '@limitless-exchange/sdk';
+
+// BUY FOK - spend 50 USDC at market price
+const buyOrder = await orderClient.createOrder({
+  tokenId: marketDetails.tokens.yes,
+  makerAmount: 50,         // 50 USDC to spend
+  side: Side.BUY,
+  orderType: OrderType.FOK,
+  marketSlug: 'market-slug',
+});
+
+// SELL FOK - sell 120 shares at market price
+const sellOrder = await orderClient.createOrder({
+  tokenId: marketDetails.tokens.no,
+  makerAmount: 120,        // 120 shares to sell
+  side: Side.SELL,
+  orderType: OrderType.FOK,
+  marketSlug: 'market-slug',
+});
+
+// Check execution
+if (buyOrder.makerMatches && buyOrder.makerMatches.length > 0) {
+  console.log(`Order filled: ${buyOrder.makerMatches.length} matches`);
+} else {
+  console.log('Order cancelled (no liquidity)');
+}
+```
+
+**Key Differences from GTC**:
+- FOK uses `makerAmount` (not `price` + `size`)
+- Executes immediately or cancels (no orderbook placement)
+- All-or-nothing execution (no partial fills)
+- Best for immediate execution at market price
+
+For complete examples, see [docs/code-samples/clob-fok-order.ts](./docs/code-samples/clob-fok-order.ts).
 
 ### Error Handling & Retry
 
@@ -277,7 +376,6 @@ Production-ready code samples are available in [docs/code-samples](./docs/code-s
 ### Authentication Examples
 
 - `basic-auth.ts` - Simple EOA authentication
-- `smart-wallet.ts` - Etherspot smart wallet integration
 - `with-logging.ts` - Authentication with custom logging
 - `auth-retry.ts` - Authentication with retry logic
 - `error-handling.ts` - Comprehensive error handling
@@ -368,6 +466,65 @@ docs/
 └── */              # Documentation guides
 
 ```
+
+## Changelog
+
+### v1.0.0 (LTS - Long-Term Support Release)
+
+**Release Date**: January 2026
+
+This is the first stable, production-ready release of the Limitless Exchange TypeScript SDK, designated as a Long-Term Support (LTS) version.
+
+#### Highlights
+
+- ✅ **Production-Ready**: Thoroughly tested and validated against Base mainnet
+- 🔒 **Type-Safe**: Full TypeScript support with comprehensive type definitions
+- 📚 **Well-Documented**: 17 production-ready code samples + comprehensive guides
+- ⚡ **Performance Optimized**: Venue caching system and connection pooling
+- 🔄 **Robust Error Handling**: Automatic retry logic with multiple strategies
+- 🌐 **Real-Time Updates**: WebSocket support for orderbook and position streaming
+- 🎯 **NegRisk Support**: Full support for group markets with multiple outcomes
+
+#### Core Features
+
+- **Authentication**: EIP-712 signing, EOA support, session management
+- **Market Data**: Active markets with sorting, orderbook access, venue caching
+- **Order Management**: GTC and FOK orders, tick alignment, automatic signing
+- **Portfolio**: Position tracking, trading history, balance monitoring
+- **WebSocket**: Real-time orderbook, price updates, event streaming
+- **Error Handling**: Decorator and wrapper retry patterns, configurable strategies
+- **Token Approvals**: Complete setup script, CLOB and NegRisk workflows
+
+#### Documentation Enhancements (v1.0.0)
+
+- Added FOK order examples to README with clear `makerAmount` semantics
+- Created comprehensive CHANGELOG.md following Keep a Changelog format
+- All 17 code samples include step-by-step comments and error handling
+- Detailed guides for authentication, trading, markets, portfolio, and WebSocket
+
+For complete release notes, see [CHANGELOG.md](./CHANGELOG.md).
+
+---
+
+### Pre-Release Versions
+
+- **v0.0.3** - WebSocket streaming, enhanced code samples, NegRisk examples
+- **v0.0.2** - Venue caching, retry mechanisms, portfolio fetcher
+- **v0.0.1** - Initial release with core functionality
+
+---
+
+## LTS Support Policy
+
+**v1.0.0 LTS** will receive:
+
+- Security updates and critical bug fixes
+- Compatibility maintenance with Limitless Exchange API
+- Community support and issue resolution
+- Documentation updates and improvements
+- Long-term stability for production deployments
+
+**Recommended for production use.** We commit to maintaining backward compatibility and providing timely security updates for this LTS release.
 
 ## License
 

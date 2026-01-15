@@ -54,37 +54,10 @@ async function main() {
   }
 
   // ============================================================================
-  // ERROR 3: ETHERSPOT Without Smart Wallet
+  // ERROR 3: Network Timeout
   // ============================================================================
 
-  console.log('📝 ERROR 3: ETHERSPOT Without Smart Wallet\n');
-
-  try {
-    const wallet = ethers.Wallet.createRandom();
-    const httpClient = new HttpClient();
-    const signer = new MessageSigner(wallet);
-    const authenticator = new Authenticator(httpClient, signer);
-
-    // This will throw error
-    await authenticator.authenticate({
-      client: 'etherspot',
-      // Missing smartWallet parameter!
-    });
-  } catch (error) {
-    console.error('❌ Error:', error instanceof Error ? error.message : error);
-    console.log('💡 Solution: Provide smartWallet address for ETHERSPOT');
-    console.log('   Example:');
-    console.log('   await authenticator.authenticate({');
-    console.log('     client: "etherspot",');
-    console.log('     smartWallet: "0x..."');
-    console.log('   });\n');
-  }
-
-  // ============================================================================
-  // ERROR 4: Network Timeout
-  // ============================================================================
-
-  console.log('📝 ERROR 4: Network Timeout\n');
+  console.log('📝 ERROR 3: Network Timeout\n');
 
   try {
     const wallet = ethers.Wallet.createRandom();
@@ -108,10 +81,10 @@ async function main() {
   }
 
   // ============================================================================
-  // ERROR 5: API Error Response
+  // ERROR 4: API Error Response
   // ============================================================================
 
-  console.log('📝 ERROR 5: Handling API Errors\n');
+  console.log('📝 ERROR 4: Handling API Errors\n');
 
   function handleAuthError(error: unknown): void {
     if (error instanceof Error) {
@@ -157,10 +130,10 @@ async function main() {
   }
 
   // ============================================================================
-  // ERROR 6: Session Verification Failed
+  // ERROR 5: Session Verification Failed
   // ============================================================================
 
-  console.log('📝 ERROR 6: Invalid or Expired Session\n');
+  console.log('📝 ERROR 5: Invalid or Expired Session\n');
 
   try {
     const wallet = ethers.Wallet.createRandom();
@@ -245,11 +218,12 @@ async function main() {
   console.log('   → Validate environment variables');
   console.log('   → Check key format (0x + 64 hex chars)\n');
 
-  console.log('2️⃣  ETHERSPOT Without Smart Wallet');
-  console.log('   → Always provide smartWallet for ETHERSPOT');
-  console.log('   → Validate addresses before authenticating\n');
+  console.log('2️⃣  Network Timeout');
+  console.log('   → Check internet connection');
+  console.log('   → Verify API URL is correct');
+  console.log('   → Increase timeout if needed\n');
 
-  console.log('3️⃣  Network Errors');
+  console.log('3️⃣  API Errors');
   console.log('   → Check API URL and connectivity');
   console.log('   → Increase timeout for slow networks');
   console.log('   → Implement retry logic with exponential backoff\n');

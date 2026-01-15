@@ -56,7 +56,7 @@ async function main() {
     // Step 5: Authenticate
     console.log('✍️  Step 5: Signing and authenticating...');
     const result = await authenticator.authenticate({
-      client: 'etherspot',
+      client: 'eoa',
     });
     console.log('   ✅ Authentication successful!');
     console.log(`   Session cookie: ${result.sessionCookie.substring(0, 30)}...`);
@@ -79,8 +79,8 @@ async function main() {
 
     console.log('🎉 All steps completed successfully!');
     console.log('\n📚 Next steps:');
-    console.log('   - Try the smart wallet example: pnpm start:smart-wallet');
     console.log('   - Explore error handling: pnpm start:error-handling');
+    console.log('   - Try creating orders: check trading examples');
   } catch (error) {
     console.error('\n❌ Error occurred');
 

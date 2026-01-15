@@ -11,6 +11,7 @@ import type {
   MarketPrice,
   ActiveMarketsParams,
   ActiveMarketsResponse,
+  Venue,
 } from '../types/markets';
 import type { ILogger } from '../types/logger';
 import { NoOpLogger } from '../types/logger';
@@ -22,11 +23,16 @@ import { NoOpLogger } from '../types/logger';
  * This class provides methods to fetch market data, orderbooks, and prices
  * from the Limitless Exchange API.
  *
+ * Venue caching: When fetching market data, venue information is automatically
+ * cached for efficient order signing. This eliminates redundant API calls when
+ * creating orders for the same market.
+ *
  * @public
  */
 export class MarketFetcher {
   private httpClient: HttpClient;
   private logger: ILogger;
+  private venueCache: Map<string, Venue>;
 
   /**
    * Creates a new market fetcher instance.
@@ -42,6 +48,7 @@ export class MarketFetcher {
   constructor(httpClient: HttpClient, logger?: ILogger) {
     this.httpClient = httpClient;
     this.logger = logger || new NoOpLogger();
+    this.venueCache = new Map();
   }
 
 
@@ -109,6 +116,11 @@ export class MarketFetcher {
   /**
    * Gets a single market by slug.
    *
+   * @remarks
+   * Automatically caches venue information for efficient order signing.
+   * Always call this method before creating orders to ensure venue data
+   * is available and avoid additional API requests.
+   *
    * @param slug - Market slug identifier
    * @returns Promise resolving to market details
    * @throws Error if API request fails or market not found
@@ -117,6 +129,12 @@ export class MarketFetcher {
    * ```typescript
    * const market = await fetcher.getMarket('bitcoin-price-2024');
    * console.log(`Market: ${market.title}`);
+   *
+   * // Venue is now cached for order signing
+   * await orderClient.createOrder({
+   *   marketSlug: 'bitcoin-price-2024',
+   *   ...
+   * });
    * ```
    */
   async getMarket(slug: string): Promise<Market> {
@@ -124,6 +142,18 @@ export class MarketFetcher {
 
     try {
       const market = await this.httpClient.get<Market>(`/markets/${slug}`);
+
+      if (market.venue) {
+        this.venueCache.set(slug, market.venue);
+        this.logger.debug('Venue cached for order signing', {
+          slug,
+          exchange: market.venue.exchange,
+          adapter: market.venue.adapter,
+          cacheSize: this.venueCache.size,
+        });
+      } else {
+        this.logger.warn('Market has no venue data', { slug });
+      }
 
       this.logger.info('Market fetched successfully', {
         slug,
@@ -134,6 +164,39 @@ export class MarketFetcher {
       this.logger.error('Failed to fetch market', error as Error, { slug });
       throw error;
     }
+  }
+
+  /**
+   * Gets cached venue information for a market.
+   *
+   * @remarks
+   * Returns venue data previously cached by getMarket() call.
+   * Used internally by OrderClient for efficient order signing.
+   *
+   * @param slug - Market slug identifier
+   * @returns Cached venue information, or undefined if not in cache
+   *
+   * @example
+   * ```typescript
+   * const venue = fetcher.getVenue('bitcoin-price-2024');
+   * if (venue) {
+   *   console.log(`Exchange: ${venue.exchange}`);
+   * }
+   * ```
+   */
+  getVenue(slug: string): Venue | undefined {
+    const venue = this.venueCache.get(slug);
+
+    if (venue) {
+      this.logger.debug('Venue cache hit', {
+        slug,
+        exchange: venue.exchange,
+      });
+    } else {
+      this.logger.debug('Venue cache miss', { slug });
+    }
+
+    return venue;
   }
 
   /**

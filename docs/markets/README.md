@@ -251,16 +251,35 @@ For a complete working example, see [examples/project-integration/src/active-mar
 
 ### Get Market Details
 
+Fetching market details returns comprehensive information including **venue data** for order signing.
+
 ```typescript
-// Get specific market by slug
+// Get specific market by slug (automatically caches venue)
 const market = await marketFetcher.getMarket('market-slug-here');
 
 console.log('Title:', market.title);
 console.log('Description:', market.description);
 console.log('Type:', market.marketType);
 console.log('Created:', market.createdAt);
-console.log('Outcomes:', market.outcomes);
+
+// Venue information for order signing and approvals
+if (market.venue) {
+  console.log('Exchange Contract:', market.venue.exchange);
+  console.log('Adapter Contract:', market.venue.adapter);
+}
+
+// Token IDs for CLOB markets
+if (market.tokens) {
+  console.log('YES Token:', market.tokens.yes);
+  console.log('NO Token:', market.tokens.no);
+}
 ```
+
+**Important**: The `venue` field contains critical contract addresses:
+- **`venue.exchange`**: Used as `verifyingContract` for EIP-712 order signing
+- **`venue.adapter`**: Required for NegRisk/Grouped market SELL token approvals
+
+**Performance Best Practice**: Always call `getMarket()` before creating orders to cache venue data and avoid redundant API calls during order signing.
 
 ## Orderbook Data
 
@@ -397,7 +416,58 @@ console.log('Market Metrics:', metrics);
 
 ## Best Practices
 
-### 1. Error Handling
+### 1. Venue Caching for Order Signing
+
+**Always fetch market details before creating orders** to cache venue data and eliminate redundant API calls.
+
+```typescript
+import { MarketFetcher, OrderClient } from '@limitless-exchange/sdk';
+
+// Create marketFetcher once
+const marketFetcher = new MarketFetcher(httpClient);
+
+// Fetch market details (automatically caches venue)
+const market = await marketFetcher.getMarket('market-slug');
+
+// Share marketFetcher with OrderClient for venue caching
+const orderClient = new OrderClient({
+  httpClient,
+  wallet,
+  userData,
+  marketFetcher,  // Shared instance - venue already cached!
+});
+
+// Create order (uses cached venue - no extra API calls)
+await orderClient.createOrder({
+  tokenId: market.tokens.yes,
+  price: 0.65,
+  size: 10,
+  side: Side.BUY,
+  orderType: OrderType.GTC,
+  marketSlug: 'market-slug',
+});
+```
+
+**Performance Benefits**:
+- **Zero extra API calls**: Venue data reused from market fetch
+- **Faster order creation**: No network round-trip for venue lookup
+- **Automatic caching**: SDK handles cache management internally
+
+**Without shared marketFetcher** (not recommended):
+```typescript
+// ❌ OrderClient creates its own marketFetcher
+const orderClient = new OrderClient({
+  httpClient,
+  wallet,
+  userData,
+  // No marketFetcher parameter
+});
+
+// ⚠️ Warning logged: fetches market again for venue
+await orderClient.createOrder({...});
+```
+
+### 2. Error Handling
 
 ```typescript
 import { ApiError } from '@limitless-exchange/sdk';
@@ -426,10 +496,12 @@ try {
 }
 ```
 
-### 2. Caching
+### 3. Orderbook Caching
+
+For frequently updated data like orderbooks, implement your own caching layer:
 
 ```typescript
-class MarketCache {
+class OrderbookCache {
   private cache = new Map<string, { data: any; timestamp: number }>();
   private ttl = 5000; // 5 seconds
 
@@ -456,7 +528,7 @@ const cache = new MarketCache();
 const orderbook = await cache.getOrderBook(marketFetcher, 'market-slug');
 ```
 
-### 3. Rate Limiting
+### 4. Rate Limiting
 
 ```typescript
 // Batch market requests
@@ -487,7 +559,7 @@ async function getMultipleOrderbooks(
 }
 ```
 
-### 4. Data Validation
+### 5. Data Validation
 
 ```typescript
 function validateOrderbook(orderbook: any): boolean {
@@ -528,7 +600,7 @@ if (validateOrderbook(orderbook)) {
 }
 ```
 
-### 5. Market Comparison
+### 6. Market Comparison
 
 ```typescript
 async function compareMarkets(
@@ -574,7 +646,7 @@ const comparison = await compareMarkets(marketFetcher, markets);
 console.table(comparison);
 ```
 
-### 6. Real-time Updates
+### 7. Real-time Updates
 
 For real-time orderbook updates, use WebSocket instead of polling:
 

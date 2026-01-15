@@ -26,14 +26,9 @@ export interface AuthenticatedClientConfig {
   authenticator: Authenticator;
 
   /**
-   * Authentication client type ('eoa' or 'etherspot')
+   * Authentication client type ('eoa' or 'base')
    */
-  client: 'eoa' | 'etherspot';
-
-  /**
-   * Optional smart wallet address (required for 'etherspot')
-   */
-  smartWallet?: string;
+  client: 'eoa' | 'base';
 
   /**
    * Optional logger for debugging
@@ -74,8 +69,7 @@ export interface AuthenticatedClientConfig {
 export class AuthenticatedClient {
   private httpClient: HttpClient;
   private authenticator: Authenticator;
-  private client: 'eoa' | 'etherspot';
-  private smartWallet?: string;
+  private client: 'eoa' | 'base';
   private logger: ILogger;
   private maxRetries: number;
 
@@ -88,7 +82,6 @@ export class AuthenticatedClient {
     this.httpClient = config.httpClient;
     this.authenticator = config.authenticator;
     this.client = config.client;
-    this.smartWallet = config.smartWallet;
     this.logger = config.logger || new NoOpLogger();
     this.maxRetries = config.maxRetries ?? 1;
   }
@@ -154,7 +147,6 @@ export class AuthenticatedClient {
 
     await this.authenticator.authenticate({
       client: this.client,
-      smartWallet: this.smartWallet,
     });
 
     this.logger.info('Re-authentication successful');

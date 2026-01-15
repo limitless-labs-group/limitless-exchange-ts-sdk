@@ -4,7 +4,7 @@
  */
 
 import { ethers } from 'ethers';
-import { OrderArgs, UnsignedOrder, Side, MarketType, SignatureType } from '../types/orders';
+import { OrderArgs, UnsignedOrder, Side, SignatureType } from '../types/orders';
 
 /**
  * Zero address constant for any-taker orders.
@@ -80,8 +80,7 @@ export class OrderBuilder {
    * const fokOrder = builder.buildOrder({
    *   tokenId: '123456',
    *   makerAmount: 50,  // 50 USDC to spend
-   *   side: Side.BUY,
-   *   marketType: MarketType.CLOB
+   *   side: Side.BUY
    * });
    *
    * // GTC order (price + size)
@@ -89,8 +88,7 @@ export class OrderBuilder {
    *   tokenId: '123456',
    *   price: 0.38,
    *   size: 22.123,  // Will be rounded to tick-aligned: 22.123 shares
-   *   side: Side.BUY,
-   *   marketType: MarketType.CLOB
+   *   side: Side.BUY
    * });
    * ```
    */

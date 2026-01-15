@@ -21,53 +21,69 @@ The Limitless Exchange supports two order types for both CLOB and NegRisk market
 
 ## Market Types
 
-The SDK supports two market types, each requiring a different smart contract address for order signing:
+The SDK supports two market types: CLOB and NegRisk. Each market uses a **venue system** that provides the correct smart contract addresses for order signing and token approvals.
+
+### Venue System
+
+**Important**: The SDK automatically fetches venue information from the API when you call `marketFetcher.getMarket()`. The venue contains:
+
+- **exchange**: Contract address used as `verifyingContract` for EIP-712 order signing
+- **adapter**: Contract address required for NegRisk/Grouped market SELL approvals
+
+**Best Practice**: Always fetch market details before creating orders to cache venue data and avoid redundant API calls.
+
+```typescript
+import { MarketFetcher } from '@limitless-exchange/sdk';
+
+const marketFetcher = new MarketFetcher(httpClient);
+
+// Fetch market (automatically caches venue)
+const market = await marketFetcher.getMarket('market-slug');
+
+// Venue is now cached and will be used for order signing
+console.log('Exchange:', market.venue.exchange);
+console.log('Adapter:', market.venue.adapter);
+```
 
 ### CLOB Markets (Single Outcome)
 
 Standard prediction markets with a single outcome to trade.
 
-**Contract Address** (Base mainnet):
-
+**Default Contract Address** (Base mainnet):
 ```
 0xa4409D988CA2218d956BeEFD3874100F444f0DC3
 ```
 
-**Environment Variable**:
-
-```bash
-CLOB_CONTRACT_ADDRESS=0xa4409D988CA2218d956BeEFD3874100F444f0DC3
-```
-
 **Characteristics**:
-
 - `marketType = "single"`
 - One outcome per market
 - Direct market slug for orders
 - Simpler market structure
+- Venue data returned from `/markets/:slug` API
+
+**Token Approvals for CLOB**:
+- **BUY orders**: USDC → `venue.exchange`
+- **SELL orders**: CT → `venue.exchange`
 
 ### NegRisk Markets (Group Markets)
 
 Group markets with multiple related outcomes traded together (e.g., "Largest Company 2025" with Apple, Microsoft, NVIDIA, etc.).
 
-**Contract Address** (Base mainnet):
-
+**Default Contract Address** (Base mainnet):
 ```
 0x5a38afc17F7E97ad8d6C547ddb837E40B4aEDfC6
 ```
 
-**Environment Variable**:
-
-```bash
-NEGRISK_CONTRACT_ADDRESS=0x5a38afc17F7E97ad8d6C547ddb837E40B4aEDfC6
-```
-
 **Characteristics**:
-
 - `marketType = "group"` (parent market)
 - Multiple submarkets with `marketType = "single"`
 - Use **submarket slug** for orders (NOT group slug)
 - Each submarket has unique YES/NO token IDs
+- Venue data returned from `/markets/:slug` API
+
+**Token Approvals for NegRisk**:
+- **BUY orders**: USDC → `venue.exchange`
+- **SELL orders**: CT → `venue.exchange` **AND** `venue.adapter`
 
 **Key Difference**: Always use the **submarket slug** when placing orders on NegRisk markets, not the group market slug.
 
@@ -107,6 +123,171 @@ Best for price-specific execution when you can wait for your target price.
 - Patient position building
 - Avoiding slippage
 
+## Token Approvals Setup
+
+**Important**: Before placing any orders, you must approve tokens for the exchange contracts. This is a **one-time setup** per wallet per venue.
+
+### Why Approvals Are Needed
+
+Smart contracts cannot transfer tokens from your wallet without explicit permission. Token approvals grant the exchange contracts permission to transfer:
+- **USDC** when you place BUY orders
+- **Conditional Tokens (CT)** when you place SELL orders
+
+### Required Approvals
+
+#### CLOB Markets
+
+| Order Type | Token | Approval Target | Method |
+|------------|-------|----------------|---------|
+| **BUY** | USDC | `venue.exchange` | `approve(address, uint256)` |
+| **SELL** | CT | `venue.exchange` | `setApprovalForAll(address, bool)` |
+
+#### NegRisk Markets
+
+| Order Type | Token | Approval Target | Method |
+|------------|-------|----------------|---------|
+| **BUY** | USDC | `venue.exchange` | `approve(address, uint256)` |
+| **SELL** | CT | `venue.exchange` | `setApprovalForAll(address, bool)` |
+| **SELL** | CT | `venue.adapter` | `setApprovalForAll(address, bool)` |
+
+⚠️ **NegRisk SELL orders require TWO approvals**: one for `venue.exchange` and one for `venue.adapter`.
+
+### Quick Setup Script
+
+Use the provided approval setup script:
+
+```bash
+# 1. Copy and configure environment
+cp docs/code-samples/.env.example docs/code-samples/.env
+
+# 2. Edit .env file:
+#    - Set PRIVATE_KEY
+#    - Set CLOB_MARKET_SLUG or NEGRISK_MARKET_SLUG
+
+# 3. Run approval setup
+npx tsx docs/code-samples/setup-approvals.ts
+```
+
+The script will:
+- Check current allowances
+- Approve USDC for BUY orders
+- Approve Conditional Tokens for SELL orders
+- Handle NegRisk adapter approvals automatically
+- Confirm all approvals are set correctly
+
+### Manual Approval Example
+
+For custom implementations, here's how to set up approvals manually:
+
+```typescript
+import { ethers } from 'ethers';
+import { MarketFetcher, getContractAddress } from '@limitless-exchange/sdk';
+
+async function setupApprovals(wallet: ethers.Wallet, marketSlug: string) {
+  // 1. Fetch market to get venue addresses
+  const httpClient = new HttpClient({ baseURL: 'https://api.limitless.exchange' });
+  const marketFetcher = new MarketFetcher(httpClient);
+  const market = await marketFetcher.getMarket(marketSlug);
+
+  if (!market.venue) {
+    throw new Error('Market does not have venue information');
+  }
+
+  // 2. Get token contract addresses
+  const usdcAddress = getContractAddress('USDC');  // Native USDC on Base
+  const ctfAddress = getContractAddress('CTF');    // Conditional Token Framework
+
+  // 3. Create contract instances
+  const usdc = new ethers.Contract(
+    usdcAddress,
+    ['function approve(address spender, uint256 amount) returns (bool)'],
+    wallet
+  );
+
+  const ctf = new ethers.Contract(
+    ctfAddress,
+    ['function setApprovalForAll(address operator, bool approved)'],
+    wallet
+  );
+
+  // 4. Approve USDC for BUY orders (unlimited approval)
+  console.log('Approving USDC for venue.exchange...');
+  const usdcTx = await usdc.approve(market.venue.exchange, ethers.MaxUint256);
+  await usdcTx.wait();
+  console.log('✅ USDC approved');
+
+  // 5. Approve CT for SELL orders (all token IDs)
+  console.log('Approving CT for venue.exchange...');
+  const ctfTx = await ctf.setApprovalForAll(market.venue.exchange, true);
+  await ctfTx.wait();
+  console.log('✅ CT approved for venue.exchange');
+
+  // 6. For NegRisk markets, also approve adapter
+  if (market.negRiskRequestId) {
+    console.log('Approving CT for venue.adapter (NegRisk)...');
+    const adapterTx = await ctf.setApprovalForAll(market.venue.adapter, true);
+    await adapterTx.wait();
+    console.log('✅ CT approved for venue.adapter');
+  }
+
+  console.log('🎉 All approvals set!');
+}
+```
+
+### Checking Current Allowances
+
+Before setting approvals, check if they already exist:
+
+```typescript
+// Check USDC allowance
+const usdcAllowance = await usdc.allowance(
+  wallet.address,
+  market.venue.exchange
+);
+console.log(`USDC allowance: ${ethers.formatUnits(usdcAllowance, 6)} USDC`);
+
+// Check CT approval for venue.exchange
+const ctfApproved = await ctf.isApprovedForAll(
+  wallet.address,
+  market.venue.exchange
+);
+console.log(`CT approved for exchange: ${ctfApproved}`);
+
+// Check CT approval for venue.adapter (NegRisk only)
+if (market.negRiskRequestId) {
+  const adapterApproved = await ctf.isApprovedForAll(
+    wallet.address,
+    market.venue.adapter
+  );
+  console.log(`CT approved for adapter: ${adapterApproved}`);
+}
+```
+
+### Important Notes
+
+- **One-Time Setup**: Approvals are permanent (until revoked) and only need to be set once per wallet
+- **Per Venue**: Different markets may have different venues - check `market.venue` for each market
+- **Gas Costs**: Each approval requires a transaction and gas fees
+- **Security**: Only approve trusted contracts. Limitless Exchange contracts are audited and secure
+- **Unlimited Approval**: Using `ethers.MaxUint256` for USDC approval is safe and standard practice
+
+### Common Issues
+
+**"Insufficient allowance" error**:
+- Solution: Run the approval setup script or manually approve tokens
+
+**"Transfer amount exceeds allowance"**:
+- For USDC: Your approval amount is too low
+- Solution: Approve a higher amount or use `ethers.MaxUint256`
+
+**NegRisk SELL order fails**:
+- Possible cause: Missing `venue.adapter` approval
+- Solution: Approve CT for both `venue.exchange` AND `venue.adapter`
+
+**"ERC1155: caller is not owner nor approved"**:
+- Your CT tokens are not approved for the exchange
+- Solution: Call `setApprovalForAll(venue.exchange, true)`
+
 ## Creating Orders
 
 ### Prerequisites
@@ -120,9 +301,9 @@ import {
   MessageSigner,
   Authenticator,
   OrderClient,
+  MarketFetcher,
   Side,
   OrderType,
-  MarketType,
 } from '@limitless-exchange/sdk';
 
 // 1. Authenticate
@@ -137,7 +318,11 @@ const { sessionCookie, profile } = await authenticator.authenticate({
   client: 'eoa',
 });
 
-// 2. Setup OrderClient
+// 2. Fetch market details (caches venue for efficient order signing)
+const marketFetcher = new MarketFetcher(httpClient);
+const market = await marketFetcher.getMarket('market-slug');
+
+// 3. Setup OrderClient with shared marketFetcher
 const orderClient = new OrderClient({
   httpClient,
   wallet,
@@ -145,9 +330,11 @@ const orderClient = new OrderClient({
     userId: profile.id,
     feeRateBps: profile.rank?.feeRateBps || 300,
   },
-  marketType: MarketType.CLOB,
+  marketFetcher,  // Share instance for venue caching
 });
 ```
+
+**Performance Tip**: Always call `marketFetcher.getMarket()` before `createOrder()` to cache venue data and eliminate redundant API calls.
 
 ### FOK Orders (Market Orders)
 
@@ -159,7 +346,6 @@ const buyOrder = await orderClient.createOrder({
   side: Side.BUY,
   orderType: OrderType.FOK,
   marketSlug: 'market-slug',
-  marketType: MarketType.CLOB,
 });
 
 console.log('Buy order executed:', buyOrder.id);
@@ -171,7 +357,6 @@ const sellOrder = await orderClient.createOrder({
   side: Side.SELL,
   orderType: OrderType.FOK,
   marketSlug: 'market-slug',
-  marketType: MarketType.CLOB,
 });
 
 console.log('Sell order executed:', sellOrder.id);
@@ -188,7 +373,6 @@ const limitBuy = await orderClient.createOrder({
   side: Side.BUY,
   orderType: OrderType.GTC,
   marketSlug: 'market-slug',
-  marketType: MarketType.CLOB,
 });
 
 console.log('Limit buy placed:', limitBuy.id);
@@ -201,7 +385,6 @@ const limitSell = await orderClient.createOrder({
   side: Side.SELL,
   orderType: OrderType.GTC,
   marketSlug: 'market-slug',
-  marketType: MarketType.CLOB,
 });
 
 console.log('Limit sell placed:', limitSell.id);
@@ -223,7 +406,6 @@ import {
   MarketFetcher,
   Side,
   OrderType,
-  MarketType,
 } from '@limitless-exchange/sdk';
 
 // Set the NegRisk contract address
@@ -246,12 +428,11 @@ const userData = {
   feeRateBps: (authResult.profile as any).rank?.feeRateBps || 300,
 };
 
-// 2. Setup OrderClient for NegRisk
+// 2. Setup OrderClient
 const orderClient = new OrderClient({
   httpClient,
   wallet,
   userData,
-  marketType: MarketType.NEGRISK, // ← Important: Use NEGRISK
 });
 ```
 
@@ -363,8 +544,7 @@ const limitSell = await orderClient.createOrder({
 | **Structure**       | Single outcome                               | Group with multiple submarkets               |
 | **Order Slug**      | Market slug directly                         | **Submarket slug** (not group!)              |
 | **Token IDs**       | One set per market                           | Unique set per submarket                     |
-| **Contract**        | `0xa4409D988CA2218d956BeEFD3874100F444f0DC3` | `0x5a38afc17F7E97ad8d6C547ddb837E40B4aEDfC6` |
-| **MarketType**      | `MarketType.CLOB`                            | `MarketType.NEGRISK`                         |
+| **Venue Address**   | `venue.exchange` from API                    | `venue.exchange` from API                    |
 | **Fetching**        | Direct market fetch                          | Group → submarkets array                     |
 | **Order Placement** | Same slug                                    | **Must use submarket slug**                  |
 

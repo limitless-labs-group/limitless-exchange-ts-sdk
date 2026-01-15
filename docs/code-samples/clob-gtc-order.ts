@@ -25,7 +25,6 @@ import {
   MarketFetcher,
   Side,
   OrderType,
-  MarketType,
   ConsoleLogger,
   getContractAddress,
 } from '@limitless-exchange/sdk';
@@ -114,7 +113,6 @@ async function main() {
       price: 0.123, // 55% probability - lower than market to stay on orderbook
       size: 100, // 15 shares
       side: Side.BUY, // BUY order
-      marketType: MarketType.CLOB,
     };
 
     console.log(`   Market: ${marketSlug}`);
@@ -129,12 +127,11 @@ async function main() {
     // ===========================================
     console.log('🔨 Step 3: Creating order client...');
 
-    // Simple mode - auto-configures from marketType
+    // Simple mode - auto-configures from venue
     const orderClient = new OrderClient({
       httpClient,
       wallet,
       userData,
-      marketType: MarketType.CLOB,
       logger,
     });
 
@@ -223,7 +220,6 @@ async function main() {
       price: 0.999, // 75% probability - higher than market to stay on orderbook
       size: 1.349, // 10 shares
       side: Side.SELL,
-      marketType: MarketType.CLOB,
     };
 
     console.log('\n📋 SELL Order Configuration:');

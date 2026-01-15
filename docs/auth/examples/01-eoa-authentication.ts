@@ -128,8 +128,8 @@ async function main() {
 
   console.log('🔗 Next Steps:');
   console.log('   - Try Base authentication: 02-base-authentication.ts');
-  console.log('   - Try Smart wallet: 03-etherspot-authentication.ts');
   console.log('   - Learn session management: 04-session-management.ts');
+  console.log('   - Explore error handling: 05-error-handling.ts');
 }
 
 // Run the example
