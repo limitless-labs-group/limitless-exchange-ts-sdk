@@ -270,7 +270,7 @@ For production deployments, we recommend using the LTS version for stability and
 
 ### From v0.0.3 to v1.0.0
 
-No breaking changes. This is a stability release marking v0.0.3 as production-ready.
+Important change to move from Cookie based auth to API-KEY due to /auth endpoint deprication in nearest future.
 
 **Optional Updates**:
 
