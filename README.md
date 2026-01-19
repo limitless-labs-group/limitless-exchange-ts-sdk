@@ -27,6 +27,8 @@ For production use, we strongly recommend:
 3. Monitoring all transactions carefully
 4. Having proper error handling and recovery mechanisms
 
+**Feedback Welcome**: We encourage you to report any bugs, suggest improvements, or contribute to the project. Please submit issues or pull requests on our GitHub repository.
+
 ## Features
 
 - ✅ **Authentication**: API key authentication with X-API-Key header
