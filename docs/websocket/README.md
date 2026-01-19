@@ -14,24 +14,33 @@ Real-time data streaming with the Limitless Exchange WebSocket API.
 
 The Limitless Exchange WebSocket API provides real-time streaming for:
 
+**Public Subscriptions** (no authentication required):
+
 - **Market Prices**: Live orderbook updates and price changes
+
+**Authenticated Subscriptions** (require API key):
+
 - **Positions**: Real-time position updates for authenticated users
 - **Transactions**: Live order fills and transaction notifications
 
 **Key Characteristics**:
+
 - SDK is a **raw data passthrough** - no transformations
 - Events use exact API event names (e.g., `orderbookUpdate`, `newPriceData`)
-- Authentication required only for positions and transactions
+- **API key not required** for public subscriptions (prices, orderbook)
+- API key required for positions and transactions
 - Automatic reconnection with subscription restoration
 
 ## Connection Setup
 
 ### Public Data (No Authentication)
 
+For public subscriptions (orderbook, prices), no API key is required:
+
 ```typescript
 import { WebSocketClient } from '@limitless-exchange/sdk';
 
-// Create client - SDK is completely silent (no logs)
+// Create client for public data - NO API KEY NEEDED
 const wsClient = new WebSocketClient({
   url: 'wss://ws.limitless.exchange',
   autoReconnect: true,
@@ -40,39 +49,69 @@ const wsClient = new WebSocketClient({
 // Connect to WebSocket
 await wsClient.connect();
 console.log('Connected to WebSocket');
+
+// Subscribe to public market prices
+await wsClient.subscribe('subscribe_market_prices', {
+  marketSlugs: ['bitcoin-2024'],
+});
 ```
 
 ### Authenticated Data (Positions & Transactions)
 
+For authenticated subscriptions (positions, transactions), you **must provide an API key**.
+
+**API Key Authentication**:
+
+- Required for positions and transactions subscriptions
+- SDK sends X-API-Key header automatically
+- Same API key used for HTTP REST API
+
+**Setup**:
+
+1. **Generate an API key** at https://limitless.exchange
+2. **Set environment variable** or pass directly to constructor
+
 ```typescript
-import { ethers } from 'ethers';
-import {
-  HttpClient,
-  MessageSigner,
-  Authenticator,
-  WebSocketClient
-} from '@limitless-exchange/sdk';
+import { WebSocketClient } from '@limitless-exchange/sdk';
 
-// 1. Authenticate first
-const wallet = new ethers.Wallet(process.env.PRIVATE_KEY!);
-const httpClient = new HttpClient({
-  baseURL: 'https://api.limitless.exchange'
-});
-
-const signer = new MessageSigner(wallet);
-const authenticator = new Authenticator(httpClient, signer);
-const { sessionCookie } = await authenticator.authenticate({
-  client: 'eoa'
-});
-
-// 2. Create WebSocket client with session
+// Option 1: Use environment variable
+// Set LIMITLESS_API_KEY in your .env file
 const wsClient = new WebSocketClient({
   url: 'wss://ws.limitless.exchange',
-  sessionCookie: sessionCookie,
+  autoReconnect: true,
+  // apiKey will be read from process.env.LIMITLESS_API_KEY
+});
+
+// Option 2: Pass API key directly
+const wsClient = new WebSocketClient({
+  url: 'wss://ws.limitless.exchange',
+  apiKey: 'lx_your_api_key_here',
   autoReconnect: true,
 });
 
+// Connect to WebSocket
 await wsClient.connect();
+console.log('Connected to WebSocket');
+
+// Subscribe to authenticated data
+await wsClient.subscribe('subscribe_positions', {
+  marketSlugs: ['bitcoin-2024'],
+});
+
+await wsClient.subscribe('subscribe_transactions', {});
+```
+
+**Error Handling**:
+
+If you try to subscribe to authenticated channels without an API key:
+
+```typescript
+// ❌ This will throw an error
+const wsClient = new WebSocketClient(); // No API key
+await wsClient.subscribe('subscribe_positions', { marketSlugs: ['bitcoin-2024'] });
+
+// Error: API key is required for 'subscribe_positions' subscription.
+// Please provide an API key in the constructor or set LIMITLESS_API_KEY environment variable.
 ```
 
 ## Subscription Types
@@ -84,48 +123,24 @@ Subscribe to live orderbook updates and price changes for specific markets.
 **Event Name**: `subscribe_market_prices`
 
 **Events Received**:
+
 - `orderbookUpdate`: Complete orderbook state with bids/asks/metadata (CLOB markets)
 - `newPriceData`: AMM price updates with market addresses and block numbers
 
 ```typescript
 // Subscribe to market
 await wsClient.subscribe('subscribe_market_prices', {
-  marketSlugs: ['market-slug-here']
+  marketSlugs: ['market-slug-here'],
 });
 
 // Listen to orderbook updates (CLOB markets)
 wsClient.on('orderbookUpdate' as any, (data: any) => {
-  console.log('Market:', data.marketSlug);
-  console.log('Timestamp:', data.timestamp);
-
-  // API sends nested orderbook structure
-  const { orderbook } = data;
-
-  if (orderbook.bids && orderbook.asks) {
-    console.log('Best Bid:', orderbook.bids[0]);
-    console.log('Best Ask:', orderbook.asks[0]);
-
-    // Additional orderbook metadata (new fields)
-    console.log('Token ID:', orderbook.tokenId);
-    console.log('Adjusted Midpoint:', orderbook.adjustedMidpoint);
-    console.log('Max Spread:', orderbook.maxSpread);
-    console.log('Min Size:', orderbook.minSize);
-  }
+  console.log(JSON.stringify(data, null, 2));
 });
 
 // Listen to AMM price updates (uses marketAddress, not marketSlug!)
 wsClient.on('newPriceData' as any, (data: any) => {
-  console.log('Market Address:', data.marketAddress);  // Contract address
-  console.log('Block Number:', data.blockNumber);
-  console.log('Timestamp:', data.timestamp);
-
-  // updatedPrices is an array of price entries
-  data.updatedPrices.forEach((entry: any) => {
-    console.log(`  Market ${entry.marketId}:`);
-    console.log(`    Address: ${entry.marketAddress}`);
-    console.log(`    YES Price: ${entry.yesPrice}`);
-    console.log(`    NO Price: ${entry.noPrice}`);
-  });
+  console.log(JSON.stringify(data, null, 2));
 });
 ```
 
@@ -140,19 +155,12 @@ Subscribe to real-time position updates for your account.
 ```typescript
 // Subscribe to positions
 await wsClient.subscribe('subscribe_positions', {
-  marketSlugs: ['market-slug-here']
+  marketSlugs: ['market-slug-here'],
 });
 
 // Listen to position updates
 wsClient.on('positions' as any, (data: any) => {
-  console.log('Position update:', data);
-  
-  // Data contains your current positions
-  data.forEach((position: any) => {
-    console.log('Market:', position.marketSlug);
-    console.log('Size:', position.size);
-    console.log('Value:', position.value);
-  });
+  console.log(JSON.stringify(data, null, 2));
 });
 ```
 
@@ -170,13 +178,7 @@ await wsClient.subscribe('subscribe_transactions', {});
 
 // Listen to transaction events
 wsClient.on('tx' as any, (data: any) => {
-  console.log('Transaction:', data);
-  
-  // Data contains transaction details
-  console.log('Type:', data.type);
-  console.log('Order ID:', data.orderId);
-  console.log('Amount:', data.amount);
-  console.log('Price:', data.price);
+  console.log(JSON.stringify(data, null, 2));
 });
 ```
 
@@ -189,7 +191,7 @@ The SDK passes through raw API events. You can log all events for debugging:
 ```typescript
 // Log ALL raw events (for debugging)
 (wsClient as any).socket?.onAny?.((eventName: string, ...args: any[]) => {
-  console.log(\`\n📨 Raw Event: "\${eventName}"\`);
+  console.log(`\n📨 Raw Event: "${eventName}"`);
   console.log(JSON.stringify(args, null, 2));
 });
 ```
@@ -205,7 +207,7 @@ wsClient.on('connect', () => {
 });
 
 wsClient.on('disconnect', (reason: string) => {
-  console.log(\`⚠️  Disconnected: \${reason}\`);
+  console.log(`⚠️  Disconnected: ${reason}`);
 });
 
 wsClient.on('error', (error: Error) => {
@@ -232,15 +234,7 @@ wsClient.on('connect', () => {
 });
 
 wsClient.on('orderbookUpdate' as any, (data: any) => {
-  const orderbook = data.orderbook || data;
-  
-  if (orderbook.bids?.length > 0 && orderbook.asks?.length > 0) {
-    const bestBid = orderbook.bids[0];
-    const bestAsk = orderbook.asks[0];
-    const spread = bestAsk.price - bestBid.price;
-    
-    console.log(\`Bid: \${bestBid.price} | Ask: \${bestAsk.price} | Spread: \${spread}\`);
-  }
+  console.log(JSON.stringify(data, null, 2));
 });
 
 // Connect and subscribe
@@ -263,161 +257,51 @@ The SDK transmits raw API data. Parse it in your application code:
 wsClient.on('orderbookUpdate' as any, (data: any) => {
   // Handle different possible data structures
   const orderbook = data.orderbook || data;
-  
+
   // Validate before using
   if (!orderbook.bids || !orderbook.asks) {
     console.warn('Invalid orderbook data');
     return;
   }
-  
+
   // Now safely use the data
-  const bestBid = orderbook.bids[0];
-  const bestAsk = orderbook.asks[0];
+  console.log(JSON.stringify(orderbook, null, 2));
 });
 ```
 
-### 2. Silent SDK
-
-The SDK has no logging by default. Add your own logging as needed:
-
-```typescript
-// SDK is silent - add your own logs
-wsClient.on('orderbookUpdate' as any, (data: any) => {
-  console.log('[MyApp] Orderbook update received');
-  // Your parsing logic
-});
-```
-
-### 3. Connection Management
+### 2. Connection Management
 
 ```typescript
 // Handle reconnection
 wsClient.on('disconnect', (reason: string) => {
-  console.log(\`Disconnected: \${reason}\`);
-  
+  console.log(`Disconnected: ${reason}`);
+
   if (reason === 'io server disconnect') {
     // Server disconnected us, reconnect manually
-    wsClient.connect();
+    wsClient.connect(); // Returns promise but fire-and-forget is OK here
   }
   // Otherwise auto-reconnect handles it
 });
 
 // Clean disconnect on shutdown
-process.on('SIGINT', () => {
+process.on('SIGINT', async () => {
   console.log('Shutting down...');
-  wsClient.disconnect();
+  await wsClient.disconnect(); // Now async
   process.exit(0);
 });
 ```
 
-### 4. Error Handling
+### 3. Error Handling
 
 ```typescript
 wsClient.on('error', (error: Error) => {
   console.error('WebSocket error:', error.message);
-  
+
   // Decide whether to reconnect or exit
   if (error.message.includes('authentication')) {
-    console.error('Auth failed - check session cookie');
+    console.error('Auth failed - check API key');
     process.exit(1);
   }
-});
-```
-
-### 5. Subscription Management
-
-```typescript
-// Keep track of subscriptions
-const activeSubscriptions = new Set<string>();
-
-async function subscribeToMarket(marketSlug: string) {
-  if (activeSubscriptions.has(marketSlug)) {
-    console.log('Already subscribed to', marketSlug);
-    return;
-  }
-  
-  await wsClient.subscribe('subscribe_market_prices', {
-    marketSlugs: [marketSlug]
-  });
-  
-  activeSubscriptions.add(marketSlug);
-  console.log('Subscribed to', marketSlug);
-}
-
-async function unsubscribeFromMarket(marketSlug: string) {
-  if (!activeSubscriptions.has(marketSlug)) {
-    console.log('Not subscribed to', marketSlug);
-    return;
-  }
-  
-  await wsClient.unsubscribe('subscribe_market_prices', {
-    marketSlugs: [marketSlug]
-  });
-  
-  activeSubscriptions.delete(marketSlug);
-  console.log('Unsubscribed from', marketSlug);
-}
-```
-
-### 6. Data Validation
-
-```typescript
-// Validate data structure before using
-function validateOrderbookData(data: any): boolean {
-  const orderbook = data.orderbook || data;
-  
-  if (!orderbook) {
-    console.error('No orderbook data');
-    return false;
-  }
-  
-  if (!Array.isArray(orderbook.bids) || !Array.isArray(orderbook.asks)) {
-    console.error('Invalid orderbook structure');
-    return false;
-  }
-  
-  if (orderbook.bids.length === 0 || orderbook.asks.length === 0) {
-    console.warn('Empty orderbook');
-    return false;
-  }
-  
-  return true;
-}
-
-// Use in event handler
-wsClient.on('orderbookUpdate' as any, (data: any) => {
-  if (!validateOrderbookData(data)) {
-    return;
-  }
-  
-  // Safe to use data
-  const orderbook = data.orderbook || data;
-  // ...
-});
-```
-
-### 7. Performance Monitoring
-
-```typescript
-// Track event frequency
-let eventCount = 0;
-let lastReport = Date.now();
-
-wsClient.on('orderbookUpdate' as any, (data: any) => {
-  eventCount++;
-  
-  // Report every 10 seconds
-  const now = Date.now();
-  if (now - lastReport > 10000) {
-    const rate = eventCount / ((now - lastReport) / 1000);
-    console.log(\`Event rate: \${rate.toFixed(2)} updates/sec\`);
-    
-    eventCount = 0;
-    lastReport = now;
-  }
-  
-  // Process data
-  // ...
 });
 ```
 
@@ -429,33 +313,34 @@ Complete orderbook state with nested structure.
 
 ```typescript
 interface OrderbookUpdate {
-  marketSlug: string;           // Market slug identifier (camelCase)
-  orderbook: OrderbookData;      // Nested orderbook object
-  timestamp: Date | number | string;  // Event timestamp
+  marketSlug: string; // Market slug identifier (camelCase)
+  orderbook: OrderbookData; // Nested orderbook object
+  timestamp: Date | number | string; // Event timestamp
 }
 
 interface OrderbookData {
-  bids: OrderbookEntry[];        // List of bid orders (descending)
-  asks: OrderbookEntry[];        // List of ask orders (ascending)
-  tokenId: string;               // Token ID for the orderbook
-  adjustedMidpoint: number;      // Adjusted midpoint price
-  maxSpread: number;             // Maximum spread allowed
-  minSize: number;               // Minimum order size
+  bids: OrderbookEntry[]; // List of bid orders (descending)
+  asks: OrderbookEntry[]; // List of ask orders (ascending)
+  tokenId: string; // Token ID for the orderbook
+  adjustedMidpoint: number; // Adjusted midpoint price
+  maxSpread: number; // Maximum spread allowed
+  minSize: number; // Minimum order size
 }
 
 interface OrderbookEntry {
-  price: number;                 // Price per share (0-1 range)
-  size: number;                  // Size in shares
+  price: number; // Price per share (0-1 range)
+  size: number; // Size in shares
 }
 ```
 
 **Example Data:**
+
 ```json
 {
   "marketSlug": "btc-price-100k",
   "orderbook": {
-    "bids": [{"price": 0.52, "size": 100}],
-    "asks": [{"price": 0.55, "size": 150}],
+    "bids": [{ "price": 0.52, "size": 100 }],
+    "asks": [{ "price": 0.55, "size": 150 }],
     "tokenId": "0x123...",
     "adjustedMidpoint": 0.535,
     "maxSpread": 0.1,
@@ -471,21 +356,22 @@ AMM price updates with market addresses.
 
 ```typescript
 interface NewPriceData {
-  marketAddress: string;         // Market contract address (NOT marketSlug!)
+  marketAddress: string; // Market contract address (NOT marketSlug!)
   updatedPrices: AmmPriceEntry[]; // Array of price updates
-  blockNumber: number;           // Blockchain block number
-  timestamp: Date | number | string;  // Event timestamp
+  blockNumber: number; // Blockchain block number
+  timestamp: Date | number | string; // Event timestamp
 }
 
 interface AmmPriceEntry {
-  marketId: number;              // Market ID
-  marketAddress: string;         // Market contract address
-  yesPrice: number;              // YES token price (0-1 range)
-  noPrice: number;               // NO token price (0-1 range)
+  marketId: number; // Market ID
+  marketAddress: string; // Market contract address
+  yesPrice: number; // YES token price (0-1 range)
+  noPrice: number; // NO token price (0-1 range)
 }
 ```
 
 **Example Data:**
+
 ```json
 {
   "marketAddress": "0xabc...",
@@ -502,6 +388,47 @@ interface AmmPriceEntry {
 }
 ```
 
+### TransactionEvent
+
+Transaction event fields from `tx` event.
+
+```typescript
+interface TransactionEvent {
+  userId?: number;
+  txHash?: string;
+  status: 'CONFIRMED' | 'FAILED';
+  source: string;
+  timestamp: Date;
+  marketAddress?: string;
+  marketSlug?: string;
+  tokenId?: string;
+  conditionId?: string;
+  amountContracts?: string;
+  amountCollateral?: string;
+  price?: string;
+  side?: 'BUY' | 'SELL';
+}
+```
+
+**Example Data:**
+
+```json
+{
+  "userId": 123,
+  "txHash": "0xabc...",
+  "status": "CONFIRMED",
+  "source": "clob",
+  "marketSlug": "market-slug",
+  "marketAddress": "0x123...",
+  "tokenId": "0x456...",
+  "amountContracts": "10",
+  "amountCollateral": "6.5",
+  "price": "0.65",
+  "side": "BUY",
+  "timestamp": "2025-12-08T10:30:00Z"
+}
+```
+
 ### Important Notes
 
 - **Nested Structure**: `orderbookUpdate` sends `orderbook` as a nested object, not flattened
@@ -511,9 +438,9 @@ interface AmmPriceEntry {
 
 ## Examples
 
-- [Raw WebSocket Events](../../examples/project-integration/src/test-websocket-events.ts)
-- [Orderbook Monitoring](../../examples/project-integration/src/websocket-orderbook.ts)
-- [Trading with WebSocket](../../examples/project-integration/src/websocket-trading.ts)
+Complete working examples:
+
+- [WebSocket Events](../../docs/code-samples/websocket-events.ts)
 
 ## Next Steps
 

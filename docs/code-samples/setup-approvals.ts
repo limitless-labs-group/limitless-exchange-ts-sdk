@@ -107,9 +107,9 @@ async function main() {
     throw new Error('Please set PRIVATE_KEY in .env file');
   }
 
-  const marketSlug = process.env.CLOB_MARKET_SLUG || process.env.NEGRISK_MARKET_SLUG;
+  const marketSlug = process.env.MARKET_SLUG;
   if (!marketSlug) {
-    throw new Error('Please set CLOB_MARKET_SLUG or NEGRISK_MARKET_SLUG in .env file');
+    throw new Error('Please set MARKET_SLUG in .env file');
   }
 
   const logger = new ConsoleLogger('info');

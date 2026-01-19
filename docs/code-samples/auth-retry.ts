@@ -1,263 +1,236 @@
 /**
- * Authentication Retry Example
+ * API Error Handling and Retry Example
  *
- * This example demonstrates how to handle authentication token expiration:
- * 1. Manual retry pattern (recommended for most use cases)
- * 2. Optional AuthenticatedClient helper for automatic retry
+ * This example demonstrates how to handle API errors with API key authentication:
+ * 1. Handle invalid/expired API keys
+ * 2. Implement retry logic for transient failures
+ * 3. Long-running script patterns with error recovery
  */
 
-import { config } from "dotenv";
-import { ethers } from "ethers";
+import { config } from 'dotenv';
 import {
   HttpClient,
-  MessageSigner,
-  Authenticator,
   PortfolioFetcher,
-  AuthenticatedClient,
-  APIError,
+  MarketFetcher,
   ConsoleLogger,
-} from "@limitless-exchange/sdk";
+} from '@limitless-exchange/sdk';
 
 // Load environment variables
 config();
 
 // Configuration constants
-const API_URL = process.env.API_URL || "https://api.limitless.exchange";
+const API_URL = process.env.API_URL || 'https://api.limitless.exchange';
 
 /**
- * Example 1: Manual Retry Pattern (Recommended)
- *
- * This gives you full control over retry logic and is suitable for most applications.
+ * Example 1: API Key Validation and Error Handling
  */
-async function manualRetryExample() {
-  console.log("📋 Example 1: Manual Retry Pattern\n");
+async function apiKeyValidationExample() {
+  console.log('📋 Example 1: API Key Validation\n');
 
-  const privateKey = process.env.PRIVATE_KEY;
-  if (!privateKey || privateKey === "0x0000000000000000000000000000000000000000000000000000000000000000") {
-    throw new Error("Please set PRIVATE_KEY in .env file");
+  const apiKey = process.env.LIMITLESS_API_KEY;
+  if (!apiKey) {
+    console.log('   ⚠️  No API key found');
+    console.log('   💡 Get your API key from: https://limitless.exchange\n');
+    return;
   }
 
-  const logger = new ConsoleLogger("info");
-  const wallet = new ethers.Wallet(privateKey);
+  const logger = new ConsoleLogger('info');
 
   const httpClient = new HttpClient({
     baseURL: API_URL,
+    apiKey,
     timeout: 30000,
+    logger,
   });
 
-  const signer = new MessageSigner(wallet);
-  const authenticator = new Authenticator(httpClient, signer, logger);
+  const portfolioFetcher = new PortfolioFetcher(httpClient);
 
-  // Initial authentication
-  console.log("🔐 Authenticating...");
-  await authenticator.authenticate({ client: "eoa" });
-  console.log("   ✅ Authenticated\n");
-
-  const portfolioFetcher = new PortfolioFetcher(httpClient, logger);
-
-  // Manual retry function
-  async function fetchWithRetry() {
-    try {
-      console.log("📊 Fetching portfolio positions...");
-      const positions = await portfolioFetcher.getPositions();
-      console.log(`   ✅ Fetched ${positions.clob.length} CLOB positions\n`);
-      return positions;
-    } catch (error) {
-      // Check if it's an auth error
-      if (error instanceof APIError && error.isAuthError()) {
-        console.log("   ⚠️  Authentication expired (401/403)");
-        console.log("   🔄 Re-authenticating...");
-
-        // Re-authenticate
-        await authenticator.authenticate({ client: "eoa" });
-        console.log("   ✅ Re-authenticated");
-
-        // Retry the request
-        console.log("   🔄 Retrying request...");
-        const positions = await portfolioFetcher.getPositions();
-        console.log(`   ✅ Fetched ${positions.clob.length} CLOB positions\n`);
-        return positions;
-      }
-
-      // Not an auth error, rethrow
-      throw error;
+  try {
+    console.log('📊 Testing API key with portfolio fetch...');
+    const positions = await portfolioFetcher.getPositions();
+    console.log(`   ✅ API key valid - Fetched ${positions.clob?.length || 0} CLOB positions\n`);
+  } catch (error: any) {
+    if (error.status === 401 || error.status === 403) {
+      console.log('   ❌ Invalid or expired API key');
+      console.log('   💡 Please regenerate your API key at: https://limitless.exchange\n');
+    } else {
+      console.log(`   ❌ Error: ${error.message}\n`);
     }
   }
 
-  await fetchWithRetry();
-
-  console.log("✅ Manual retry example completed\n");
-  console.log("=" .repeat(60));
+  console.log('='.repeat(60));
   console.log();
 }
 
 /**
- * Example 2: AuthenticatedClient Helper (Optional)
- *
- * Automatic retry wrapper for convenience. Use this if you want
- * automatic re-authentication without writing retry logic.
+ * Example 2: Retry Logic for Transient Failures
  */
-async function autoRetryExample() {
-  console.log("📋 Example 2: AuthenticatedClient Helper (Optional)\n");
+async function retryLogicExample() {
+  console.log('📋 Example 2: Retry Logic for Transient Failures\n');
 
-  const privateKey = process.env.PRIVATE_KEY;
-  if (!privateKey || privateKey === "0x0000000000000000000000000000000000000000000000000000000000000000") {
-    throw new Error("Please set PRIVATE_KEY in .env file");
+  const apiKey = process.env.LIMITLESS_API_KEY;
+  if (!apiKey) {
+    console.log('   ⚠️  Skipping - LIMITLESS_API_KEY not configured\n');
+    return;
   }
 
-  const logger = new ConsoleLogger("info");
-  const wallet = new ethers.Wallet(privateKey);
+  const logger = new ConsoleLogger('info');
 
   const httpClient = new HttpClient({
     baseURL: API_URL,
+    apiKey,
     timeout: 30000,
-  });
-
-  const signer = new MessageSigner(wallet);
-  const authenticator = new Authenticator(httpClient, signer, logger);
-
-  // Initial authentication
-  console.log("🔐 Authenticating...");
-  await authenticator.authenticate({ client: "eoa" });
-  console.log("   ✅ Authenticated\n");
-
-  // Create authenticated client with auto-retry
-  const authClient = new AuthenticatedClient({
-    httpClient,
-    authenticator,
-    client: "eoa",
     logger,
-    maxRetries: 1, // Retry once on auth failure
   });
 
-  const portfolioFetcher = new PortfolioFetcher(httpClient, logger);
+  const marketFetcher = new MarketFetcher(httpClient);
 
-  // Use withRetry for automatic re-authentication
-  console.log("📊 Fetching portfolio positions with auto-retry...");
-  const positions = await authClient.withRetry(() =>
-    portfolioFetcher.getPositions()
-  );
-  console.log(`   ✅ Fetched ${positions.clob.length} CLOB positions\n`);
+  // Helper function with exponential backoff retry
+  async function fetchWithRetry<T>(
+    fn: () => Promise<T>,
+    maxRetries = 3,
+    baseDelay = 1000
+  ): Promise<T> {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        return await fn();
+      } catch (error: any) {
+        const isLastAttempt = attempt === maxRetries;
+        const isRetryable = error.status >= 500 || error.code === 'ECONNRESET';
 
-  console.log("✅ Auto-retry example completed\n");
-  console.log("=" .repeat(60));
+        if (!isRetryable || isLastAttempt) {
+          throw error;
+        }
+
+        const delay = baseDelay * Math.pow(2, attempt - 1);
+        console.log(`   ⚠️  Attempt ${attempt} failed, retrying in ${delay}ms...`);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    }
+    throw new Error('Retry logic error');
+  }
+
+  try {
+    console.log('📊 Fetching markets with retry logic...');
+    const markets = await fetchWithRetry(() => marketFetcher.getActiveMarkets({ limit: 5 }));
+    console.log(`   ✅ Fetched ${markets.data.length} markets\n`);
+  } catch (error: any) {
+    console.log(`   ❌ Failed after retries: ${error.message}\n`);
+  }
+
+  console.log('='.repeat(60));
   console.log();
 }
 
 /**
  * Example 3: Long-Running Script Pattern
- *
- * For scripts that run for extended periods (days/weeks),
- * wrap all API calls with retry logic.
  */
 async function longRunningExample() {
-  console.log("📋 Example 3: Long-Running Script Pattern\n");
+  console.log('📋 Example 3: Long-Running Script with Error Recovery\n');
 
-  const privateKey = process.env.PRIVATE_KEY;
-  if (!privateKey || privateKey === "0x0000000000000000000000000000000000000000000000000000000000000000") {
-    throw new Error("Please set PRIVATE_KEY in .env file");
+  const apiKey = process.env.LIMITLESS_API_KEY;
+  if (!apiKey) {
+    console.log('   ⚠️  Skipping - LIMITLESS_API_KEY not configured\n');
+    return;
   }
 
-  const logger = new ConsoleLogger("info");
-  const wallet = new ethers.Wallet(privateKey);
+  const logger = new ConsoleLogger('info');
 
   const httpClient = new HttpClient({
     baseURL: API_URL,
+    apiKey,
     timeout: 30000,
-  });
-
-  const signer = new MessageSigner(wallet);
-  const authenticator = new Authenticator(httpClient, signer, logger);
-
-  // Initial authentication
-  console.log("🔐 Authenticating...");
-  await authenticator.authenticate({ client: "eoa" });
-  console.log("   ✅ Authenticated\n");
-
-  const authClient = new AuthenticatedClient({
-    httpClient,
-    authenticator,
-    client: "eoa",
     logger,
   });
 
-  const portfolioFetcher = new PortfolioFetcher(httpClient, logger);
+  const portfolioFetcher = new PortfolioFetcher(httpClient);
 
   // Simulate long-running process
-  console.log("⏱️  Simulating long-running script (checking positions every 10 seconds)...");
-  console.log("   Press Ctrl+C to stop\n");
+  console.log('⏱️  Simulating long-running script (checking positions every 10 seconds)...');
+  console.log('   Press Ctrl+C to stop\n');
 
   let iteration = 0;
   const maxIterations = 3; // Just run 3 times for demo
+  let consecutiveErrors = 0;
+  const maxConsecutiveErrors = 3;
 
   while (iteration < maxIterations) {
     try {
       iteration++;
-      console.log(`[Iteration ${iteration}] Fetching positions...`);
+      console.log(`[Iteration ${iteration}] Fetching portfolio...`);
 
-      // All API calls wrapped with retry
-      const { summary } = await authClient.withRetry(() =>
-        portfolioFetcher.getPortfolio()
-      );
+      const positions = await portfolioFetcher.getPositions();
 
-      console.log(`   Total Value: $${(summary.totalValue / 1e6).toFixed(2)}`);
-      console.log(`   Positions: ${summary.positionCount}`);
+      console.log(`   CLOB Positions: ${positions.clob?.length || 0}`);
+      console.log(`   AMM Positions: ${positions.amm?.length || 0}`);
+      console.log(`   Accumulative Points: ${positions.accumulativePoints || 0}`);
       console.log(`   Next check in 10 seconds...\n`);
 
-      // Wait 10 seconds
-      await new Promise(resolve => setTimeout(resolve, 10000));
-    } catch (error) {
-      console.error("\n❌ Error occurred");
+      // Reset error counter on success
+      consecutiveErrors = 0;
 
-      if (error instanceof APIError) {
-        console.error("   Status:", error.status);
-        console.error("   Message:", error.message);
-      } else if (error instanceof Error) {
-        console.error("   Message:", error.message);
+      // Wait 10 seconds
+      await new Promise((resolve) => setTimeout(resolve, 10000));
+    } catch (error: any) {
+      consecutiveErrors++;
+      console.error(
+        `\n   ⚠️  Error ${consecutiveErrors}/${maxConsecutiveErrors}: ${error.message}`
+      );
+
+      if (error.status === 401 || error.status === 403) {
+        console.error('   ❌ API key invalid - stopping script');
+        console.error('   💡 Regenerate key at: https://limitless.exchange\n');
+        break;
       }
 
-      // In production, you might want to continue or implement backoff
-      break;
+      if (consecutiveErrors >= maxConsecutiveErrors) {
+        console.error('   ❌ Too many consecutive errors - stopping script\n');
+        break;
+      }
+
+      // Exponential backoff before retry
+      const delay = 2000 * Math.pow(2, consecutiveErrors - 1);
+      console.log(`   ⏳ Waiting ${delay}ms before retry...\n`);
+      await new Promise((resolve) => setTimeout(resolve, delay));
     }
   }
 
-  console.log("✅ Long-running example completed\n");
+  console.log('✅ Long-running example completed\n');
 }
 
 async function main() {
-  console.log("🚀 Authentication Retry Examples\n");
-  console.log("=" .repeat(60));
+  console.log('🚀 API Error Handling and Retry Examples\n');
+  console.log('='.repeat(60));
   console.log();
 
   try {
     // Run all examples
-    await manualRetryExample();
-    await autoRetryExample();
+    await apiKeyValidationExample();
+    await retryLogicExample();
     await longRunningExample();
 
-    console.log("\n🎉 All examples completed successfully!\n");
-    console.log("📚 Key Takeaways:");
-    console.log("   1. Session tokens expire after ~1 month");
-    console.log("   2. Use APIError.isAuthError() to detect 401/403 errors");
-    console.log("   3. Manual retry gives you full control (recommended)");
-    console.log("   4. AuthenticatedClient provides automatic retry (optional)");
-    console.log("   5. Long-running scripts should wrap all API calls with retry\n");
-
+    console.log('\n🎉 All examples completed successfully!\n');
+    console.log('📚 Key Takeaways:');
+    console.log('   1. API keys are long-lived and do not expire automatically');
+    console.log('   2. Handle 401/403 errors by regenerating API key');
+    console.log('   3. Implement exponential backoff for transient failures (5xx errors)');
+    console.log('   4. Long-running scripts should track consecutive errors');
+    console.log('   5. Always provide clear error messages pointing to API key settings\n');
   } catch (error) {
-    console.error("\n❌ Error occurred");
+    console.error('\n❌ Error occurred');
 
     if (error && typeof error === 'object' && 'status' in error && 'data' in error) {
-      console.error("   Status:", (error as any).status);
-      console.error("   Message:", (error as any).message);
-      console.error("   Raw API Response:", JSON.stringify((error as any).data, null, 2));
+      console.error('   Status:', (error as any).status);
+      console.error('   Message:', (error as any).message);
+      console.error('   Raw API Response:', JSON.stringify((error as any).data, null, 2));
     } else if (error instanceof Error) {
-      console.error("   Message:", error.message);
+      console.error('   Message:', error.message);
     } else {
-      console.error("   Unknown error:", error);
+      console.error('   Unknown error:', error);
     }
 
     if (process.env.DEBUG === 'true' && error instanceof Error && error.stack) {
-      console.error("\n   Stack trace:");
+      console.error('\n   Stack trace:');
       console.error(error.stack);
     }
 
@@ -269,6 +242,6 @@ async function main() {
 main()
   .then(() => process.exit(0))
   .catch((error) => {
-    console.error("Fatal error:", error);
+    console.error('Fatal error:', error);
     process.exit(1);
   });

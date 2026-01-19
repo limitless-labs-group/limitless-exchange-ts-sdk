@@ -29,14 +29,14 @@ For production use, we strongly recommend:
 
 ## Features
 
-- ✅ **Authentication**: Simple wallet-based authentication with session management
+- ✅ **Authentication**: API key authentication with X-API-Key header
 - ✅ **Order Management**: Create, cancel, and manage orders on CLOB and NegRisk markets
 - ✅ **Market Data**: Access real-time market data and orderbooks
 - ✅ **NegRisk Markets**: Full support for group markets with multiple outcomes
 - ✅ **Error Handling & Retry**: Automatic retry logic for rate limits and transient failures
 - ✅ **Type Safety**: Full TypeScript support with comprehensive type definitions
 - ✅ **TSDoc Documentation**: Complete API documentation with examples
-- ✅ **WebSocket**: Real-time price and position updates
+- ✅ **WebSocket**: Real-time price and position updates with API key auth
 
 ## Installation
 
@@ -88,28 +88,37 @@ See [examples/project-integration/src/active-markets.ts](./examples/project-inte
 
 ### Authentication
 
+The SDK uses API keys for authentication. API keys can be obtained from your Limitless Exchange account settings.
+
 ```typescript
-import { ethers } from 'ethers';
-import { HttpClient, MessageSigner, Authenticator } from '@limitless-exchange/sdk';
+import { HttpClient } from '@limitless-exchange/sdk';
 
-// Create wallet from private key
-const wallet = new ethers.Wallet(process.env.PRIVATE_KEY);
-
-// Initialize SDK components
+// Option 1: Automatic from environment variable (recommended)
+// Set LIMITLESS_API_KEY in your .env file
 const httpClient = new HttpClient({
   baseURL: 'https://api.limitless.exchange',
 });
 
-const signer = new MessageSigner(wallet);
-const authenticator = new Authenticator(httpClient, signer);
-
-// Authenticate
-const result = await authenticator.authenticate({
-  client: 'eoa',
+// Option 2: Explicit API key
+const httpClient = new HttpClient({
+  baseURL: 'https://api.limitless.exchange',
+  apiKey: process.env.LIMITLESS_API_KEY,
 });
 
-console.log('Session cookie:', result.sessionCookie);
-console.log('Profile:', result.profile);
+// All requests automatically include X-API-Key header
+// For authenticated endpoints like portfolio, orders, etc.
+```
+
+**Environment Variables:**
+
+Create a `.env` file:
+
+```bash
+# Required for authenticated endpoints
+LIMITLESS_API_KEY=sk_live_your_api_key_here
+
+# Optional: Private key for order signing (EIP-712)
+PRIVATE_KEY=0x...
 ```
 
 ### Token Approvals
@@ -192,14 +201,10 @@ const groupMarket = await marketFetcher.getMarket('largest-company-end-of-2025-1
 const appleMarket = groupMarket.markets[0];
 const marketDetails = await marketFetcher.getMarket(appleMarket.slug);
 
-// 3. Create order client (contract address from venue)
+// 3. Create order client (userData fetched automatically from profile)
 const orderClient = new OrderClient({
   httpClient,
   wallet,
-  userData: {
-    userId: (authResult.profile as any).id,
-    feeRateBps: (authResult.profile as any).rank?.feeRateBps || 300,
-  },
 });
 
 // 4. Place order on submarket (not group!)
@@ -308,54 +313,21 @@ For detailed documentation, see the [Error Handling & Retry Guide](./docs/api/RE
 
 ### Authentication
 
-#### `MessageSigner`
-
-Handles message signing for authentication.
-
-```typescript
-const signer = new MessageSigner(wallet);
-
-// Create authentication headers
-const headers = await signer.createAuthHeaders(signingMessage);
-
-// Sign EIP-712 typed data
-const signature = await signer.signTypedData(domain, types, value);
-```
-
-#### `Authenticator`
-
-Manages the authentication flow.
-
-```typescript
-const authenticator = new Authenticator(httpClient, signer);
-
-// Get signing message
-const message = await authenticator.getSigningMessage();
-
-// Authenticate
-const result = await authenticator.authenticate({ client: 'eoa' });
-
-// Verify authentication
-const address = await authenticator.verifyAuth(sessionCookie);
-
-// Logout
-await authenticator.logout(sessionCookie);
-```
-
 #### `HttpClient`
 
-HTTP client with cookie management.
+HTTP client with API key authentication.
 
 ```typescript
 const httpClient = new HttpClient({
   baseURL: 'https://api.limitless.exchange',
+  apiKey: process.env.LIMITLESS_API_KEY, // Optional - auto-loads from env
   timeout: 30000,
 });
 
-// Set session cookie for authenticated requests
-httpClient.setSessionCookie(sessionCookie);
+// Set or update API key
+httpClient.setApiKey('sk_live_...');
 
-// Make requests
+// Make requests - X-API-Key header automatically included
 const data = await httpClient.get('/endpoint');
 await httpClient.post('/endpoint', { data });
 ```
@@ -365,10 +337,10 @@ await httpClient.post('/endpoint', { data });
 For detailed documentation, see the [docs](./docs) directory:
 
 - **[Complete Documentation](./docs/README.md)** - Full SDK documentation
-- **[Authentication Guide](./docs/auth/README.md)** - Authentication and session management
+- **[Authentication Guide](./docs/api/README.md)** - API key authentication and HTTP client
 - **[Trading & Orders](./docs/orders/README.md)** - Order creation, management, and NegRisk markets
 - **[Market Data](./docs/markets/README.md)** - Market discovery and orderbook access
-- **[Portfolio & Positions](./docs/portfolio/README.md)** - Position tracking and balances
+- **[Portfolio & Positions](./docs/portfolio/README.md)** - Position tracking and user history
 - **[WebSocket Streaming](./docs/websocket/README.md)** - Real-time data updates
 - **[Error Handling & Retry](./docs/api/README.md)** - API error handling and retry mechanisms
 - **[Logging](./docs/logging/LOGGING.md)** - Logging configuration
@@ -379,7 +351,7 @@ Production-ready code samples are available in [docs/code-samples](./docs/code-s
 
 ### Authentication Examples
 
-- `basic-auth.ts` - Simple EOA authentication
+- `basic-auth.ts` - API key authentication setup
 - `with-logging.ts` - Authentication with custom logging
 - `auth-retry.ts` - Authentication with retry logic
 - `error-handling.ts` - Comprehensive error handling
@@ -438,11 +410,12 @@ src/
 ├── types/          # TypeScript type definitions
 │   ├── markets.ts  # Market and active markets types
 │   ├── orders.ts   # Order types
-│   ├── auth.ts     # Authentication types
+│   ├── auth.ts     # User profile types
 │   └── ...
-├── auth/           # Authentication modules
-│   ├── signer.ts   # Message signing
-│   └── authenticator.ts
+├── api/            # HTTP client and API utilities
+│   ├── http.ts     # HTTP client with API key auth
+│   ├── errors.ts   # Error handling
+│   └── retry.ts    # Retry logic
 ├── markets/        # Market data modules
 │   ├── fetcher.ts  # Market and orderbook fetching
 │   └── index.ts
@@ -491,10 +464,10 @@ This is the first stable, production-ready release of the Limitless Exchange Typ
 
 #### Core Features
 
-- **Authentication**: EIP-712 signing, EOA support, session management
+- **Authentication**: API key authentication, EIP-712 signing, EOA support
 - **Market Data**: Active markets with sorting, orderbook access, venue caching
 - **Order Management**: GTC and FOK orders, tick alignment, automatic signing
-- **Portfolio**: Position tracking, trading history, balance monitoring
+- **Portfolio**: Position tracking, user history
 - **WebSocket**: Real-time orderbook, price updates, event streaming
 - **Error Handling**: Decorator and wrapper retry patterns, configurable strategies
 - **Token Approvals**: Complete setup script, CLOB and NegRisk workflows

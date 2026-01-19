@@ -9,7 +9,6 @@
  */
 
 export * from './types';
-export * from './auth';
 export * from './api';
 export * from './utils';
 export * from './orders';

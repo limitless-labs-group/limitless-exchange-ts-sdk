@@ -4,11 +4,10 @@
  */
 
 import { HttpClient } from '../api/http';
+import { Market } from '../types/market-class';
 import type {
-  Market,
   MarketsResponse,
   OrderBook,
-  MarketPrice,
   ActiveMarketsParams,
   ActiveMarketsResponse,
   Venue,
@@ -97,16 +96,24 @@ export class MarketFetcher {
     this.logger.debug('Fetching active markets', { params });
 
     try {
-      const response = await this.httpClient.get<ActiveMarketsResponse>(endpoint);
+      const response = await this.httpClient.get<any>(endpoint);
+
+      // Convert market data to Market instances with httpClient attached
+      const markets = response.data.map((marketData: any) => new Market(marketData, this.httpClient));
+
+      const result = {
+        data: markets,
+        totalMarketsCount: response.totalMarketsCount,
+      };
 
       this.logger.info('Active markets fetched successfully', {
-        count: response.data.length,
+        count: markets.length,
         total: response.totalMarketsCount,
         sortBy: params?.sortBy,
         page: params?.page,
       });
 
-      return response;
+      return result;
     } catch (error) {
       this.logger.error('Failed to fetch active markets', error as Error, { params });
       throw error;
@@ -127,8 +134,13 @@ export class MarketFetcher {
    *
    * @example
    * ```typescript
+   * // Get market
    * const market = await fetcher.getMarket('bitcoin-price-2024');
    * console.log(`Market: ${market.title}`);
+   *
+   * // Fluent API - get user orders for this market (clean!)
+   * const orders = await market.getUserOrders();
+   * console.log(`You have ${orders.length} orders`);
    *
    * // Venue is now cached for order signing
    * await orderClient.createOrder({
@@ -141,7 +153,10 @@ export class MarketFetcher {
     this.logger.debug('Fetching market', { slug });
 
     try {
-      const market = await this.httpClient.get<Market>(`/markets/${slug}`);
+      const response = await this.httpClient.get<any>(`/markets/${slug}`);
+
+      // Create Market instance with httpClient attached for fluent API
+      const market = new Market(response, this.httpClient);
 
       if (market.venue) {
         this.venueCache.set(slug, market.venue);
@@ -233,33 +248,4 @@ export class MarketFetcher {
     }
   }
 
-  /**
-   * Gets the current price for a token.
-   *
-   * @param tokenId - Token ID
-   * @returns Promise resolving to price information
-   * @throws Error if API request fails
-   *
-   * @example
-   * ```typescript
-   * const price = await fetcher.getPrice('123456');
-   * console.log(`Current price: ${price.price}`);
-   * ```
-   */
-  async getPrice(tokenId: string): Promise<MarketPrice> {
-    this.logger.debug('Fetching price', { tokenId });
-
-    try {
-      const price = await this.httpClient.get<MarketPrice>(`/prices/${tokenId}`);
-
-      this.logger.info('Price fetched successfully', {
-        tokenId,
-        price: price.price,
-      });
-      return price;
-    } catch (error) {
-      this.logger.error('Failed to fetch price', error as Error, { tokenId });
-      throw error;
-    }
-  }
 }

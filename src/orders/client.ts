@@ -20,13 +20,15 @@ import type { ethers } from 'ethers';
 import type { UserData } from '../types/auth';
 import { ZERO_ADDRESS } from '../utils/constants';
 import { MarketFetcher } from '../markets/fetcher';
+import { PortfolioFetcher } from '../portfolio/fetcher';
 
 /**
  * Configuration for the order client.
  *
  * @remarks
  * The order client auto-configures signing based on venue data from the API.
- * Custom signingConfig is optional for advanced use cases.
+ * User data (userId, feeRateBps) is automatically fetched from the profile API
+ * on first order creation and cached for subsequent orders.
  *
  * Performance tip: Provide a shared marketFetcher instance to enable venue caching
  * across market fetches and order creation, avoiding redundant API calls.
@@ -35,27 +37,14 @@ import { MarketFetcher } from '../markets/fetcher';
  */
 export interface OrderClientConfig {
   /**
-   * HTTP client for API requests
+   * HTTP client for API requests (must have API key configured)
    */
   httpClient: HttpClient;
 
   /**
-   * Wallet for signing orders
+   * Wallet for signing orders with EIP-712
    */
   wallet: ethers.Wallet;
-
-  /**
-   * User data containing userId and feeRateBps
-   *
-   * @example
-   * ```typescript
-   * {
-   *   userId: 123,      // From auth result
-   *   feeRateBps: 300   // User's fee rate (3%)
-   * }
-   * ```
-   */
-  userData: UserData;
 
   /**
    * Custom signing configuration (optional)
@@ -82,7 +71,6 @@ export interface OrderClientConfig {
    * const orderClient = new OrderClient({
    *   httpClient,
    *   wallet,
-   *   userData,
    *   marketFetcher  // Shared instance
    * });
    *
@@ -108,24 +96,23 @@ export interface OrderClientConfig {
  * This class provides high-level methods for order operations,
  * abstracting away HTTP details and order signing complexity.
  *
+ * User data (userId, feeRateBps) is automatically fetched from profile API
+ * on first order creation and cached for subsequent orders.
+ *
  * Uses dynamic venue addressing for EIP-712 order signing. For best performance,
  * always call marketFetcher.getMarket() before creating orders to cache venue data.
  *
  * @example
  * ```typescript
+ * import { ethers } from 'ethers';
+ *
+ * const wallet = new ethers.Wallet(process.env.PRIVATE_KEY!);
  * const orderClient = new OrderClient({
- *   httpClient,
- *   wallet,
- *   userData: {
- *     userId: 123,
- *     feeRateBps: 100
- *   },
- *   signingConfig: {
- *     chainId: 8453,
- *     contractAddress: '0x...'
- *   }
+ *   httpClient,  // Must have API key configured
+ *   wallet,      // For EIP-712 signing
  * });
  *
+ * // User data automatically fetched on first order
  * const order = await orderClient.createOrder({
  *   tokenId: '123...',
  *   price: 0.65,
@@ -140,10 +127,11 @@ export interface OrderClientConfig {
  */
 export class OrderClient {
   private httpClient: HttpClient;
-  private orderBuilder: OrderBuilder;
+  private wallet: ethers.Wallet;
+  private orderBuilder?: OrderBuilder;
   private orderSigner: OrderSigner;
   private marketFetcher: MarketFetcher;
-  private ownerId: number;
+  private cachedUserData?: UserData;
   private signingConfig: OrderSigningConfig;
   private logger: ILogger;
 
@@ -154,12 +142,9 @@ export class OrderClient {
    */
   constructor(config: OrderClientConfig) {
     this.httpClient = config.httpClient;
+    this.wallet = config.wallet;
     this.logger = config.logger || new NoOpLogger();
 
-    this.ownerId = config.userData.userId;
-    const feeRateBps = config.userData.feeRateBps;
-
-    this.orderBuilder = new OrderBuilder(config.wallet.address, feeRateBps, 0.001);
     this.orderSigner = new OrderSigner(config.wallet, this.logger);
 
     this.marketFetcher = config.marketFetcher || new MarketFetcher(config.httpClient, this.logger);
@@ -186,6 +171,38 @@ export class OrderClient {
         chainId,
       });
     }
+  }
+
+  /**
+   * Ensures user data is loaded and cached.
+   * Fetches from profile API on first call, then caches for subsequent calls.
+   *
+   * @returns Promise resolving to cached user data
+   * @internal
+   */
+  private async ensureUserData(): Promise<UserData> {
+    if (!this.cachedUserData) {
+      this.logger.info('Fetching user profile for order client initialization...');
+
+      const portfolioFetcher = new PortfolioFetcher(this.httpClient);
+      const profile = await portfolioFetcher.getProfile();
+
+      this.cachedUserData = {
+        userId: profile.id,
+        feeRateBps: profile.rank?.feeRateBps || 300,
+      };
+
+      // Initialize order builder with fetched data
+      this.orderBuilder = new OrderBuilder(this.wallet.address, this.cachedUserData.feeRateBps, 0.001);
+
+      this.logger.info('Order Client initialized', {
+        walletAddress: profile.account,
+        userId: this.cachedUserData.userId,
+        feeRate: `${this.cachedUserData.feeRateBps / 100}%`,
+      });
+    }
+
+    return this.cachedUserData;
   }
 
   /**
@@ -229,6 +246,9 @@ export class OrderClient {
       marketSlug: string;
     }
   ): Promise<OrderResponse> {
+    // Ensure user data is loaded (lazy loading with cache)
+    const userData = await this.ensureUserData();
+
     this.logger.info('Creating order', {
       side: params.side,
       orderType: params.orderType,
@@ -267,7 +287,7 @@ export class OrderClient {
       adapter: venue.adapter,
     });
 
-    const unsignedOrder = this.orderBuilder.buildOrder(params);
+    const unsignedOrder = this.orderBuilder!.buildOrder(params);
 
     this.logger.debug('Built unsigned order', {
       salt: unsignedOrder.salt,
@@ -285,7 +305,7 @@ export class OrderClient {
       },
       orderType: params.orderType,
       marketSlug: params.marketSlug,
-      ownerId: this.ownerId,
+      ownerId: userData.userId,
     };
 
     // Step 4: Submit to API
@@ -401,13 +421,6 @@ export class OrderClient {
   }
 
   /**
-   * @deprecated Use `cancel()` instead
-   */
-  async cancelOrder(orderId: string): Promise<void> {
-    await this.cancel(orderId);
-  }
-
-  /**
    * Gets an order by ID.
    *
    * @param orderId - Order ID to fetch
@@ -437,11 +450,11 @@ export class OrderClient {
    * before signing and submission.
    *
    * @param params - Order parameters
-   * @returns Unsigned order
+   * @returns Promise resolving to unsigned order
    *
    * @example
    * ```typescript
-   * const unsignedOrder = orderClient.buildUnsignedOrder({
+   * const unsignedOrder = await orderClient.buildUnsignedOrder({
    *   tokenId: '123456',
    *   price: 0.65,
    *   size: 100,
@@ -449,8 +462,10 @@ export class OrderClient {
    * });
    * ```
    */
-  buildUnsignedOrder(params: OrderArgs): UnsignedOrder {
-    return this.orderBuilder.buildOrder(params);
+  async buildUnsignedOrder(params: OrderArgs): Promise<UnsignedOrder> {
+    // Ensure user data is loaded for order builder
+    await this.ensureUserData();
+    return this.orderBuilder!.buildOrder(params);
   }
 
   /**
@@ -470,5 +485,37 @@ export class OrderClient {
    */
   async signOrder(order: UnsignedOrder): Promise<string> {
     return await this.orderSigner.signOrder(order, this.signingConfig);
+  }
+
+  /**
+   * Gets the wallet address.
+   *
+   * @returns Ethereum address of the wallet
+   *
+   * @example
+   * ```typescript
+   * const address = orderClient.walletAddress;
+   * console.log(`Wallet: ${address}`);
+   * ```
+   */
+  get walletAddress(): string {
+    return this.wallet.address;
+  }
+
+  /**
+   * Gets the owner ID (user ID from profile).
+   *
+   * @returns Owner ID from user profile, or undefined if not yet loaded
+   *
+   * @example
+   * ```typescript
+   * const ownerId = orderClient.ownerId;
+   * if (ownerId) {
+   *   console.log(`Owner ID: ${ownerId}`);
+   * }
+   * ```
+   */
+  get ownerId(): number | undefined {
+    return this.cachedUserData?.userId;
   }
 }

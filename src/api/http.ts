@@ -2,7 +2,7 @@ import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 import http from 'http';
 import https from 'https';
 import { DEFAULT_API_URL } from '../utils/constants';
-import { APIError } from './errors';
+import { APIError, RateLimitError, AuthenticationError, ValidationError } from './errors';
 import type { ILogger } from '../types/logger';
 import { NoOpLogger } from '../types/logger';
 
@@ -24,9 +24,12 @@ export interface HttpClientConfig {
   timeout?: number;
 
   /**
-   * Session cookie for authenticated requests
+   * API key for authenticated requests
+   * @remarks
+   * If not provided, will attempt to load from LIMITLESS_API_KEY environment variable.
+   * Required for authenticated endpoints (portfolio, orders, etc.)
    */
-  sessionCookie?: string;
+  apiKey?: string;
 
   /**
    * Optional logger for debugging
@@ -92,14 +95,14 @@ export interface HttpClientConfig {
  * HTTP client wrapper for Limitless Exchange API.
  *
  * @remarks
- * This class provides a centralized HTTP client with cookie management,
+ * This class provides a centralized HTTP client with API key authentication,
  * error handling, and request/response interceptors.
  *
  * @public
  */
 export class HttpClient {
   private client: AxiosInstance;
-  private sessionCookie?: string;
+  private apiKey?: string;
   private logger: ILogger;
 
   /**
@@ -108,8 +111,15 @@ export class HttpClient {
    * @param config - Configuration options for the HTTP client
    */
   constructor(config: HttpClientConfig = {}) {
-    this.sessionCookie = config.sessionCookie;
+    this.apiKey = config.apiKey || process.env.LIMITLESS_API_KEY;
     this.logger = config.logger || new NoOpLogger();
+
+    if (!this.apiKey) {
+      this.logger.warn(
+        'API key not set. Authenticated endpoints will fail. ' +
+        'Set LIMITLESS_API_KEY environment variable or pass apiKey parameter.'
+      );
+    }
 
     // Connection pooling configuration (enabled by default)
     const keepAlive = config.keepAlive !== false; // Default: true
@@ -162,16 +172,22 @@ export class HttpClient {
   private setupInterceptors(): void {
     this.client.interceptors.request.use(
       (config) => {
-        if (this.sessionCookie) {
-          config.headers['Cookie'] = `limitless_session=${this.sessionCookie}`;
+        if (this.apiKey) {
+          config.headers['X-API-Key'] = this.apiKey;
         }
 
         // Log outgoing request - concise format
         const fullUrl = `${config.baseURL || ''}${config.url || ''}`;
         const method = config.method?.toUpperCase() || 'GET';
 
+        // Hide API key in logs for security
+        const logHeaders = { ...config.headers };
+        if (logHeaders['X-API-Key']) {
+          logHeaders['X-API-Key'] = '***';
+        }
+
         this.logger.debug(`→ ${method} ${fullUrl}`, {
-          headers: config.headers,
+          headers: logHeaders,
           body: config.data,
         });
 
@@ -236,8 +252,16 @@ export class HttpClient {
             }
           }
 
-          // Throw APIError with original data preserved
-          throw new APIError(message, status, data, url, method);
+          // Throw appropriate error type based on status code
+          if (status === 429) {
+            throw new RateLimitError(message, status, data, url, method);
+          } else if (status === 401 || status === 403) {
+            throw new AuthenticationError(message, status, data, url, method);
+          } else if (status === 400) {
+            throw new ValidationError(message, status, data, url, method);
+          } else {
+            throw new APIError(message, status, data, url, method);
+          }
         } else if (error.request) {
           throw new Error('No response received from API');
         } else {
@@ -248,19 +272,19 @@ export class HttpClient {
   }
 
   /**
-   * Sets the session cookie for authenticated requests.
+   * Sets the API key for authenticated requests.
    *
-   * @param cookie - Session cookie value
+   * @param apiKey - API key value
    */
-  setSessionCookie(cookie: string): void {
-    this.sessionCookie = cookie;
+  setApiKey(apiKey: string): void {
+    this.apiKey = apiKey;
   }
 
   /**
-   * Clears the session cookie.
+   * Clears the API key.
    */
-  clearSessionCookie(): void {
-    this.sessionCookie = undefined;
+  clearApiKey(): void {
+    this.apiKey = undefined;
   }
 
   /**
@@ -289,24 +313,6 @@ export class HttpClient {
   }
 
   /**
-   * Performs a POST request and returns the full response object.
-   * Useful when you need access to response headers (e.g., for cookie extraction).
-   *
-   * @param url - Request URL
-   * @param data - Request body data
-   * @param config - Additional request configuration
-   * @returns Promise resolving to the full AxiosResponse object
-   * @internal
-   */
-  async postWithResponse<T = any>(
-    url: string,
-    data?: any,
-    config?: AxiosRequestConfig
-  ): Promise<AxiosResponse<T>> {
-    return await this.client.post(url, data, config);
-  }
-
-  /**
    * Performs a DELETE request.
    *
    * @remarks
@@ -329,29 +335,5 @@ export class HttpClient {
 
     const response: AxiosResponse<T> = await this.client.delete(url, deleteConfig);
     return response.data;
-  }
-
-  /**
-   * Extracts cookies from response headers.
-   *
-   * @param response - Axios response object
-   * @returns Object containing parsed cookies
-   * @internal
-   */
-  extractCookies(response: AxiosResponse): Record<string, string> {
-    const setCookie = response.headers['set-cookie'];
-    if (!setCookie) return {};
-
-    const cookies: Record<string, string> = {};
-    const cookieStrings = Array.isArray(setCookie) ? setCookie : [setCookie];
-
-    for (const cookieString of cookieStrings) {
-      const parts = cookieString.split(';')[0].split('=');
-      if (parts.length === 2) {
-        cookies[parts[0].trim()] = parts[1].trim();
-      }
-    }
-
-    return cookies;
   }
 }

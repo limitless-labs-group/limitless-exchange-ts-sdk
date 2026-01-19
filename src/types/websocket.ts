@@ -19,9 +19,16 @@ export interface WebSocketConfig {
   url?: string;
 
   /**
-   * Session cookie for authentication
+   * API key for authentication
+   *
+   * @remarks
+   * **Required** for authenticated subscriptions (positions, transactions).
+   * Not required for public subscriptions (market prices, orderbook).
+   *
+   * You can generate an API key at https://limitless.exchange
+   * and the LIMITLESS_API_KEY environment variable.
    */
-  sessionCookie?: string;
+  apiKey?: string;
 
   /**
    * Auto-reconnect on connection loss (default: true)

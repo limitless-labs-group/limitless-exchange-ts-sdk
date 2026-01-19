@@ -401,3 +401,63 @@ export interface PortfolioSummary {
     };
   };
 }
+
+/**
+ * User history entry.
+ *
+ * Represents various types of user actions:
+ * - AMM trades
+ * - CLOB trades
+ * - Token splits/merges
+ * - NegRisk conversions
+ *
+ * @public
+ */
+export interface HistoryEntry {
+  /**
+   * Entry ID
+   */
+  id: string;
+
+  /**
+   * Entry type (trade, split, merge, conversion, etc.)
+   */
+  type: string;
+
+  /**
+   * Entry creation timestamp
+   */
+  createdAt: string;
+
+  /**
+   * Associated market slug
+   */
+  marketSlug?: string;
+
+  /**
+   * Transaction amount
+   */
+  amount?: string;
+
+  /**
+   * Additional entry details
+   */
+  details?: Record<string, any>;
+}
+
+/**
+ * Paginated user history response from /portfolio/history endpoint.
+ *
+ * @public
+ */
+export interface HistoryResponse {
+  /**
+   * List of history entries
+   */
+  data: HistoryEntry[];
+
+  /**
+   * Total number of entries
+   */
+  totalCount: number;
+}

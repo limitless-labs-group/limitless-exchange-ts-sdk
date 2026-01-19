@@ -231,26 +231,6 @@ export interface OrderBook {
   lastTradePrice: number;
 }
 
-/**
- * Market price information.
- * @public
- */
-export interface MarketPrice {
-  /**
-   * Token ID
-   */
-  tokenId: string;
-
-  /**
-   * Current price
-   */
-  price: number;
-
-  /**
-   * Last update timestamp
-   */
-  updatedAt?: string;
-}
 
 /**
  * Market outcome information.

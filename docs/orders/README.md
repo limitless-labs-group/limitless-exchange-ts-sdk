@@ -50,11 +50,13 @@ console.log('Adapter:', market.venue.adapter);
 Standard prediction markets with a single outcome to trade.
 
 **Default Contract Address** (Base mainnet):
+
 ```
 0xa4409D988CA2218d956BeEFD3874100F444f0DC3
 ```
 
 **Characteristics**:
+
 - `marketType = "single"`
 - One outcome per market
 - Direct market slug for orders
@@ -62,6 +64,7 @@ Standard prediction markets with a single outcome to trade.
 - Venue data returned from `/markets/:slug` API
 
 **Token Approvals for CLOB**:
+
 - **BUY orders**: USDC → `venue.exchange`
 - **SELL orders**: CT → `venue.exchange`
 
@@ -70,11 +73,13 @@ Standard prediction markets with a single outcome to trade.
 Group markets with multiple related outcomes traded together (e.g., "Largest Company 2025" with Apple, Microsoft, NVIDIA, etc.).
 
 **Default Contract Address** (Base mainnet):
+
 ```
 0x5a38afc17F7E97ad8d6C547ddb837E40B4aEDfC6
 ```
 
 **Characteristics**:
+
 - `marketType = "group"` (parent market)
 - Multiple submarkets with `marketType = "single"`
 - Use **submarket slug** for orders (NOT group slug)
@@ -82,6 +87,7 @@ Group markets with multiple related outcomes traded together (e.g., "Largest Com
 - Venue data returned from `/markets/:slug` API
 
 **Token Approvals for NegRisk**:
+
 - **BUY orders**: USDC → `venue.exchange`
 - **SELL orders**: CT → `venue.exchange` **AND** `venue.adapter`
 
@@ -130,6 +136,7 @@ Best for price-specific execution when you can wait for your target price.
 ### Why Approvals Are Needed
 
 Smart contracts cannot transfer tokens from your wallet without explicit permission. Token approvals grant the exchange contracts permission to transfer:
+
 - **USDC** when you place BUY orders
 - **Conditional Tokens (CT)** when you place SELL orders
 
@@ -137,18 +144,18 @@ Smart contracts cannot transfer tokens from your wallet without explicit permiss
 
 #### CLOB Markets
 
-| Order Type | Token | Approval Target | Method |
-|------------|-------|----------------|---------|
-| **BUY** | USDC | `venue.exchange` | `approve(address, uint256)` |
-| **SELL** | CT | `venue.exchange` | `setApprovalForAll(address, bool)` |
+| Order Type | Token | Approval Target  | Method                             |
+| ---------- | ----- | ---------------- | ---------------------------------- |
+| **BUY**    | USDC  | `venue.exchange` | `approve(address, uint256)`        |
+| **SELL**   | CT    | `venue.exchange` | `setApprovalForAll(address, bool)` |
 
 #### NegRisk Markets
 
-| Order Type | Token | Approval Target | Method |
-|------------|-------|----------------|---------|
-| **BUY** | USDC | `venue.exchange` | `approve(address, uint256)` |
-| **SELL** | CT | `venue.exchange` | `setApprovalForAll(address, bool)` |
-| **SELL** | CT | `venue.adapter` | `setApprovalForAll(address, bool)` |
+| Order Type | Token | Approval Target  | Method                             |
+| ---------- | ----- | ---------------- | ---------------------------------- |
+| **BUY**    | USDC  | `venue.exchange` | `approve(address, uint256)`        |
+| **SELL**   | CT    | `venue.exchange` | `setApprovalForAll(address, bool)` |
+| **SELL**   | CT    | `venue.adapter`  | `setApprovalForAll(address, bool)` |
 
 ⚠️ **NegRisk SELL orders require TWO approvals**: one for `venue.exchange` and one for `venue.adapter`.
 
@@ -162,13 +169,14 @@ cp docs/code-samples/.env.example docs/code-samples/.env
 
 # 2. Edit .env file:
 #    - Set PRIVATE_KEY
-#    - Set CLOB_MARKET_SLUG or NEGRISK_MARKET_SLUG
+#    - Set MARKET_SLUG (works for both CLOB and NegRisk markets)
 
 # 3. Run approval setup
 npx tsx docs/code-samples/setup-approvals.ts
 ```
 
 The script will:
+
 - Check current allowances
 - Approve USDC for BUY orders
 - Approve Conditional Tokens for SELL orders
@@ -194,8 +202,8 @@ async function setupApprovals(wallet: ethers.Wallet, marketSlug: string) {
   }
 
   // 2. Get token contract addresses
-  const usdcAddress = getContractAddress('USDC');  // Native USDC on Base
-  const ctfAddress = getContractAddress('CTF');    // Conditional Token Framework
+  const usdcAddress = getContractAddress('USDC'); // Native USDC on Base
+  const ctfAddress = getContractAddress('CTF'); // Conditional Token Framework
 
   // 3. Create contract instances
   const usdc = new ethers.Contract(
@@ -240,25 +248,16 @@ Before setting approvals, check if they already exist:
 
 ```typescript
 // Check USDC allowance
-const usdcAllowance = await usdc.allowance(
-  wallet.address,
-  market.venue.exchange
-);
+const usdcAllowance = await usdc.allowance(wallet.address, market.venue.exchange);
 console.log(`USDC allowance: ${ethers.formatUnits(usdcAllowance, 6)} USDC`);
 
 // Check CT approval for venue.exchange
-const ctfApproved = await ctf.isApprovedForAll(
-  wallet.address,
-  market.venue.exchange
-);
+const ctfApproved = await ctf.isApprovedForAll(wallet.address, market.venue.exchange);
 console.log(`CT approved for exchange: ${ctfApproved}`);
 
 // Check CT approval for venue.adapter (NegRisk only)
 if (market.negRiskRequestId) {
-  const adapterApproved = await ctf.isApprovedForAll(
-    wallet.address,
-    market.venue.adapter
-  );
+  const adapterApproved = await ctf.isApprovedForAll(wallet.address, market.venue.adapter);
   console.log(`CT approved for adapter: ${adapterApproved}`);
 }
 ```
@@ -274,17 +273,21 @@ if (market.negRiskRequestId) {
 ### Common Issues
 
 **"Insufficient allowance" error**:
+
 - Solution: Run the approval setup script or manually approve tokens
 
 **"Transfer amount exceeds allowance"**:
+
 - For USDC: Your approval amount is too low
 - Solution: Approve a higher amount or use `ethers.MaxUint256`
 
 **NegRisk SELL order fails**:
+
 - Possible cause: Missing `venue.adapter` approval
 - Solution: Approve CT for both `venue.exchange` AND `venue.adapter`
 
 **"ERC1155: caller is not owner nor approved"**:
+
 - Your CT tokens are not approved for the exchange
 - Solution: Call `setApprovalForAll(venue.exchange, true)`
 
@@ -296,41 +299,27 @@ You need three components to create orders:
 
 ```typescript
 import { ethers } from 'ethers';
-import {
-  HttpClient,
-  MessageSigner,
-  Authenticator,
-  OrderClient,
-  MarketFetcher,
-  Side,
-  OrderType,
-} from '@limitless-exchange/sdk';
+import { HttpClient, OrderClient, MarketFetcher, Side, OrderType } from '@limitless-exchange/sdk';
 
-// 1. Authenticate
-const wallet = new ethers.Wallet(process.env.PRIVATE_KEY!);
+// 1. Setup HTTP client with API key authentication
 const httpClient = new HttpClient({
   baseURL: 'https://api.limitless.exchange',
+  apiKey: process.env.LIMITLESS_API_KEY, // Get from https://limitless.exchange
 });
 
-const signer = new MessageSigner(wallet);
-const authenticator = new Authenticator(httpClient, signer);
-const { sessionCookie, profile } = await authenticator.authenticate({
-  client: 'eoa',
-});
+// 2. Initialize wallet for order signing (EIP-712)
+const wallet = new ethers.Wallet(process.env.PRIVATE_KEY!);
 
-// 2. Fetch market details (caches venue for efficient order signing)
+// 3. Fetch market details (caches venue for efficient order signing)
 const marketFetcher = new MarketFetcher(httpClient);
 const market = await marketFetcher.getMarket('market-slug');
 
-// 3. Setup OrderClient with shared marketFetcher
+// 4. Setup OrderClient with shared marketFetcher
+// userData (userId, feeRateBps) is automatically fetched from profile API on first order
 const orderClient = new OrderClient({
   httpClient,
   wallet,
-  userData: {
-    userId: profile.id,
-    feeRateBps: profile.rank?.feeRateBps || 300,
-  },
-  marketFetcher,  // Share instance for venue caching
+  marketFetcher, // Share instance for venue caching
 });
 ```
 
@@ -398,41 +387,21 @@ NegRisk markets are **group markets** containing multiple related outcomes. Trad
 
 ```typescript
 import { ethers } from 'ethers';
-import {
-  HttpClient,
-  MessageSigner,
-  Authenticator,
-  OrderClient,
-  MarketFetcher,
-  Side,
-  OrderType,
-} from '@limitless-exchange/sdk';
+import { HttpClient, OrderClient, MarketFetcher, Side, OrderType } from '@limitless-exchange/sdk';
 
-// Set the NegRisk contract address
-process.env.NEGRISK_CONTRACT_ADDRESS = '0x5a38afc17F7E97ad8d6C547ddb837E40B4aEDfC6';
-
-// 1. Authenticate
-const wallet = new ethers.Wallet(process.env.PRIVATE_KEY!);
+// 1. Setup HTTP client with API key authentication
 const httpClient = new HttpClient({
   baseURL: 'https://api.limitless.exchange',
+  apiKey: process.env.LIMITLESS_API_KEY, // Get from https://limitless.exchange
 });
 
-const signer = new MessageSigner(wallet);
-const authenticator = new Authenticator(httpClient, signer);
-const authResult = await authenticator.authenticate({
-  client: 'eoa',
-});
+// 2. Initialize wallet for order signing (EIP-712)
+const wallet = new ethers.Wallet(process.env.PRIVATE_KEY!);
 
-const userData = {
-  userId: (authResult.profile as any).id,
-  feeRateBps: (authResult.profile as any).rank?.feeRateBps || 300,
-};
-
-// 2. Setup OrderClient
+// 3. Setup OrderClient (userData fetched automatically from profile)
 const orderClient = new OrderClient({
   httpClient,
   wallet,
-  userData,
 });
 ```
 
@@ -538,15 +507,15 @@ const limitSell = await orderClient.createOrder({
 
 ### Key Differences: NegRisk vs CLOB
 
-| Aspect              | CLOB Markets                                 | NegRisk Markets                              |
-| ------------------- | -------------------------------------------- | -------------------------------------------- |
-| **Market Type**     | `marketType = "single"`                      | Group: `"group"`, Submarket: `"single"`      |
-| **Structure**       | Single outcome                               | Group with multiple submarkets               |
-| **Order Slug**      | Market slug directly                         | **Submarket slug** (not group!)              |
-| **Token IDs**       | One set per market                           | Unique set per submarket                     |
-| **Venue Address**   | `venue.exchange` from API                    | `venue.exchange` from API                    |
-| **Fetching**        | Direct market fetch                          | Group → submarkets array                     |
-| **Order Placement** | Same slug                                    | **Must use submarket slug**                  |
+| Aspect              | CLOB Markets              | NegRisk Markets                         |
+| ------------------- | ------------------------- | --------------------------------------- |
+| **Market Type**     | `marketType = "single"`   | Group: `"group"`, Submarket: `"single"` |
+| **Structure**       | Single outcome            | Group with multiple submarkets          |
+| **Order Slug**      | Market slug directly      | **Submarket slug** (not group!)         |
+| **Token IDs**       | One set per market        | Unique set per submarket                |
+| **Venue Address**   | `venue.exchange` from API | `venue.exchange` from API               |
+| **Fetching**        | Direct market fetch       | Group → submarkets array                |
+| **Order Placement** | Same slug                 | **Must use submarket slug**             |
 
 ## Order Management
 
@@ -564,15 +533,48 @@ console.log('Order cancelled');
 
 ### Checking Order Status
 
+#### Using the Clean Fluent API
+
+The Market class provides a clean fluent API for fetching user orders:
+
 ```typescript
-// Get all open orders for a market
+// Clean fluent API - fetch market and get orders in one flow
+const market = await marketFetcher.getMarket('market-slug');
+const orders = await market.getUserOrders();
+
+console.log(`Found ${orders.length} orders for ${market.title}`);
+
+// Filter and analyze orders
+const openOrders = orders.filter((o) => o.status === 'OPEN');
+const filledOrders = orders.filter((o) => o.status === 'FILLED');
+
+console.log(`Open: ${openOrders.length}, Filled: ${filledOrders.length}`);
+
+// Display open orders
+openOrders.forEach((order) => {
+  console.log(`Order ${order.id}:`);
+  console.log(`  Side: ${order.side}`);
+  console.log(`  Price: ${order.price}`);
+  console.log(`  Size: ${order.size}`);
+  console.log(`  Filled: ${order.filled || 0}`);
+  console.log(`  Remaining: ${order.size - (order.filled || 0)}`);
+});
+```
+
+#### Alternative Approaches
+
+```typescript
+// Method 1: Using orderClient (traditional approach)
 const openOrders = await orderClient.getOpenOrders({
   marketSlug: 'market-slug',
 });
 
 console.log('Open orders:', openOrders);
 
-// Get order details
+// Method 2: Using marketFetcher (backward compatible)
+const orders = await marketFetcher.getUserOrders('market-slug');
+
+// Get order details by ID
 const orderDetails = await orderClient.getOrder('ORDER_ID');
 console.log('Status:', orderDetails.status);
 console.log('Filled:', orderDetails.filled);
@@ -591,7 +593,57 @@ console.log('Remaining:', orderDetails.size - orderDetails.filled);
 
 ## Best Practices
 
-### 1. Error Handling
+### 1. Using the Clean Fluent API
+
+The Market class provides a clean, object-oriented API for working with markets and orders:
+
+```typescript
+import { HttpClient, MarketFetcher } from '@limitless-exchange/sdk';
+
+const httpClient = new HttpClient({
+  baseURL: 'https://api.limitless.exchange',
+  apiKey: process.env.LIMITLESS_API_KEY,
+});
+
+const marketFetcher = new MarketFetcher(httpClient);
+
+// Clean fluent API - no need to pass marketSlug repeatedly!
+const market = await marketFetcher.getMarket('bitcoin-2024');
+
+// Get user orders for this market
+const orders = await market.getUserOrders();
+
+// Access market properties
+console.log('Market:', market.title);
+console.log('Type:', market.marketType);
+console.log('Orders:', orders.length);
+
+// Filter orders by status
+const activeOrders = orders.filter((o) => o.status === 'OPEN');
+const completedOrders = orders.filter((o) => o.status === 'FILLED');
+
+console.log(`Active: ${activeOrders.length}, Completed: ${completedOrders.length}`);
+```
+
+**Why use the fluent API?**
+
+- **Cleaner code**: No repetitive parameter passing
+- **Better DX**: More intuitive object-oriented approach
+- **Type safety**: Market instance already has all context
+- **Consistent with Python SDK**: Same API pattern across languages
+
+**Comparison**:
+
+```typescript
+// ✅ CLEAN - Fluent API (recommended)
+const market = await marketFetcher.getMarket('bitcoin-2024');
+const orders = await market.getUserOrders();
+
+// ❌ OLD - Requires passing marketSlug again
+const orders = await marketFetcher.getUserOrders('bitcoin-2024');
+```
+
+### 2. Error Handling
 
 ```typescript
 import { ApiError } from '@limitless-exchange/sdk';

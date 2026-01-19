@@ -1,72 +1,69 @@
 /**
- * Authentication Example with Logging
+ * HTTP Client with Debug Logging
  *
  * This example demonstrates how to enable debug logging
  * to help troubleshoot integration issues.
  */
 
 import { config } from 'dotenv';
-import { ethers } from 'ethers';
-import { HttpClient, MessageSigner, Authenticator, ConsoleLogger } from '@limitless-exchange/sdk';
+import { HttpClient, PortfolioFetcher, ConsoleLogger } from '@limitless-exchange/sdk';
 
 config();
 
 async function main() {
-  console.log('🚀 Limitless Exchange SDK - Authentication with Logging\n');
+  console.log('🚀 Limitless Exchange SDK - Debug Logging Example\n');
 
-  const privateKey = process.env.PRIVATE_KEY;
-  if (
-    !privateKey ||
-    privateKey === '0x0000000000000000000000000000000000000000000000000000000000000000'
-  ) {
-    throw new Error('Please set PRIVATE_KEY in .env file');
+  const apiKey = process.env.LIMITLESS_API_KEY;
+  if (!apiKey) {
+    throw new Error(
+      'Please set LIMITLESS_API_KEY in .env file\n' +
+        'Get your API key from: https://limitless.exchange'
+    );
   }
 
   const apiUrl = process.env.API_URL || 'https://api.limitless.exchange';
 
   try {
-    // Create wallet
-    const wallet = new ethers.Wallet(privateKey);
-    console.log(`Wallet address: ${wallet.address}\n`);
-
-    // Initialize HTTP client
-    const httpClient = new HttpClient({ baseURL: apiUrl });
-
-    // Create signer
-    const signer = new MessageSigner(wallet);
-
     // IMPORTANT: Create a logger for debugging
     // Use 'debug' level to see all SDK operations
     // Use 'info' level to see only important events
+    // Use 'error' level to see only errors
     const logger = new ConsoleLogger('debug');
-
-    // Create authenticator WITH logger
-    const authenticator = new Authenticator(httpClient, signer, logger);
 
     console.log('--- SDK Logs (debug level) ---\n');
 
-    // Authenticate - you'll see detailed logs from the SDK
-    const result = await authenticator.authenticate({ client: 'eoa' });
+    // Initialize HTTP client WITH logger
+    const httpClient = new HttpClient({
+      baseURL: apiUrl,
+      apiKey,
+      timeout: 30000,
+      logger, // ← Logger attached here
+    });
+
+    console.log('🌐 HTTP client initialized with debug logging\n');
+
+    // Make a request - you'll see detailed logs from the SDK
+    const portfolio = new PortfolioFetcher(httpClient);
+    const positions = await portfolio.getPositions();
 
     console.log('\n--- End SDK Logs ---\n');
 
-    console.log('✅ Authentication successful!');
-    console.log(`Session: ${result.sessionCookie.substring(0, 30)}...`);
-    console.log(`Account: ${result.profile.account}\n`);
+    console.log('✅ Request successful!');
+    console.log(`CLOB positions: ${positions.clob?.length || 0}`);
+    console.log(`AMM positions: ${positions.amm?.length || 0}`);
+    console.log(`Accumulative points: ${positions.accumulativePoints || 0}\n`);
 
-    // Verify auth - more SDK logs
-    console.log('--- SDK Logs (verifying) ---\n');
-    const verified = await authenticator.verifyAuth(result.sessionCookie);
+    // Another request - more SDK logs
+    console.log('--- SDK Logs (fetching history) ---\n');
+    const history = await portfolio.getUserHistory(1, 5);
     console.log('\n--- End SDK Logs ---\n');
 
-    console.log(`✅ Verified: ${verified}\n`);
+    console.log(`✅ Retrieved ${history.data?.length || 0} transaction(s)\n`);
 
-    // Logout - final SDK logs
-    console.log('--- SDK Logs (logout) ---\n');
-    await authenticator.logout(result.sessionCookie);
-    console.log('\n--- End SDK Logs ---\n');
-
-    console.log('✅ Logged out successfully!');
+    console.log('💡 Logging tips:');
+    console.log('   - Use "debug" level during development');
+    console.log('   - Use "info" level in production');
+    console.log('   - Use "error" level for minimal output');
   } catch (error) {
     console.error('\n❌ Error occurred');
 

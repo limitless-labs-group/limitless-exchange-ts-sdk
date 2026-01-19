@@ -15,11 +15,11 @@ This is the first stable, production-ready release of the Limitless Exchange Typ
 
 #### Core Features
 
-- **Authentication & Session Management**
-  - EIP-712 message signing with EOA (Externally Owned Account) support
-  - `MessageSigner` for cryptographic signing operations
-  - `Authenticator` with session management and cookie handling
-  - Session verification and logout functionality
+- **Authentication**
+  - API key authentication with X-API-Key header
+  - Automatic loading from `LIMITLESS_API_KEY` environment variable
+  - EIP-712 message signing for order creation (via `OrderSigner`)
+  - `AuthenticationError` for authentication failure handling
 
 - **Market Data Access**
   - `MarketFetcher` with intelligent venue caching system
@@ -92,7 +92,7 @@ This is the first stable, production-ready release of the Limitless Exchange Typ
 
 - Automatic venue data caching to eliminate redundant API calls
 - Connection pooling via axios for efficient HTTP requests
-- Session cookie management for authenticated requests
+- API key authentication with automatic header injection
 - Cache-aware market operations
 - Dynamic venue resolution from cache or API
 - Shared `MarketFetcher` instance pattern for optimal performance
@@ -120,9 +120,9 @@ This is the first stable, production-ready release of the Limitless Exchange Typ
 
 - Comprehensive README (450+ lines) covering all features
 - **17 Production-Ready Code Samples**:
-  - `basic-auth.ts` - Simple EOA authentication
-  - `auth-retry.ts` - Authentication with retry logic
-  - `with-logging.ts` - Authentication with custom logging
+  - `basic-auth.ts` - API key authentication with portfolio data
+  - `auth-retry.ts` - API authentication with retry logic
+  - `with-logging.ts` - API requests with custom logging
   - `error-handling.ts` - Comprehensive error handling
   - `clob-fok-order.ts` - FOK market orders on CLOB
   - `clob-gtc-order.ts` - GTC limit orders on CLOB
@@ -140,11 +140,10 @@ This is the first stable, production-ready release of the Limitless Exchange Typ
 
 - **Comprehensive Documentation Guides**:
   - Complete SDK documentation overview
-  - Authentication and session management guide
   - Trading & orders guide (200+ lines)
   - Market data guide
   - Portfolio & positions guide
-  - WebSocket streaming guide
+  - WebSocket streaming guide with API key auth
   - Error handling & retry guide
   - Logging configuration guide
 

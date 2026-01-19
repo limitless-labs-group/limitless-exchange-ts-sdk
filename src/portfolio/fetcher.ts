@@ -10,6 +10,7 @@ import type {
   AMMPosition,
   Position,
   PortfolioSummary,
+  HistoryResponse,
 } from '../types/portfolio';
 import type { ILogger } from '../types/logger';
 import { NoOpLogger } from '../types/logger';
@@ -49,6 +50,39 @@ export class PortfolioFetcher {
   }
 
   /**
+   * Gets user profile for the authenticated user.
+   *
+   * @remarks
+   * Returns user profile data including user ID and fee rate.
+   * Used internally by OrderClient to fetch user data.
+   *
+   * @returns Promise resolving to user profile data
+   * @throws Error if API request fails or user is not authenticated
+   *
+   * @example
+   * ```typescript
+   * const profile = await portfolioFetcher.getProfile();
+   * console.log(`User ID: ${profile.id}`);
+   * console.log(`Account: ${profile.account}`);
+   * console.log(`Fee Rate: ${profile.rank?.feeRateBps}`);
+   * ```
+   */
+  async getProfile(): Promise<any> {
+    this.logger.debug('Fetching user profile');
+
+    try {
+      const response = await this.httpClient.get<any>('/profile');
+
+      this.logger.info('User profile fetched successfully');
+
+      return response;
+    } catch (error) {
+      this.logger.error('Failed to fetch user profile', error as Error);
+      throw error;
+    }
+  }
+
+  /**
    * Gets raw portfolio positions response from API.
    *
    * @returns Promise resolving to portfolio positions response with CLOB and AMM positions
@@ -66,9 +100,8 @@ export class PortfolioFetcher {
     this.logger.debug('Fetching user positions');
 
     try {
-      const response = await this.httpClient.get<PortfolioPositionsResponse>(
-        '/portfolio/positions'
-      );
+      const response =
+        await this.httpClient.get<PortfolioPositionsResponse>('/portfolio/positions');
 
       this.logger.info('Positions fetched successfully', {
         clobCount: response.clob?.length || 0,
@@ -121,255 +154,50 @@ export class PortfolioFetcher {
   }
 
   /**
-   * Flattens positions into a unified format for easier consumption.
+   * Gets paginated history of user actions.
    *
-   * @remarks
-   * Converts CLOB positions (which have YES/NO sides) and AMM positions
-   * into a unified Position array. Only includes positions with non-zero values.
+   *  Includes AMM trades, CLOB trades, Negrisk trades & conversions.
    *
-   * @returns Promise resolving to array of flattened positions
-   * @throws Error if API request fails
-   *
-   * @example
-   * ```typescript
-   * const positions = await portfolioFetcher.getFlattenedPositions();
-   * positions.forEach(pos => {
-   *   const pnlPercent = (pos.unrealizedPnl / pos.costBasis) * 100;
-   *   console.log(`${pos.market.title} (${pos.side}): ${pnlPercent.toFixed(2)}% P&L`);
-   * });
-   * ```
-   */
-  async getFlattenedPositions(): Promise<Position[]> {
-    const response = await this.getPositions();
-    const positions: Position[] = [];
-
-    // Flatten CLOB positions
-    for (const clobPos of response.clob || []) {
-      // Add YES position if it has value
-      const yesCost = parseFloat(clobPos.positions.yes.cost);
-      const yesValue = parseFloat(clobPos.positions.yes.marketValue);
-      if (yesCost > 0 || yesValue > 0) {
-        positions.push({
-          type: 'CLOB',
-          market: clobPos.market,
-          side: 'YES',
-          costBasis: yesCost,
-          marketValue: yesValue,
-          unrealizedPnl: parseFloat(clobPos.positions.yes.unrealizedPnl),
-          realizedPnl: parseFloat(clobPos.positions.yes.realisedPnl),
-          currentPrice: clobPos.latestTrade?.latestYesPrice ?? 0,
-          avgPrice: yesCost > 0 ? parseFloat(clobPos.positions.yes.fillPrice) / 1e6 : 0,
-          tokenBalance: parseFloat(clobPos.tokensBalance.yes),
-        });
-      }
-
-      // Add NO position if it has value
-      const noCost = parseFloat(clobPos.positions.no.cost);
-      const noValue = parseFloat(clobPos.positions.no.marketValue);
-      if (noCost > 0 || noValue > 0) {
-        positions.push({
-          type: 'CLOB',
-          market: clobPos.market,
-          side: 'NO',
-          costBasis: noCost,
-          marketValue: noValue,
-          unrealizedPnl: parseFloat(clobPos.positions.no.unrealizedPnl),
-          realizedPnl: parseFloat(clobPos.positions.no.realisedPnl),
-          currentPrice: clobPos.latestTrade?.latestNoPrice ?? 0,
-          avgPrice: noCost > 0 ? parseFloat(clobPos.positions.no.fillPrice) / 1e6 : 0,
-          tokenBalance: parseFloat(clobPos.tokensBalance.no),
-        });
-      }
-    }
-
-    // Flatten AMM positions
-    for (const ammPos of response.amm || []) {
-      const cost = parseFloat(ammPos.totalBuysCost);
-      const value = parseFloat(ammPos.collateralAmount);
-
-      if (cost > 0 || value > 0) {
-        positions.push({
-          type: 'AMM',
-          market: ammPos.market,
-          side: ammPos.outcomeIndex === 0 ? 'YES' : 'NO',
-          costBasis: cost,
-          marketValue: value,
-          unrealizedPnl: parseFloat(ammPos.unrealizedPnl),
-          realizedPnl: parseFloat(ammPos.realizedPnl),
-          currentPrice: ammPos.latestTrade ? parseFloat(ammPos.latestTrade.outcomeTokenPrice) : 0,
-          avgPrice: parseFloat(ammPos.averageFillPrice),
-          tokenBalance: parseFloat(ammPos.outcomeTokenAmount),
-        });
-      }
-    }
-
-    this.logger.debug('Flattened positions', { count: positions.length });
-
-    return positions;
-  }
-
-  /**
-   * Calculates portfolio summary statistics from raw API response.
-   *
-   * @param response - Portfolio positions response from API
-   * @returns Portfolio summary with totals and statistics
-   *
-   * @example
-   * ```typescript
-   * const response = await portfolioFetcher.getPositions();
-   * const summary = portfolioFetcher.calculateSummary(response);
-   *
-   * console.log(`Total Portfolio Value: $${(summary.totalValue / 1e6).toFixed(2)}`);
-   * console.log(`Total P&L: ${summary.totalUnrealizedPnlPercent.toFixed(2)}%`);
-   * console.log(`CLOB Positions: ${summary.breakdown.clob.positions}`);
-   * console.log(`AMM Positions: ${summary.breakdown.amm.positions}`);
-   * ```
-   */
-  calculateSummary(response: PortfolioPositionsResponse): PortfolioSummary {
-    this.logger.debug('Calculating portfolio summary', {
-      clobCount: response.clob?.length || 0,
-      ammCount: response.amm?.length || 0,
-    });
-
-    let totalValue = 0;
-    let totalCostBasis = 0;
-    let totalUnrealizedPnl = 0;
-    let totalRealizedPnl = 0;
-
-    let clobPositions = 0;
-    let clobValue = 0;
-    let clobPnl = 0;
-
-    let ammPositions = 0;
-    let ammValue = 0;
-    let ammPnl = 0;
-
-    // Process CLOB positions
-    for (const clobPos of response.clob || []) {
-      // YES side
-      const yesCost = parseFloat(clobPos.positions.yes.cost);
-      const yesValue = parseFloat(clobPos.positions.yes.marketValue);
-      const yesUnrealizedPnl = parseFloat(clobPos.positions.yes.unrealizedPnl);
-      const yesRealizedPnl = parseFloat(clobPos.positions.yes.realisedPnl);
-
-      if (yesCost > 0 || yesValue > 0) {
-        clobPositions++;
-        totalCostBasis += yesCost;
-        totalValue += yesValue;
-        totalUnrealizedPnl += yesUnrealizedPnl;
-        totalRealizedPnl += yesRealizedPnl;
-        clobValue += yesValue;
-        clobPnl += yesUnrealizedPnl;
-      }
-
-      // NO side
-      const noCost = parseFloat(clobPos.positions.no.cost);
-      const noValue = parseFloat(clobPos.positions.no.marketValue);
-      const noUnrealizedPnl = parseFloat(clobPos.positions.no.unrealizedPnl);
-      const noRealizedPnl = parseFloat(clobPos.positions.no.realisedPnl);
-
-      if (noCost > 0 || noValue > 0) {
-        clobPositions++;
-        totalCostBasis += noCost;
-        totalValue += noValue;
-        totalUnrealizedPnl += noUnrealizedPnl;
-        totalRealizedPnl += noRealizedPnl;
-        clobValue += noValue;
-        clobPnl += noUnrealizedPnl;
-      }
-    }
-
-    // Process AMM positions
-    for (const ammPos of response.amm || []) {
-      const cost = parseFloat(ammPos.totalBuysCost);
-      const value = parseFloat(ammPos.collateralAmount);
-      const unrealizedPnl = parseFloat(ammPos.unrealizedPnl);
-      const realizedPnl = parseFloat(ammPos.realizedPnl);
-
-      if (cost > 0 || value > 0) {
-        ammPositions++;
-        totalCostBasis += cost;
-        totalValue += value;
-        totalUnrealizedPnl += unrealizedPnl;
-        totalRealizedPnl += realizedPnl;
-        ammValue += value;
-        ammPnl += unrealizedPnl;
-      }
-    }
-
-    // Calculate P&L percentage
-    const totalUnrealizedPnlPercent =
-      totalCostBasis > 0 ? (totalUnrealizedPnl / totalCostBasis) * 100 : 0;
-
-    // Count unique markets
-    const uniqueMarkets = new Set<number | string>();
-    for (const pos of response.clob || []) {
-      uniqueMarkets.add(pos.market.id);
-    }
-    for (const pos of response.amm || []) {
-      uniqueMarkets.add(pos.market.id);
-    }
-
-    const summary: PortfolioSummary = {
-      totalValue,
-      totalCostBasis,
-      totalUnrealizedPnl,
-      totalRealizedPnl,
-      totalUnrealizedPnlPercent,
-      positionCount: clobPositions + ammPositions,
-      marketCount: uniqueMarkets.size,
-      breakdown: {
-        clob: {
-          positions: clobPositions,
-          value: clobValue,
-          pnl: clobPnl,
-        },
-        amm: {
-          positions: ammPositions,
-          value: ammValue,
-          pnl: ammPnl,
-        },
-      },
-    };
-
-    this.logger.debug('Portfolio summary calculated', summary);
-
-    return summary;
-  }
-
-  /**
-   * Gets positions and calculates summary in a single call.
-   *
-   * @returns Promise resolving to response and summary
+   * @param page - Page number (starts at 1)
+   * @param limit - Number of items per page
+   * @returns Promise resolving to paginated history response
    * @throws Error if API request fails or user is not authenticated
    *
    * @example
    * ```typescript
-   * const { response, summary } = await portfolioFetcher.getPortfolio();
+   * // Get first page
+   * const response = await portfolioFetcher.getUserHistory(1, 20);
+   * console.log(`Found ${response.data.length} of ${response.totalCount} entries`);
    *
-   * console.log('Portfolio Summary:');
-   * console.log(`  Total Value: $${(summary.totalValue / 1e6).toFixed(2)}`);
-   * console.log(`  Total P&L: $${(summary.totalUnrealizedPnl / 1e6).toFixed(2)}`);
-   * console.log(`  P&L %: ${summary.totalUnrealizedPnlPercent.toFixed(2)}%`);
-   * console.log(`\nCLOB Positions: ${response.clob.length}`);
-   * console.log(`AMM Positions: ${response.amm.length}`);
+   * // Process history entries
+   * for (const entry of response.data) {
+   *   console.log(`Type: ${entry.type}`);
+   *   console.log(`Market: ${entry.marketSlug}`);
+   * }
+   *
+   * // Get next page
+   * const page2 = await portfolioFetcher.getUserHistory(2, 20);
    * ```
    */
-  async getPortfolio(): Promise<{
-    response: PortfolioPositionsResponse;
-    summary: PortfolioSummary;
-  }> {
-    this.logger.debug('Fetching portfolio with summary');
+  async getUserHistory(page: number = 1, limit: number = 10): Promise<HistoryResponse> {
+    this.logger.debug('Fetching user history', { page, limit });
 
-    const response = await this.getPositions();
-    const summary = this.calculateSummary(response);
+    try {
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: limit.toString(),
+      });
 
-    this.logger.info('Portfolio fetched with summary', {
-      positionCount: summary.positionCount,
-      totalValueUSDC: summary.totalValue / 1e6,
-      pnlPercent: summary.totalUnrealizedPnlPercent,
-    });
+      const response = await this.httpClient.get<HistoryResponse>(
+        `/portfolio/history?${params.toString()}`
+      );
 
-    return { response, summary };
+      this.logger.info('User history fetched successfully');
+
+      return response;
+    } catch (error) {
+      this.logger.error('Failed to fetch user history', error as Error, { page, limit });
+      throw error;
+    }
   }
 }

@@ -5,13 +5,14 @@ Official TypeScript SDK for the Limitless Exchange API.
 ## Table of Contents
 
 - [Getting Started](#getting-started)
-- [Authentication](./auth/README.md)
+- [Clean Fluent API](./FLUENT_API.md) ✨ **New!**
 - [Trading & Orders](./orders/README.md)
 - [Markets](./markets/README.md)
 - [Portfolio & Positions](./portfolio/README.md)
 - [WebSocket Streaming](./websocket/README.md)
 - [Error Handling & Retry](./api/README.md)
 - [Logging](./logging/LOGGING.md)
+- [Code Samples](./code-samples/README.md)
 
 ## Getting Started
 
@@ -31,42 +32,32 @@ pnpm add @limitless-exchange/sdk
 import { ethers } from 'ethers';
 import {
   HttpClient,
-  MessageSigner,
-  Authenticator,
   OrderClient,
   MarketFetcher,
+  PortfolioFetcher,
   Side,
   OrderType
 } from '@limitless-exchange/sdk';
 
-// Initialize wallet
-const wallet = new ethers.Wallet(PRIVATE_KEY);
-
-// Setup HTTP client
+// Setup HTTP client with API key authentication
+// API key is automatically loaded from LIMITLESS_API_KEY environment variable
 const httpClient = new HttpClient({
-  baseURL: 'https://api.limitless.exchange'
+  baseURL: 'https://api.limitless.exchange',
+  apiKey: process.env.LIMITLESS_API_KEY, // Optional - auto-loads from env
 });
 
-// Authenticate
-const signer = new MessageSigner(wallet);
-const authenticator = new Authenticator(httpClient, signer);
-const { sessionCookie, profile } = await authenticator.authenticate({
-  client: 'eoa'
-});
+// Initialize wallet for order signing (EIP-712)
+const wallet = new ethers.Wallet(process.env.PRIVATE_KEY);
 
 // Fetch market details (caches venue for efficient order signing)
 const marketFetcher = new MarketFetcher(httpClient);
 const market = await marketFetcher.getMarket('market-slug');
 
-// Create order client with shared marketFetcher for optimal performance
+// Create order client (userData fetched automatically from profile)
 const orderClient = new OrderClient({
   httpClient,
   wallet,
-  userData: {
-    userId: profile.id,
-    feeRateBps: profile.rank?.feeRateBps || 300,
-  },
-  marketFetcher,  // Share instance for venue caching
+  marketFetcher, // Share instance for venue caching
 });
 
 // Place an order (uses cached venue - no extra API calls)
@@ -78,14 +69,36 @@ const order = await orderClient.createOrder({
   orderType: OrderType.GTC,
   marketSlug: 'market-slug',
 });
+
+// Get user orders with clean fluent API
+const orders = await market.getUserOrders();
+console.log(`Found ${orders.length} orders`);
 ```
+
+## ✨ What's New: Clean Fluent API
+
+The SDK now features a clean, object-oriented fluent API that makes working with markets more intuitive:
+
+```typescript
+// Clean fluent API - no need to pass marketSlug repeatedly!
+const market = await marketFetcher.getMarket('bitcoin-2024');
+const orders = await market.getUserOrders();  // ✨ Clean!
+```
+
+**Benefits**:
+- ✅ No repetitive parameter passing
+- ✅ Type-safe market context
+- ✅ Consistent with Python SDK
+- ✅ Better developer experience
+
+**Learn more**: [Clean Fluent API Guide](./FLUENT_API.md)
 
 ## Core Features
 
 ### 🔐 Authentication
-- EOA (Externally Owned Account) authentication
-- Automatic session management
-- [Full Documentation](./auth/README.md)
+- API key authentication (via environment variable or direct parameter)
+- EIP-712 wallet signing for order creation
+- [Full Documentation](./api/README.md)
 
 ### 📊 Trading
 - Market orders (FOK)
@@ -102,16 +115,14 @@ const order = await orderClient.createOrder({
 - [Full Documentation](./markets/README.md)
 
 ### 💼 Portfolio
-- Position tracking
-- Balance queries
-- Trade history
+- Position tracking (CLOB and AMM)
+- User history
 - [Full Documentation](./portfolio/README.md)
 
 ### 🔌 WebSocket
 - Real-time orderbook updates
 - Live position tracking
-- Order fill notifications
-- Trade streaming
+- Transaction notifications
 - [Full Documentation](./websocket/README.md)
 
 ### ⚡ Error Handling & Retry
@@ -127,12 +138,11 @@ The SDK is organized into modules that mirror the API structure:
 
 ```
 src/
-├── auth/          # Authentication and session management
 ├── orders/        # Order creation and management
 ├── markets/       # Market data and orderbooks
-├── portfolio/     # Positions and balances
+├── portfolio/     # Positions and user history
 ├── websocket/     # Real-time data streaming
-├── api/           # Low-level API client
+├── api/           # Low-level API client with authentication
 ├── types/         # TypeScript type definitions
 └── utils/         # Helper utilities
 ```
@@ -143,12 +153,12 @@ Create a `.env` file:
 
 ```env
 # Required
+LIMITLESS_API_KEY=your_api_key_here
 PRIVATE_KEY=your_private_key_here
 
 # Optional - defaults shown
 API_URL=https://api.limitless.exchange
 CHAIN_ID=8453
-CLOB_CONTRACT_ADDRESS=0xa4409D988CA2218d956BeEFD3874100F444f0DC3
 ```
 
 ## Error Handling

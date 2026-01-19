@@ -2,7 +2,7 @@
  * NegRisk FOK (Fill-or-Kill) Order Example
  *
  * This example demonstrates how to:
- * 1. Authenticate with the API
+ * 1. Initialize SDK with API key authentication
  * 2. Fetch a NegRisk group market and select a submarket
  * 3. Create FOK market orders on NegRisk submarkets
  * 4. Execute immediate BUY and SELL orders at best available price
@@ -17,8 +17,6 @@ import { config } from 'dotenv';
 import { ethers } from 'ethers';
 import {
   HttpClient,
-  MessageSigner,
-  Authenticator,
   OrderClient,
   MarketFetcher,
   Side,
@@ -34,71 +32,61 @@ config();
 const API_URL = process.env.API_URL || 'https://api.limitless.exchange';
 const CHAIN_ID = parseInt(process.env.CHAIN_ID || '8453'); // Base mainnet
 
-// Contract addresses - use SDK defaults or override with env var
-const NEGRISK_CONTRACT_ADDRESS =
-  process.env.NEGRISK_CONTRACT_ADDRESS || getContractAddress('NEGRISK', CHAIN_ID);
-
-// NegRisk group market example
-const NEGRISK_GROUP_SLUG = 'largest-company-end-of-2025-1746118069282';
+const MARKET_SLUG_FALLBACK = 'largest-company-end-of-2025-1746118069282';
 
 async function main() {
   console.log('🚀 NegRisk FOK (Fill-or-Kill) Order Example\n');
+
+  // Validate API key
+  const apiKey = process.env.LIMITLESS_API_KEY;
+  if (!apiKey) {
+    throw new Error(
+      'Please set LIMITLESS_API_KEY in .env file\n' +
+        'Get your API key from: https://limitless.exchange'
+    );
+  }
+
+  // Get market slug from env or use default
+  const NEGRISK_GROUP_SLUG = process.env.MARKET_SLUG || MARKET_SLUG_FALLBACK;
+  console.log(`Using NegRisk Group Market: ${NEGRISK_GROUP_SLUG}\n`);
+
+  // Validate private key
+  const privateKey = process.env.PRIVATE_KEY;
+  if (!privateKey) {
+    throw new Error('Please set PRIVATE_KEY in .env file');
+  }
 
   // Show configuration
   console.log('⚙️  Configuration:');
   console.log(`   API URL: ${API_URL}`);
   console.log(`   Chain ID: ${CHAIN_ID}`);
-  console.log(`   NegRisk Contract: ${NEGRISK_CONTRACT_ADDRESS}\n`);
-
-  // Validate environment
-  const privateKey = process.env.PRIVATE_KEY;
-  if (
-    !privateKey ||
-    privateKey === '0x0000000000000000000000000000000000000000000000000000000000000000'
-  ) {
-    throw new Error('Please set PRIVATE_KEY in .env file');
-  }
 
   const logger = new ConsoleLogger('info');
 
   try {
     // ===========================================
-    // STEP 1: Authentication
+    // STEP 1: Initialize HTTP Client and Wallet
     // ===========================================
-    console.log('🔐 Step 1: Authenticating...');
-
-    const wallet = new ethers.Wallet(privateKey);
-    console.log(`   Wallet: ${wallet.address}`);
+    console.log('🔐 Step 1: Initializing HTTP client and wallet...');
 
     const httpClient = new HttpClient({
       baseURL: API_URL,
+      apiKey,
       timeout: 30000,
+      logger,
     });
 
-    const signer = new MessageSigner(wallet);
-    const authenticator = new Authenticator(httpClient, signer, logger);
+    const wallet = new ethers.Wallet(privateKey);
 
-    const authResult = await authenticator.authenticate({
-      client: 'eoa',
-    });
-
-    console.log(`   ✅ Authenticated as: ${authResult.profile.account}`);
-
-    // Extract user data from auth result
-    const userData = {
-      userId: (authResult.profile as any).id || 1,
-      feeRateBps: (authResult.profile as any).rank?.feeRateBps || 300,
-    };
-
-    console.log(`   User ID: ${userData.userId}`);
-    console.log(`   Fee Rate: ${userData.feeRateBps / 100}%\n`);
+    console.log(`   ✅ HTTP client initialized`);
+    console.log(`   ✅ Wallet initialized: ${wallet.address}\n`);
 
     // ===========================================
     // STEP 2: Fetch NegRisk Group Market
     // ===========================================
     console.log('📊 Step 2: Fetching NegRisk Group Market...');
 
-    const marketFetcher = new MarketFetcher(httpClient, logger);
+    const marketFetcher = new MarketFetcher(httpClient);
     const groupMarketResponse = await marketFetcher.getMarket(NEGRISK_GROUP_SLUG);
 
     // Cast to any to access properties not in the Market type definition
@@ -141,11 +129,10 @@ async function main() {
     const orderClient = new OrderClient({
       httpClient,
       wallet,
-      userData,
-      logger,
     });
 
-    console.log('   ✅ Order client ready\n');
+    console.log('   ✅ Order client ready');
+    console.log('   User data will be fetched automatically on first order\n');
 
     // ===========================================
     // STEP 4: Place FOK BUY Order
@@ -163,7 +150,7 @@ async function main() {
     console.log(`   Submarket Slug: ${exampleSubmarket.slug}`);
     console.log(`   Token ID: ${buyOrderParams.tokenId}`);
     console.log(`   Side: BUY`);
-    console.log(`   Amount: ${buyOrderParams.amount} USDC`);
+    console.log(`   Amount: ${buyOrderParams.makerAmount} USDC`);
     console.log(`   Type: FOK (market order - executes immediately at best price)\n`);
 
     console.log('📤 Creating and submitting FOK BUY order...');
@@ -189,14 +176,10 @@ async function main() {
       console.log(`\n   🎯 Order was MATCHED!`);
       console.log(`   Total matches: ${buyOrderResponse.makerMatches.length}`);
 
-      let totalShares = 0;
-      let totalCost = 0;
-
       buyOrderResponse.makerMatches.forEach((match, index) => {
         console.log(`\n   Match ${index + 1}:`);
         console.log(`     Match ID: ${match.id}`);
         console.log(`     Matched Size: ${match.matchedSize}`);
-        console.log(`     Price: ${match.price}`);
         console.log(`     Order ID: ${match.orderId}`);
         console.log(`     Matched at: ${match.createdAt}`);
       });
@@ -255,7 +238,6 @@ async function main() {
         console.log(`\n   Match ${index + 1}:`);
         console.log(`     Match ID: ${match.id}`);
         console.log(`     Matched Size: ${match.matchedSize}`);
-        console.log(`     Price: ${match.price}`);
         console.log(`     Order ID: ${match.orderId}`);
         console.log(`     Matched at: ${match.createdAt}`);
       });
@@ -279,11 +261,6 @@ async function main() {
     console.log('   - Specify amount in USDC (human-readable, max 2 decimals)');
     console.log('   - Order executes immediately at best price or cancels');
     console.log('   - No partial fills - must be fully matched');
-
-    console.log('\n3️⃣  NegRisk Contract:');
-    console.log('   - Contract address dynamically resolved from venue data');
-    console.log(`   - NegRisk Contract: ${NEGRISK_CONTRACT_ADDRESS}`);
-    console.log('   - Set NEGRISK_CONTRACT_ADDRESS env var to override');
 
     console.log('\n4️⃣  Token IDs:');
     console.log('   - Each submarket has unique YES/NO token IDs');
