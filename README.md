@@ -29,6 +29,10 @@ For production use, we strongly recommend:
 
 **Feedback Welcome**: We encourage you to report any bugs, suggest improvements, or contribute to the project. Please submit issues or pull requests on our GitHub repository.
 
+## 🌍 Geographic Restrictions
+
+**Important**: Limitless restricts order placement from US locations due to regulatory requirements and compliance with international sanctions. Before placing orders, builders should verify their location complies with applicable regulations.
+
 ## Features
 
 - ✅ **Authentication**: API key authentication with X-API-Key header
