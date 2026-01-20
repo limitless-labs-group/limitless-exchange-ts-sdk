@@ -11,12 +11,6 @@ import {
   type WebSocketEvents,
   type SubscriptionChannel,
   type SubscriptionOptions,
-  type OrderbookUpdate,
-  type TradeEvent,
-  type OrderUpdate,
-  type FillEvent,
-  type MarketUpdate,
-  type PriceUpdate,
 } from '../types/websocket';
 import type { ILogger } from '../types/logger';
 import { NoOpLogger } from '../types/logger';
@@ -172,7 +166,8 @@ export class WebSocketClient {
         reconnection: this.config.autoReconnect,
         reconnectionDelay: this.config.reconnectDelay,
         reconnectionDelayMax: Math.min(this.config.reconnectDelay * 32, 60000), // Max 60s
-        reconnectionAttempts: this.config.maxReconnectAttempts === Infinity ? 0 : this.config.maxReconnectAttempts, // 0 = infinite
+        reconnectionAttempts:
+          this.config.maxReconnectAttempts === Infinity ? 0 : this.config.maxReconnectAttempts, // 0 = infinite
         randomizationFactor: 0.2, // Add jitter to prevent thundering herd
         timeout: this.config.timeout,
       };

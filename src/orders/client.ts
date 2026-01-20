@@ -195,7 +195,11 @@ export class OrderClient {
       };
 
       // Initialize order builder with fetched data
-      this.orderBuilder = new OrderBuilder(this.wallet.address, this.cachedUserData.feeRateBps, 0.001);
+      this.orderBuilder = new OrderBuilder(
+        this.wallet.address,
+        this.cachedUserData.feeRateBps,
+        0.001
+      );
 
       this.logger.info('Order Client initialized', {
         walletAddress: profile.account,
@@ -311,8 +315,7 @@ export class OrderClient {
     };
 
     // Step 4: Submit to API
-    this.logger.debug('Submitting order to API');
-    console.log('[OrderClient] Full API request payload:', JSON.stringify(payload, null, 2));
+    this.logger.debug('Submitting order to API', payload);
     const apiResponse = await this.httpClient.post<any>('/orders', payload);
 
     this.logger.info('Order created successfully', {
