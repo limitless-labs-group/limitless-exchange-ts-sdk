@@ -423,28 +423,6 @@ export class OrderClient {
   }
 
   /**
-   * Gets an order by ID.
-   *
-   * @param orderId - Order ID to fetch
-   * @returns Promise resolving to order details
-   *
-   * @throws Error if order not found
-   *
-   * @example
-   * ```typescript
-   * const order = await orderClient.getOrder('order-id-123');
-   * console.log(order.order.side);
-   * ```
-   */
-  async getOrder(orderId: string): Promise<OrderResponse> {
-    this.logger.debug('Fetching order', { orderId });
-
-    const response = await this.httpClient.get<OrderResponse>(`/orders/${orderId}`);
-
-    return response;
-  }
-
-  /**
    * Builds an unsigned order without submitting.
    *
    * @remarks
