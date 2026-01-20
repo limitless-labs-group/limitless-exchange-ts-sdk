@@ -182,10 +182,12 @@ export class OrderClient {
    */
   private async ensureUserData(): Promise<UserData> {
     if (!this.cachedUserData) {
-      this.logger.info('Fetching user profile for order client initialization...');
+      this.logger.info('Fetching user profile for order client initialization...', {
+        walletAddress: this.wallet.address,
+      });
 
       const portfolioFetcher = new PortfolioFetcher(this.httpClient);
-      const profile = await portfolioFetcher.getProfile();
+      const profile = await portfolioFetcher.getProfile(this.wallet.address);
 
       this.cachedUserData = {
         userId: profile.id,

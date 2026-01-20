@@ -50,34 +50,35 @@ export class PortfolioFetcher {
   }
 
   /**
-   * Gets user profile for the authenticated user.
+   * Gets user profile for a specific wallet address.
    *
    * @remarks
    * Returns user profile data including user ID and fee rate.
    * Used internally by OrderClient to fetch user data.
    *
+   * @param address - Wallet address to fetch profile for
    * @returns Promise resolving to user profile data
    * @throws Error if API request fails or user is not authenticated
    *
    * @example
    * ```typescript
-   * const profile = await portfolioFetcher.getProfile();
+   * const profile = await portfolioFetcher.getProfile('0x1234...');
    * console.log(`User ID: ${profile.id}`);
    * console.log(`Account: ${profile.account}`);
    * console.log(`Fee Rate: ${profile.rank?.feeRateBps}`);
    * ```
    */
-  async getProfile(): Promise<any> {
-    this.logger.debug('Fetching user profile');
+  async getProfile(address: string): Promise<any> {
+    this.logger.debug('Fetching user profile', { address });
 
     try {
-      const response = await this.httpClient.get<any>('/profile');
+      const response = await this.httpClient.get<any>(`/profiles/${address}`);
 
-      this.logger.info('User profile fetched successfully');
+      this.logger.info('User profile fetched successfully', { address });
 
       return response;
     } catch (error) {
-      this.logger.error('Failed to fetch user profile', error as Error);
+      this.logger.error('Failed to fetch user profile', error as Error, { address });
       throw error;
     }
   }
