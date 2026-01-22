@@ -130,7 +130,7 @@ export class OrderBuilder {
    * @internal
    */
   private isFOKOrder(args: OrderArgs): args is import('../types/orders').FOKOrderArgs {
-    return 'amount' in args;
+    return 'makerAmount' in args;
   }
 
   /**
