@@ -366,7 +366,7 @@ export class OrderBuilder {
       }
     } else {
       // GTC order validation
-      if (args.price < 0 || args.price > 1) {
+      if (args.price == null || args.price < 0 || args.price > 1) {
         throw new Error(`Invalid price: ${args.price}. Price must be between 0 and 1.`);
       }
 
