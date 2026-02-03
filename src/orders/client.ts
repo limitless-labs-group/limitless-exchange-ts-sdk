@@ -194,7 +194,6 @@ export class OrderClient {
         feeRateBps: profile.rank?.feeRateBps || 300,
       };
 
-      // Initialize order builder with fetched data
       this.orderBuilder = new OrderBuilder(
         this.wallet.address,
         this.cachedUserData.feeRateBps,

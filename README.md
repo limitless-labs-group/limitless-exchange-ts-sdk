@@ -68,7 +68,6 @@ const httpClient = new HttpClient({
   // Optional: Add custom headers to all requests
   additionalHeaders: {
     'X-Custom-Header': 'my-value',
-    'X-API-Version': 'v1',
   },
 });
 
