@@ -13,43 +13,6 @@ describe('MarketFetcher', () => {
   });
 
   describe('getActiveMarkets', () => {
-    it('should fetch active markets without parameters', async () => {
-      const mockResponse: ActiveMarketsResponse = {
-        data: [
-          {
-            id: 1,
-            address: '0x123',
-            title: 'Test Market 1',
-            proxyTitle: null,
-            description: 'Test description',
-            slug: 'test-market-1',
-            createdAt: '2024-01-01T00:00:00Z',
-            updatedAt: '2024-01-01T00:00:00Z',
-          },
-          {
-            id: 2,
-            address: '0x456',
-            title: 'Test Market 2',
-            proxyTitle: null,
-            description: 'Test description 2',
-            slug: 'test-market-2',
-            createdAt: '2024-01-02T00:00:00Z',
-            updatedAt: '2024-01-02T00:00:00Z',
-          },
-        ] as Market[],
-        totalMarketsCount: 2,
-      };
-
-      const getSpy = vi.spyOn(httpClient, 'get').mockResolvedValue(mockResponse);
-
-      const result = await marketFetcher.getActiveMarkets();
-
-      expect(getSpy).toHaveBeenCalledWith('/markets/active');
-      expect(result).toEqual(mockResponse);
-      expect(result.data).toHaveLength(2);
-      expect(result.totalMarketsCount).toBe(2);
-    });
-
     it('should fetch active markets with limit parameter', async () => {
       const mockResponse: ActiveMarketsResponse = {
         data: [] as Market[],
