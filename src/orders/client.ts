@@ -13,66 +13,75 @@ import type {
   UnsignedOrder,
   OrderSigningConfig,
 } from '../types/orders';
-import { OrderType, MarketType } from '../types/orders';
+import { OrderType } from '../types/orders';
 import { OrderBuilder } from './builder';
 import { OrderSigner } from './signer';
 import type { ethers } from 'ethers';
 import type { UserData } from '../types/auth';
-import { getContractAddress } from '../utils/constants';
+import { ZERO_ADDRESS } from '../utils/constants';
+import { MarketFetcher } from '../markets/fetcher';
+import { PortfolioFetcher } from '../portfolio/fetcher';
 
 /**
  * Configuration for the order client.
  *
  * @remarks
- * The order client supports two configuration modes:
- * 1. Simple mode: Provide userData and marketType (auto-configures signing)
- * 2. Advanced mode: Provide userData and custom signingConfig
+ * The order client auto-configures signing based on venue data from the API.
+ * User data (userId, feeRateBps) is automatically fetched from the profile API
+ * on first order creation and cached for subsequent orders.
+ *
+ * Performance tip: Provide a shared marketFetcher instance to enable venue caching
+ * across market fetches and order creation, avoiding redundant API calls.
  *
  * @public
  */
 export interface OrderClientConfig {
   /**
-   * HTTP client for API requests
+   * HTTP client for API requests (must have API key configured)
    */
   httpClient: HttpClient;
 
   /**
-   * Wallet for signing orders
+   * Wallet for signing orders with EIP-712
    */
   wallet: ethers.Wallet;
-
-  /**
-   * User data containing userId and feeRateBps
-   *
-   * @example
-   * ```typescript
-   * {
-   *   userId: 123,      // From auth result
-   *   feeRateBps: 300   // User's fee rate (3%)
-   * }
-   * ```
-   */
-  userData: UserData;
-
-  /**
-   * Market type for auto-configuration (optional if signingConfig provided)
-   *
-   * @remarks
-   * When provided without signingConfig, automatically loads contract address
-   * from environment variables or SDK defaults.
-   *
-   * @defaultValue MarketType.CLOB
-   */
-  marketType?: MarketType;
 
   /**
    * Custom signing configuration (optional)
    *
    * @remarks
-   * If not provided, SDK will auto-configure based on marketType.
+   * If not provided, SDK will auto-configure from venue data.
    * Useful for custom deployments or testing.
    */
   signingConfig?: OrderSigningConfig;
+
+  /**
+   * Shared MarketFetcher instance for venue caching (optional)
+   *
+   * @remarks
+   * When provided, enables efficient venue caching across market fetches and order creation.
+   * If not provided, OrderClient creates its own internal MarketFetcher instance.
+   *
+   * Best practice: Share the same MarketFetcher instance between market operations
+   * and order creation for optimal performance.
+   *
+   * @example
+   * ```typescript
+   * const marketFetcher = new MarketFetcher(httpClient);
+   * const orderClient = new OrderClient({
+   *   httpClient,
+   *   wallet,
+   *   marketFetcher  // Shared instance
+   * });
+   *
+   * // Venue is cached
+   * await marketFetcher.getMarket('bitcoin-2024');
+   *
+   * // Uses cached venue, no extra API call
+   * await orderClient.createOrder({ marketSlug: 'bitcoin-2024', ... });
+   * ```
+   */
+  marketFetcher?: MarketFetcher;
 
   /**
    * Optional logger
@@ -87,20 +96,23 @@ export interface OrderClientConfig {
  * This class provides high-level methods for order operations,
  * abstracting away HTTP details and order signing complexity.
  *
+ * User data (userId, feeRateBps) is automatically fetched from profile API
+ * on first order creation and cached for subsequent orders.
+ *
+ * Uses dynamic venue addressing for EIP-712 order signing. For best performance,
+ * always call marketFetcher.getMarket() before creating orders to cache venue data.
+ *
  * @example
  * ```typescript
+ * import { ethers } from 'ethers';
+ *
+ * const wallet = new ethers.Wallet(process.env.PRIVATE_KEY!);
  * const orderClient = new OrderClient({
- *   httpClient,
- *   wallet,
- *   ownerId: 123,
- *   feeRateBps: 100,
- *   signingConfig: {
- *     chainId: 8453,
- *     contractAddress: '0x...',
- *     marketType: MarketType.CLOB
- *   }
+ *   httpClient,  // Must have API key configured
+ *   wallet,      // For EIP-712 signing
  * });
  *
+ * // User data automatically fetched on first order
  * const order = await orderClient.createOrder({
  *   tokenId: '123...',
  *   price: 0.65,
@@ -115,9 +127,11 @@ export interface OrderClientConfig {
  */
 export class OrderClient {
   private httpClient: HttpClient;
-  private orderBuilder: OrderBuilder;
+  private wallet: ethers.Wallet;
+  private orderBuilder?: OrderBuilder;
   private orderSigner: OrderSigner;
-  private ownerId: number;
+  private marketFetcher: MarketFetcher;
+  private cachedUserData?: UserData;
   private signingConfig: OrderSigningConfig;
   private logger: ILogger;
 
@@ -125,64 +139,75 @@ export class OrderClient {
    * Creates a new order client instance.
    *
    * @param config - Order client configuration
-   *
-   * @throws Error if neither marketType nor signingConfig is provided
    */
   constructor(config: OrderClientConfig) {
     this.httpClient = config.httpClient;
+    this.wallet = config.wallet;
     this.logger = config.logger || new NoOpLogger();
 
-    // Extract user data
-    this.ownerId = config.userData.userId;
-    const feeRateBps = config.userData.feeRateBps;
-
-    // Initialize order builder with default price tick (0.001 = 3 decimals)
-    this.orderBuilder = new OrderBuilder(config.wallet.address, feeRateBps, 0.001);
-
-    // Initialize order signer
     this.orderSigner = new OrderSigner(config.wallet, this.logger);
 
-    // Configure signing: use provided config or auto-configure from marketType
+    this.marketFetcher = config.marketFetcher || new MarketFetcher(config.httpClient, this.logger);
+
+    // Configure signing: use provided config or auto-configure
     if (config.signingConfig) {
       // Use custom signing configuration
       this.signingConfig = config.signingConfig;
-    } else if (config.marketType) {
-      // Auto-configure from market type
+    } else {
+      // Auto-configure base settings
       const chainId = parseInt(process.env.CHAIN_ID || '8453'); // Base mainnet default
 
-      // Check for market-type specific env var first, then fall back to SDK defaults
-      const contractAddress = config.marketType === MarketType.NEGRISK
-        ? (process.env.NEGRISK_CONTRACT_ADDRESS || getContractAddress('NEGRISK', chainId))
-        : (process.env.CLOB_CONTRACT_ADDRESS || getContractAddress('CLOB', chainId));
+      // Note: contractAddress is a placeholder here and will be dynamically replaced
+      // with venue.exchange in createOrder(). The actual contract address comes from
+      // the venue system (market.venue.exchange).
+      const contractAddress = ZERO_ADDRESS;
 
       this.signingConfig = {
         chainId,
         contractAddress,
-        marketType: config.marketType,
       };
 
-      this.logger.info('Auto-configured signing', {
+      this.logger.info('Auto-configured signing (contract address from venue)', {
         chainId,
-        contractAddress,
-        marketType: config.marketType,
-      });
-    } else {
-      // Default to CLOB if neither provided
-      const chainId = parseInt(process.env.CHAIN_ID || '8453');
-      const contractAddress = process.env.CLOB_CONTRACT_ADDRESS ||
-        getContractAddress('CLOB', chainId);
-
-      this.signingConfig = {
-        chainId,
-        contractAddress,
-        marketType: MarketType.CLOB,
-      };
-
-      this.logger.debug('Using default CLOB configuration', {
-        chainId,
-        contractAddress,
       });
     }
+  }
+
+  /**
+   * Ensures user data is loaded and cached.
+   * Fetches from profile API on first call, then caches for subsequent calls.
+   *
+   * @returns Promise resolving to cached user data
+   * @internal
+   */
+  private async ensureUserData(): Promise<UserData> {
+    if (!this.cachedUserData) {
+      this.logger.info('Fetching user profile for order client initialization...', {
+        walletAddress: this.wallet.address,
+      });
+
+      const portfolioFetcher = new PortfolioFetcher(this.httpClient);
+      const profile = await portfolioFetcher.getProfile(this.wallet.address);
+
+      this.cachedUserData = {
+        userId: profile.id,
+        feeRateBps: profile.rank?.feeRateBps || 300,
+      };
+
+      this.orderBuilder = new OrderBuilder(
+        this.wallet.address,
+        this.cachedUserData.feeRateBps,
+        0.001
+      );
+
+      this.logger.info('Order Client initialized', {
+        walletAddress: profile.account,
+        userId: this.cachedUserData.userId,
+        feeRate: `${this.cachedUserData.feeRateBps / 100}%`,
+      });
+    }
+
+    return this.cachedUserData;
   }
 
   /**
@@ -190,24 +215,31 @@ export class OrderClient {
    *
    * @remarks
    * This method handles the complete order creation flow:
-   * 1. Build unsigned order
-   * 2. Sign with EIP-712
-   * 3. Submit to API
+   * 1. Resolve venue address (from cache or API)
+   * 2. Build unsigned order
+   * 3. Sign with EIP-712 using venue.exchange as verifyingContract
+   * 4. Submit to API
+   *
+   * Performance best practice: Always call marketFetcher.getMarket(marketSlug)
+   * before createOrder() to cache venue data and avoid additional API requests.
    *
    * @param params - Order parameters
    * @returns Promise resolving to order response
    *
-   * @throws Error if order creation fails
+   * @throws Error if order creation fails or venue not found
    *
    * @example
    * ```typescript
+   * // Best practice: fetch market first to cache venue
+   * const market = await marketFetcher.getMarket('bitcoin-2024');
+   *
    * const order = await orderClient.createOrder({
-   *   tokenId: '123456',
+   *   tokenId: market.tokens.yes,
    *   price: 0.65,
    *   size: 100,
    *   side: Side.BUY,
    *   orderType: OrderType.GTC,
-   *   marketSlug: 'market-slug'
+   *   marketSlug: 'bitcoin-2024'
    * });
    *
    * console.log(`Order created: ${order.order.id}`);
@@ -219,14 +251,48 @@ export class OrderClient {
       marketSlug: string;
     }
   ): Promise<OrderResponse> {
+    // Ensure user data is loaded (lazy loading with cache)
+    const userData = await this.ensureUserData();
+
     this.logger.info('Creating order', {
       side: params.side,
       orderType: params.orderType,
       marketSlug: params.marketSlug,
     });
 
-    // Step 1: Build unsigned order
-    const unsignedOrder = this.orderBuilder.buildOrder(params);
+    let venue = this.marketFetcher.getVenue(params.marketSlug);
+
+    if (!venue) {
+      this.logger.warn(
+        'Venue not cached, fetching market details. ' +
+          'For better performance, call marketFetcher.getMarket() before createOrder().',
+        { marketSlug: params.marketSlug }
+      );
+
+      const market = await this.marketFetcher.getMarket(params.marketSlug);
+
+      if (!market.venue) {
+        throw new Error(
+          `Market ${params.marketSlug} does not have venue information. ` +
+            'Venue data is required for order signing.'
+        );
+      }
+
+      venue = market.venue;
+    }
+
+    const dynamicSigningConfig: OrderSigningConfig = {
+      ...this.signingConfig,
+      contractAddress: venue.exchange,
+    };
+
+    this.logger.debug('Using venue for order signing', {
+      marketSlug: params.marketSlug,
+      exchange: venue.exchange,
+      adapter: venue.adapter,
+    });
+
+    const unsignedOrder = this.orderBuilder!.buildOrder(params);
 
     this.logger.debug('Built unsigned order', {
       salt: unsignedOrder.salt,
@@ -234,11 +300,7 @@ export class OrderClient {
       takerAmount: unsignedOrder.takerAmount,
     });
 
-    // Step 2: Sign order with EIP-712
-    const signature = await this.orderSigner.signOrder(
-      unsignedOrder,
-      this.signingConfig
-    );
+    const signature = await this.orderSigner.signOrder(unsignedOrder, dynamicSigningConfig);
 
     // Step 3: Prepare payload for API
     const payload: NewOrderPayload = {
@@ -248,16 +310,12 @@ export class OrderClient {
       },
       orderType: params.orderType,
       marketSlug: params.marketSlug,
-      ownerId: this.ownerId,
+      ownerId: userData.userId,
     };
 
     // Step 4: Submit to API
-    this.logger.debug('Submitting order to API');
-    console.log('[OrderClient] Full API request payload:', JSON.stringify(payload, null, 2));
-    const apiResponse = await this.httpClient.post<any>(
-      '/orders',
-      payload
-    );
+    this.logger.debug('Submitting order to API', payload);
+    const apiResponse = await this.httpClient.post<any>('/orders', payload);
 
     this.logger.info('Order created successfully', {
       orderId: apiResponse.order.id,
@@ -329,13 +387,11 @@ export class OrderClient {
   async cancel(orderId: string): Promise<{ message: string }> {
     this.logger.info('Cancelling order', { orderId });
 
-    const response = await this.httpClient.delete<{ message: string }>(
-      `/orders/${orderId}`
-    );
+    const response = await this.httpClient.delete<{ message: string }>(`/orders/${orderId}`);
 
     this.logger.info('Order cancellation response', {
       orderId,
-      message: response.message
+      message: response.message,
     });
 
     return response;
@@ -358,45 +414,12 @@ export class OrderClient {
   async cancelAll(marketSlug: string): Promise<{ message: string }> {
     this.logger.info('Cancelling all orders for market', { marketSlug });
 
-    const response = await this.httpClient.delete<{ message: string }>(
-      `/orders/all/${marketSlug}`
-    );
+    const response = await this.httpClient.delete<{ message: string }>(`/orders/all/${marketSlug}`);
 
     this.logger.info('All orders cancellation response', {
       marketSlug,
-      message: response.message
+      message: response.message,
     });
-
-    return response;
-  }
-
-  /**
-   * @deprecated Use `cancel()` instead
-   */
-  async cancelOrder(orderId: string): Promise<void> {
-    await this.cancel(orderId);
-  }
-
-  /**
-   * Gets an order by ID.
-   *
-   * @param orderId - Order ID to fetch
-   * @returns Promise resolving to order details
-   *
-   * @throws Error if order not found
-   *
-   * @example
-   * ```typescript
-   * const order = await orderClient.getOrder('order-id-123');
-   * console.log(order.order.side);
-   * ```
-   */
-  async getOrder(orderId: string): Promise<OrderResponse> {
-    this.logger.debug('Fetching order', { orderId });
-
-    const response = await this.httpClient.get<OrderResponse>(
-      `/orders/${orderId}`
-    );
 
     return response;
   }
@@ -409,11 +432,11 @@ export class OrderClient {
    * before signing and submission.
    *
    * @param params - Order parameters
-   * @returns Unsigned order
+   * @returns Promise resolving to unsigned order
    *
    * @example
    * ```typescript
-   * const unsignedOrder = orderClient.buildUnsignedOrder({
+   * const unsignedOrder = await orderClient.buildUnsignedOrder({
    *   tokenId: '123456',
    *   price: 0.65,
    *   size: 100,
@@ -421,8 +444,10 @@ export class OrderClient {
    * });
    * ```
    */
-  buildUnsignedOrder(params: OrderArgs): UnsignedOrder {
-    return this.orderBuilder.buildOrder(params);
+  async buildUnsignedOrder(params: OrderArgs): Promise<UnsignedOrder> {
+    // Ensure user data is loaded for order builder
+    await this.ensureUserData();
+    return this.orderBuilder!.buildOrder(params);
   }
 
   /**
@@ -442,5 +467,37 @@ export class OrderClient {
    */
   async signOrder(order: UnsignedOrder): Promise<string> {
     return await this.orderSigner.signOrder(order, this.signingConfig);
+  }
+
+  /**
+   * Gets the wallet address.
+   *
+   * @returns Ethereum address of the wallet
+   *
+   * @example
+   * ```typescript
+   * const address = orderClient.walletAddress;
+   * console.log(`Wallet: ${address}`);
+   * ```
+   */
+  get walletAddress(): string {
+    return this.wallet.address;
+  }
+
+  /**
+   * Gets the owner ID (user ID from profile).
+   *
+   * @returns Owner ID from user profile, or undefined if not yet loaded
+   *
+   * @example
+   * ```typescript
+   * const ownerId = orderClient.ownerId;
+   * if (ownerId) {
+   *   console.log(`Owner ID: ${ownerId}`);
+   * }
+   * ```
+   */
+  get ownerId(): number | undefined {
+    return this.cachedUserData?.userId;
   }
 }

@@ -4,11 +4,7 @@
  */
 
 import { ethers } from 'ethers';
-import type {
-  UnsignedOrder,
-  OrderSigningConfig,
-  MarketType,
-} from '../types/orders';
+import type { UnsignedOrder, OrderSigningConfig } from '../types/orders';
 import type { ILogger } from '../types/logger';
 import { NoOpLogger } from '../types/logger';
 
@@ -70,19 +66,15 @@ export class OrderSigner {
    * ```typescript
    * const signature = await signer.signOrder(unsignedOrder, {
    *   chainId: 8453,
-   *   contractAddress: '0x...',
-   *   marketType: MarketType.CLOB
+   *   contractAddress: '0x...'
    * });
    * ```
    */
-  async signOrder(
-    order: UnsignedOrder,
-    config: OrderSigningConfig
-  ): Promise<string> {
+  async signOrder(order: UnsignedOrder, config: OrderSigningConfig): Promise<string> {
     this.logger.debug('Signing order with EIP-712', {
       tokenId: order.tokenId,
       side: order.side,
-      marketType: config.marketType,
+      verifyingContract: config.contractAddress,
     });
 
     // Verify wallet address matches signer
@@ -117,12 +109,11 @@ export class OrderSigner {
     };
 
     this.logger.debug('EIP-712 Order Value', orderValue);
-    console.log('[OrderSigner] Full signing payload:', JSON.stringify({
+    this.logger.debug('Full signing payload', {
       domain,
       types: this.getTypes(),
       value: orderValue,
-    }, null, 2));
-
+    });
     try {
       // Sign with EIP-712
       const signature = await this.wallet.signTypedData(domain, types, orderValue);

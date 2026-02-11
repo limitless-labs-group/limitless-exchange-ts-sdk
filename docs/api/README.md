@@ -17,24 +17,39 @@ Comprehensive guide to HTTP client usage, error handling, and retry mechanisms i
 
 ## HTTP Client
 
-The `HttpClient` class provides a centralized HTTP client with cookie management and error handling.
+The `HttpClient` class provides a centralized HTTP client with API key authentication and error handling.
 
 ```typescript
 import { HttpClient } from '@limitless-exchange/sdk';
 
+// Option 1: Pass API key in constructor
 const httpClient = new HttpClient({
   baseURL: 'https://api.limitless.exchange',
+  apiKey: 'lx_your_api_key', // API key for authenticated requests
   timeout: 30000, // 30 seconds
   logger: myLogger, // Optional logger
 });
 
-// Set session cookie for authenticated requests
-httpClient.setSessionCookie(sessionCookie);
+// Option 2: Set API key after initialization
+const httpClient = new HttpClient({
+  baseURL: 'https://api.limitless.exchange',
+  timeout: 30000,
+});
+httpClient.setApiKey('lx_your_api_key');
 
-// Make requests
+// Option 3: Use LIMITLESS_API_KEY environment variable
+// API key is automatically loaded from process.env.LIMITLESS_API_KEY
+const httpClient = new HttpClient({
+  baseURL: 'https://api.limitless.exchange',
+});
+
+// Make requests (API key sent via X-API-Key header)
 const data = await httpClient.get('/markets');
 await httpClient.post('/orders', orderData);
 await httpClient.delete('/orders/123');
+
+// Clear API key if needed
+httpClient.clearApiKey();
 ```
 
 ### Connection Pooling & Performance
@@ -50,6 +65,7 @@ import { HttpClient } from '@limitless-exchange/sdk';
 
 const httpClient = new HttpClient({
   baseURL: 'https://api.limitless.exchange',
+  apiKey: process.env.LIMITLESS_API_KEY, // Optional: for authenticated requests
   // Connection pooling enabled by default with sensible settings:
   // keepAlive: true
   // maxSockets: 50
@@ -69,6 +85,7 @@ For applications making >100 requests per minute, increase the connection pool s
 ```typescript
 const httpClient = new HttpClient({
   baseURL: 'https://api.limitless.exchange',
+  apiKey: process.env.LIMITLESS_API_KEY,
   keepAlive: true,
   maxSockets: 100,        // Allow more concurrent connections
   maxFreeSockets: 20,     // Keep more idle connections ready
@@ -85,6 +102,7 @@ For short-lived serverless functions (AWS Lambda, Vercel), disable connection po
 ```typescript
 const httpClient = new HttpClient({
   baseURL: 'https://api.limitless.exchange',
+  apiKey: process.env.LIMITLESS_API_KEY,
   keepAlive: false, // Disable pooling for short-lived functions
   timeout: 10000,   // Shorter timeout for serverless
 });
@@ -96,6 +114,30 @@ const httpClient = new HttpClient({
 
 ```typescript
 interface HttpClientConfig {
+  /**
+   * Base URL for API requests
+   * @default 'https://api.limitless.exchange'
+   */
+  baseURL?: string;
+
+  /**
+   * Request timeout in milliseconds
+   * @default 30000
+   */
+  timeout?: number;
+
+  /**
+   * API key for authenticated requests
+   * If not provided, will attempt to load from LIMITLESS_API_KEY environment variable
+   */
+  apiKey?: string;
+
+  /**
+   * Optional logger for debugging
+   * @default NoOpLogger (no logging)
+   */
+  logger?: ILogger;
+
   /**
    * Enable HTTP connection pooling with keepAlive
    * @default true
@@ -119,6 +161,11 @@ interface HttpClientConfig {
    * @default 60000 (60 seconds)
    */
   socketTimeout?: number;
+
+  /**
+   * Additional headers to include in all requests
+   */
+  additionalHeaders?: Record<string, string>;
 }
 ```
 
@@ -291,6 +338,7 @@ import { HttpClient, RetryableClient, RetryConfig, ConsoleLogger } from '@limitl
 // Create base HTTP client
 const httpClient = new HttpClient({
   baseURL: 'https://api.limitless.exchange',
+  apiKey: process.env.LIMITLESS_API_KEY,
   logger: new ConsoleLogger('debug'),
 });
 
@@ -542,6 +590,7 @@ const logger = new ConsoleLogger('info');
 
 const httpClient = new HttpClient({
   baseURL: 'https://api.limitless.exchange',
+  apiKey: process.env.LIMITLESS_API_KEY,
   logger,
 });
 

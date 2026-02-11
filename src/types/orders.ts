@@ -24,15 +24,6 @@ export enum OrderType {
 }
 
 /**
- * Market type enum.
- * @public
- */
-export enum MarketType {
-  CLOB = 'CLOB',
-  NEGRISK = 'NEGRISK',
-}
-
-/**
  * Signature type enum.
  * @public
  */
@@ -59,12 +50,6 @@ export interface BaseOrderArgs {
    * Order side (BUY or SELL)
    */
   side: Side;
-
-  /**
-   * Market type (CLOB or NEGRISK)
-   * @defaultValue 'CLOB'
-   */
-  marketType?: MarketType;
 
   /**
    * Expiration timestamp (0 for no expiration)
@@ -453,12 +438,7 @@ export interface OrderSigningConfig {
   chainId: number;
 
   /**
-   * Contract address for verification
+   * Contract address for verification (from venue.exchange)
    */
   contractAddress: string;
-
-  /**
-   * Market type (CLOB or NEGRISK)
-   */
-  marketType: MarketType;
 }

@@ -19,9 +19,16 @@ export interface WebSocketConfig {
   url?: string;
 
   /**
-   * Session cookie for authentication
+   * API key for authentication
+   *
+   * @remarks
+   * **Required** for authenticated subscriptions (positions, transactions).
+   * Not required for public subscriptions (market prices, orderbook).
+   *
+   * You can generate an API key at https://limitless.exchange
+   * and the LIMITLESS_API_KEY environment variable.
    */
-  sessionCookie?: string;
+  apiKey?: string;
 
   /**
    * Auto-reconnect on connection loss (default: true)
@@ -314,13 +321,25 @@ export interface WebSocketEvents {
 export interface SubscriptionOptions {
   /**
    * Market slug to subscribe to (required for market-specific channels)
+   * @deprecated Use marketSlugs (array) instead - server expects array format
    */
   marketSlug?: string;
 
   /**
+   * Market slugs to subscribe to (array format - required by server)
+   */
+  marketSlugs?: string[];
+
+  /**
    * Market address to subscribe to (for AMM markets)
+   * @deprecated Use marketAddresses (array) instead - server expects array format
    */
   marketAddress?: string;
+
+  /**
+   * Market addresses to subscribe to (array format - required by server)
+   */
+  marketAddresses?: string[];
 
   /**
    * Additional filters

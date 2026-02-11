@@ -2,9 +2,9 @@
  * GTC (Good-Til-Cancelled) Order Placement Example
  *
  * This example demonstrates how to:
- * 1. Authenticate with the API
+ * 1. Initialize SDK with API key authentication
  * 2. Build a GTC order (stays on orderbook until filled or cancelled)
- * 3. Sign and submit the order
+ * 3. Submit the order
  * 4. Query the orderbook to see the order
  *
  * IMPORTANT - Tick Alignment Requirements:
@@ -19,15 +19,12 @@ import { config } from 'dotenv';
 import { ethers } from 'ethers';
 import {
   HttpClient,
-  MessageSigner,
-  Authenticator,
   OrderClient,
   MarketFetcher,
+  PortfolioFetcher,
   Side,
   OrderType,
-  MarketType,
   ConsoleLogger,
-  getContractAddress,
 } from '@limitless-exchange/sdk';
 
 // Load environment variables
@@ -37,10 +34,6 @@ config();
 const API_URL = process.env.API_URL;
 const CHAIN_ID = parseInt(process.env.CHAIN_ID); // Base mainnet
 
-// Contract addresses - use SDK defaults or override with env var
-const CLOB_CONTRACT_ADDRESS =
-  process.env.CLOB_CONTRACT_ADDRESS || getContractAddress('CLOB', CHAIN_ID);
-
 async function main() {
   console.log('🚀 GTC (Good-Til-Cancelled) Order Placement Example\n');
 
@@ -48,102 +41,101 @@ async function main() {
   console.log('⚙️  Configuration:');
   console.log(`   API URL: ${API_URL}`);
   console.log(`   Chain ID: ${CHAIN_ID}`);
-  console.log(`   CLOB Contract: ${CLOB_CONTRACT_ADDRESS}\n`);
 
-  // Validate environment
-  const privateKey = process.env.PRIVATE_KEY;
-  if (
-    !privateKey ||
-    privateKey === '0x0000000000000000000000000000000000000000000000000000000000000000'
-  ) {
-    throw new Error('Please set PRIVATE_KEY in .env file');
+  // Validate API key
+  const apiKey = process.env.LIMITLESS_API_KEY;
+  if (!apiKey) {
+    throw new Error(
+      'Please set LIMITLESS_API_KEY in .env file\n' +
+        'Get your API key from: https://limitless.exchange'
+    );
   }
 
-  const marketSlug = process.env.CLOB_MARKET_SLUG;
+  const marketSlug = process.env.MARKET_SLUG;
   if (!marketSlug) {
-    throw new Error('Please set CLOB_MARKET_SLUG in .env file');
+    throw new Error('Please set MARKET_SLUG in .env file');
   }
 
-  const tokenId = process.env.CLOB_POSITION_ID;
-  if (!tokenId) {
-    throw new Error('Please set CLOB_POSITION_ID in .env file');
+  // Validate private key
+  const privateKey = process.env.PRIVATE_KEY;
+  if (!privateKey) {
+    throw new Error('Please set PRIVATE_KEY in .env file');
   }
 
   const logger = new ConsoleLogger('info');
 
   try {
     // ===========================================
-    // STEP 1: Authentication
+    // STEP 1: Initialize HTTP Client and Wallet
     // ===========================================
-    console.log('🔐 Step 1: Authenticating...');
-    const wallet = new ethers.Wallet(privateKey);
-    console.log(`   Wallet: ${wallet.address}`);
+    console.log('🔐 Step 1: Initializing HTTP client and wallet...');
 
     const httpClient = new HttpClient({
       baseURL: API_URL,
+      apiKey,
       timeout: 30000,
+      logger,
     });
 
-    const signer = new MessageSigner(wallet);
-    const authenticator = new Authenticator(httpClient, signer, logger);
+    const wallet = new ethers.Wallet(privateKey);
 
-    const authResult = await authenticator.authenticate({
-      client: 'eoa',
-    });
-
-    console.log(`   ✅ Authenticated as: ${authResult.profile.account}`);
-
-    // Extract user data from auth result
-    // Note: The API response contains userId and rank.feeRateBps
-    const userData = {
-      userId: (authResult.profile as any).id || 1,
-      feeRateBps: (authResult.profile as any).rank?.feeRateBps || 300,
-    };
-
-    console.log(`   User ID: ${userData.userId}`);
-    console.log(`   Fee Rate: ${userData.feeRateBps / 100}%\n`);
+    console.log(`   ✅ HTTP client initialized`);
+    console.log(`   ✅ Wallet initialized: ${wallet.address}\n`);
 
     // ===========================================
-    // STEP 2: Order Configuration
+    // STEP 2: Fetch Market and Get Token ID
     // ===========================================
-    console.log('📋 Step 2: Configuring GTC order...');
+    console.log('📊 Step 2: Fetching market details...');
+
+    const marketFetcher = new MarketFetcher(httpClient);
+    const market = await marketFetcher.getMarket(marketSlug);
+
+    console.log(`   Market: ${market.title}`);
+    console.log(`   Type: ${market.marketType}\n`);
+
+    // Get YES token ID from market
+    if (!market.tokens || !market.tokens.yes) {
+      throw new Error('Market has no YES token');
+    }
+
+    const tokenId = String(market.tokens.yes);
+    console.log(`   Token ID (YES): ${tokenId}\n`);
+
+    // ===========================================
+    // STEP 3: Order Configuration
+    // ===========================================
+    console.log('📋 Step 3: Configuring GTC order...');
 
     // Example order parameters (adjust these for your market)
     const orderParams = {
-      tokenId, // Token ID from env - can be found in Market response YES/NO
-      price: 0.123, // 55% probability - lower than market to stay on orderbook
-      size: 100, // 15 shares
+      tokenId, // Token ID from market
+      price: 0.123, // 12.3% probability - lower than market to stay on orderbook
+      size: 100, // 100 shares
       side: Side.BUY, // BUY order
-      marketType: MarketType.CLOB,
     };
 
-    console.log(`   Market: ${marketSlug}`);
-    console.log(`   Token ID: ${orderParams.tokenId}`);
     console.log(`   Side: ${orderParams.side === Side.BUY ? 'BUY' : 'SELL'}`);
     console.log(`   Price: ${orderParams.price}`);
     console.log(`   Size: ${orderParams.size} shares`);
     console.log(`   Type: GTC (order will remain on orderbook)\n`);
 
     // ===========================================
-    // STEP 3: Create Order Client
+    // STEP 4: Create Order Client
     // ===========================================
-    console.log('🔨 Step 3: Creating order client...');
+    console.log('🔨 Step 4: Creating order client...');
 
-    // Simple mode - auto-configures from marketType
     const orderClient = new OrderClient({
       httpClient,
       wallet,
-      userData,
-      marketType: MarketType.CLOB,
-      logger,
     });
 
-    console.log('   ✅ Order client ready\n');
+    console.log('   ✅ Order client ready');
+    console.log('   User data will be fetched automatically on first order\n');
 
     // ===========================================
-    // STEP 4: Create and Submit Order
+    // STEP 5: Create and Submit Order
     // ===========================================
-    console.log('📤 Step 4: Creating and submitting GTC order...');
+    console.log('📤 Step 5: Creating and submitting GTC order...');
 
     const orderResponse = await orderClient.createOrder({
       ...orderParams,
@@ -182,14 +174,6 @@ async function main() {
     // ===========================================
     console.log('\n🔍 Step 5: Fetching orderbook to verify order...');
 
-    // Create separate unauthenticated client for public endpoints
-    // Note: Orderbook, market info, and prices don't require authentication
-    const publicHttpClient = new HttpClient({
-      baseURL: API_URL,
-      timeout: 30000,
-    });
-
-    const marketFetcher = new MarketFetcher(publicHttpClient, logger);
     const orderbook = await marketFetcher.getOrderBook(marketSlug);
 
     console.log(`   Bids: ${orderbook.bids.length} orders`);
@@ -223,7 +207,6 @@ async function main() {
       price: 0.999, // 75% probability - higher than market to stay on orderbook
       size: 1.349, // 10 shares
       side: Side.SELL,
-      marketType: MarketType.CLOB,
     };
 
     console.log('\n📋 SELL Order Configuration:');
@@ -300,10 +283,63 @@ async function main() {
     }
 
     // ===========================================
-    // STEP 8: Cancel Orders (Optional Demo)
+    // STEP 8: Advanced Order Methods
     // ===========================================
     console.log('\n\n' + '='.repeat(60));
-    console.log('🗑️  STEP 8: Order Cancellation Demo (Optional)');
+    console.log('🔧 STEP 8: Advanced Order Methods');
+    console.log('='.repeat(60));
+
+    // 8a. Build Unsigned Order (without submitting)
+    console.log('\n📝 Building unsigned order without submitting...');
+    const unsignedOrder = await orderClient.buildUnsignedOrder({
+      tokenId,
+      price: 0.45,
+      size: 5,
+      side: Side.BUY,
+    });
+
+    console.log('   ✅ Unsigned order built:');
+    console.log(`      Salt: ${unsignedOrder.salt}`);
+    console.log(`      Maker: ${unsignedOrder.maker}`);
+    console.log(`      MakerAmount: ${unsignedOrder.makerAmount}`);
+    console.log(`      TakerAmount: ${unsignedOrder.takerAmount}`);
+
+    // 8b. Get Wallet Address and Owner ID
+    console.log('\n👤 Wallet and Owner Info:');
+    console.log(`   Wallet Address: ${orderClient.walletAddress}`);
+    console.log(`   Owner ID: ${orderClient.ownerId}`);
+
+    // 8c. Get Venue from Cache (synchronous)
+    console.log('\n🏛️  Getting venue from cache...');
+    const venue = marketFetcher.getVenue(marketSlug);
+    if (venue) {
+      console.log('   ✅ Venue found in cache:');
+      console.log(`      Exchange: ${venue.exchange}`);
+      console.log(`      Adapter: ${venue.adapter}`);
+    } else {
+      console.log('   ⚠️  Venue not in cache (call getMarket first)');
+    }
+
+    // 8d. Get User History
+    console.log('\n📜 Fetching user transaction history...');
+    const portfolioFetcher = new PortfolioFetcher(httpClient);
+    const history = await portfolioFetcher.getUserHistory(1, 5);
+    console.log(`History resp: ${history}`);
+    console.log(`   ✅ Found ${history.data.length} of ${history.totalCount} total entries`);
+    if (history.data.length > 0) {
+      console.log('\n   Recent transactions:');
+      history.data.slice(0, 3).forEach((entry: any, i: number) => {
+        console.log(`\n   ${i + 1}. ${entry.type}`);
+        console.log(`      Market: ${entry.marketSlug || 'N/A'}`);
+        console.log(`      Created: ${entry.createdAt}`);
+      });
+    }
+
+    // ===========================================
+    // STEP 9: Cancel Orders (Optional Demo)
+    // ===========================================
+    console.log('\n\n' + '='.repeat(60));
+    console.log('🗑️  STEP 9: Order Cancellation Demo (Optional)');
     console.log('='.repeat(60));
     console.log('\nThis step demonstrates order cancellation.');
     console.log('Uncomment the code below to test cancellation:\n');
@@ -332,17 +368,22 @@ async function main() {
     // console.log(`   ✅ ${cancelAllResult.message}`);
 
     console.log('\n🎉 GTC order example completed successfully!');
-    console.log('\n📚 Summary:');
-    console.log(`   - BUY Order ID: ${orderResponse.order.id} (Price: ${orderParams.price})`);
-    console.log(
-      `   - SELL Order ID: ${sellOrderResponse.order.id} (Price: ${sellOrderParams.price})`
-    );
-    console.log('\n📚 Cancellation Methods:');
-    console.log('   - orderClient.cancel(orderId) - Cancel single order');
-    console.log('   - orderClient.cancelAll(marketSlug) - Cancel all orders for market');
-    console.log('\n📚 Next steps:');
-    console.log('   - Try FOK orders: pnpm run start:fok-order');
-    console.log('   - View full orderbook: pnpm run start:orderbook');
+    console.log('\n📚 Summary - What we demonstrated:');
+    console.log('   1. Created BUY and SELL GTC orders');
+    console.log('   2. Verified orders on the orderbook');
+    console.log('   3. Built unsigned order (buildUnsignedOrder)');
+    console.log('   4. Retrieved wallet address and owner ID');
+    console.log('   5. Got venue from cache (getVenue)');
+    console.log('   6. Fetched user transaction history');
+    console.log('\n📚 Key SDK Methods Used:');
+    console.log('   - orderClient.createOrder() - Submit orders');
+    console.log('   - orderClient.buildUnsignedOrder() - Build without submitting');
+    console.log('   - orderClient.walletAddress / ownerId - Get user info');
+    console.log('   - orderClient.cancel() / cancelAll() - Cancel orders');
+    console.log('   - marketFetcher.getMarket() - Get market details');
+    console.log('   - marketFetcher.getVenue() - Get cached venue');
+    console.log('   - marketFetcher.getOrderBook() - View orderbook');
+    console.log('   - portfolioFetcher.getUserHistory() - Transaction history');
     console.log('\n💡 Tip: GTC orders stay on the orderbook until:');
     console.log('   1. Fully matched by another order');
     console.log('   2. Manually cancelled');

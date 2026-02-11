@@ -2,7 +2,7 @@
  * FOK (Fill-or-Kill) Order Placement Example
  *
  * This example demonstrates how to:
- * 1. Authenticate with the API
+ * 1. Initialize SDK with API key authentication
  * 2. Create a FOK market order with makerAmount (USDC for BUY, shares for SELL)
  * 3. Submit order that executes immediately at best price or cancels
  *
@@ -14,12 +14,10 @@ import { config } from 'dotenv';
 import { ethers } from 'ethers';
 import {
   HttpClient,
-  MessageSigner,
-  Authenticator,
   OrderClient,
+  MarketFetcher,
   Side,
   OrderType,
-  MarketType,
   ConsoleLogger,
   getContractAddress,
 } from '@limitless-exchange/sdk';
@@ -31,10 +29,6 @@ config();
 const API_URL = process.env.API_URL;
 const CHAIN_ID = parseInt(process.env.CHAIN_ID); // Base mainnet
 
-// Contract addresses - use SDK defaults or override with env var
-const CLOB_CONTRACT_ADDRESS =
-  process.env.CLOB_CONTRACT_ADDRESS || getContractAddress('CLOB', CHAIN_ID);
-
 async function main() {
   console.log('🚀 FOK (Fill-or-Kill) Order Placement Example\n');
 
@@ -42,14 +36,24 @@ async function main() {
   console.log('⚙️  Configuration:');
   console.log(`   API URL: ${API_URL}`);
   console.log(`   Chain ID: ${CHAIN_ID}`);
-  console.log(`   CLOB Contract: ${CLOB_CONTRACT_ADDRESS}\n`);
 
-  // Validate environment
+  // Validate API key
+  const apiKey = process.env.LIMITLESS_API_KEY;
+  if (!apiKey) {
+    throw new Error(
+      'Please set LIMITLESS_API_KEY in .env file\n' +
+        'Get your API key from: https://limitless.exchange'
+    );
+  }
+
+  const marketSlug = process.env.MARKET_SLUG;
+  if (!marketSlug) {
+    throw new Error('Please set MARKET_SLUG in .env file');
+  }
+
+  // Validate private key
   const privateKey = process.env.PRIVATE_KEY;
-  if (
-    !privateKey ||
-    privateKey === '0x0000000000000000000000000000000000000000000000000000000000000000'
-  ) {
+  if (!privateKey) {
     throw new Error('Please set PRIVATE_KEY in .env file');
   }
 
@@ -57,86 +61,72 @@ async function main() {
 
   try {
     // ===========================================
-    // STEP 1: Authentication
+    // STEP 1: Initialize HTTP Client and Wallet
     // ===========================================
-    console.log('🔐 Step 1: Authenticating...');
-    const wallet = new ethers.Wallet(privateKey);
-    console.log(`   Wallet: ${wallet.address}`);
+    console.log('🔐 Step 1: Initializing HTTP client and wallet...');
 
     const httpClient = new HttpClient({
       baseURL: API_URL,
+      apiKey,
       timeout: 30000,
+      logger,
     });
 
-    const signer = new MessageSigner(wallet);
-    const authenticator = new Authenticator(httpClient, signer, logger);
+    const wallet = new ethers.Wallet(privateKey);
 
-    const authResult = await authenticator.authenticate({
-      client: 'eoa',
-    });
-
-    console.log(`   ✅ Authenticated as: ${authResult.profile.account}`);
-
-    // Extract user data from auth result
-    // Note: The API response contains userId and rank.feeRateBps
-    const userData = {
-      userId: (authResult.profile as any).id || 1,
-      feeRateBps: (authResult.profile as any).rank?.feeRateBps || 300,
-    };
-
-    console.log(`   User ID: ${userData.userId}`);
-    console.log(`   Fee Rate: ${userData.feeRateBps / 100}%\n`);
+    console.log(`   ✅ HTTP client initialized`);
+    console.log(`   ✅ Wallet initialized: ${wallet.address}\n`);
 
     // ===========================================
-    // STEP 2: Order Configuration
+    // STEP 2: Fetch Market and Get Token ID
     // ===========================================
-    console.log('📋 Step 2: Configuring FOK order...');
+    console.log('📊 Step 2: Fetching market details...');
+
+    const marketFetcher = new MarketFetcher(httpClient);
+    const market = await marketFetcher.getMarket(marketSlug);
+
+    console.log(`   Market: ${market.title}`);
+    console.log(`   Type: ${market.marketType}\n`);
+
+    // Get YES token ID from market
+    if (!market.tokens || !market.tokens.yes) {
+      throw new Error('Market has no YES token');
+    }
+
+    const tokenId = String(market.tokens.yes);
+    console.log(`   Token ID (YES): ${tokenId}\n`);
+
+    // ===========================================
+    // STEP 3: Order Configuration
+    // ===========================================
+    console.log('📋 Step 3: Configuring FOK order...');
 
     // Example order parameters (adjust these for your market)
     // FOK orders are market orders - you specify makerAmount (USDC for BUY, shares for SELL)
     const orderParams = {
-      tokenId: process.env.CLOB_POSITION_ID, // Example token ID - can be found in Market response YES/NO
+      tokenId, // Token ID from market
       makerAmount: 32.05, // BUY: 32.05 USDC to spend | SELL: 32.05 shares to sell
       side: Side.BUY, // BUY order
-      marketType: MarketType.CLOB,
     };
 
-    const marketSlug = process.env.CLOB_MARKET_SLUG; // Example market
-
-    console.log(`   Market: ${marketSlug}`);
-    console.log(`   Token ID: ${orderParams.tokenId}`);
     console.log(`   Side: ${orderParams.side === Side.BUY ? 'BUY' : 'SELL'}`);
-    console.log(`   Maker Amount: ${orderParams.makerAmount} ${orderParams.side === Side.BUY ? 'USDC' : 'shares'}`);
+    console.log(
+      `   Maker Amount: ${orderParams.makerAmount} ${orderParams.side === Side.BUY ? 'USDC' : 'shares'}`
+    );
     console.log(`   Type: FOK (market order - executes immediately at best price)\n`);
 
     // ===========================================
-    // STEP 3: Create Order Client
+    // STEP 4: Create Order Client
     // ===========================================
-    console.log('🔨 Step 3: Creating order client...');
+    console.log('🔨 Step 4: Creating order client...');
 
-    // Option 1: Simple mode - auto-configures from marketType
     const orderClient = new OrderClient({
       httpClient,
       wallet,
-      userData,
-      marketType: MarketType.CLOB, // Auto-loads contract from env/defaults
-      logger,
     });
 
-    // Option 2:  Custom signing configuration
-    // const orderClient = new OrderClient({
-    //   httpClient,
-    //   wallet,
-    //   userData,
-    //   signingConfig: {
-    //     chainId: CHAIN_ID,
-    //     contractAddress: CLOB_CONTRACT_ADDRESS,
-    //     marketType: MarketType.CLOB,
-    //   },
-    //   logger,
-    // });
-
-    console.log('   ✅ Order client ready\n');
+    console.log('   ✅ Order client ready');
+    console.log('   User data will be fetched automatically on first order\n');
 
     // ===========================================
     // STEP 4: Create and Submit FOK Order

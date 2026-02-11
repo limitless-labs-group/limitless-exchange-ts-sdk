@@ -15,13 +15,10 @@ import { config } from 'dotenv';
 import { ethers } from 'ethers';
 import {
   HttpClient,
-  MessageSigner,
-  Authenticator,
   OrderClient,
   MarketFetcher,
   Side,
   OrderType,
-  MarketType,
   ConsoleLogger,
   getContractAddress,
 } from '@limitless-exchange/sdk';
@@ -33,72 +30,62 @@ config();
 const API_URL = process.env.API_URL || 'https://api.limitless.exchange';
 const CHAIN_ID = parseInt(process.env.CHAIN_ID || '8453'); // Base mainnet
 
-// Contract addresses - use SDK defaults or override with env var
-const NEGRISK_CONTRACT_ADDRESS =
-  process.env.NEGRISK_CONTRACT_ADDRESS || getContractAddress('NEGRISK', CHAIN_ID);
-
-// NegRisk group market example
-const NEGRISK_GROUP_SLUG = 'largest-company-end-of-2025-1746118069282';
+// NegRisk group market example (default fallback)
+const FALLBACK_IF_NO_ENV_VAR_SET = 'largest-company-end-of-2025-1746118069282';
 
 async function main() {
   console.log('🚀 NegRisk Group Market Trading Example\n');
+
+  // Validate API key
+  const apiKey = process.env.LIMITLESS_API_KEY;
+  if (!apiKey) {
+    throw new Error(
+      'Please set LIMITLESS_API_KEY in .env file\n' +
+        'Get your API key from: https://limitless.exchange'
+    );
+  }
+
+  // Get market slug from env or use default
+  const NEGRISK_GROUP_SLUG = process.env.MARKET_SLUG || FALLBACK_IF_NO_ENV_VAR_SET;
+  console.log(`Using NegRisk Group Market: ${NEGRISK_GROUP_SLUG}\n`);
+
+  // Validate private key
+  const privateKey = process.env.PRIVATE_KEY;
+  if (!privateKey) {
+    throw new Error('Please set PRIVATE_KEY in .env file');
+  }
 
   // Show configuration
   console.log('⚙️  Configuration:');
   console.log(`   API URL: ${API_URL}`);
   console.log(`   Chain ID: ${CHAIN_ID}`);
-  console.log(`   NegRisk Contract: ${NEGRISK_CONTRACT_ADDRESS}\n`);
-
-  // Validate environment
-  const privateKey = process.env.PRIVATE_KEY;
-  if (
-    !privateKey ||
-    privateKey === '0x0000000000000000000000000000000000000000000000000000000000000000'
-  ) {
-    throw new Error('Please set PRIVATE_KEY in .env file');
-  }
 
   const logger = new ConsoleLogger('info');
 
   try {
     // ===========================================
-    // STEP 1: Setup Authentication
+    // STEP 1: Initialize HTTP Client and Wallet
     // ===========================================
-    console.log('📝 Step 1: Authenticating...');
-
-    const wallet = new ethers.Wallet(privateKey);
-    console.log(`   Wallet: ${wallet.address}`);
+    console.log('📝 Step 1: Initializing HTTP client and wallet...');
 
     const httpClient = new HttpClient({
       baseURL: API_URL,
+      apiKey,
       timeout: 30000,
+      logger,
     });
 
-    const signer = new MessageSigner(wallet);
-    const authenticator = new Authenticator(httpClient, signer, logger);
+    const wallet = new ethers.Wallet(privateKey);
 
-    const authResult = await authenticator.authenticate({
-      client: 'eoa',
-    });
-
-    console.log(`   ✅ Authenticated as: ${authResult.profile.account}`);
-
-    // Extract user data from auth result
-    // Note: The API response contains userId and rank.feeRateBps
-    const userData = {
-      userId: (authResult.profile as any).id || 1,
-      feeRateBps: (authResult.profile as any).rank?.feeRateBps || 300,
-    };
-
-    console.log(`   User ID: ${userData.userId}`);
-    console.log(`   Fee Rate: ${userData.feeRateBps / 100}%\n`);
+    console.log(`   ✅ HTTP client initialized`);
+    console.log(`   ✅ Wallet initialized: ${wallet.address}\n`);
 
     // ===========================================
     // STEP 2: Fetch NegRisk Group Market
     // ===========================================
     console.log('📊 Step 2: Fetching NegRisk Group Market...');
 
-    const marketFetcher = new MarketFetcher(httpClient, logger);
+    const marketFetcher = new MarketFetcher(httpClient);
     const groupMarketResponse = await marketFetcher.getMarket(NEGRISK_GROUP_SLUG);
 
     // Cast to any to access properties not in the Market type definition
@@ -198,9 +185,6 @@ async function main() {
     const orderClient = new OrderClient({
       httpClient,
       wallet,
-      userData,
-      marketType: MarketType.NEGRISK,
-      logger,
     });
 
     console.log('\n   📝 Order Details:');
@@ -213,7 +197,7 @@ async function main() {
     console.log(`      Size: 10 shares`);
 
     // IMPORTANT: For NegRisk markets, use the SUBMARKET slug, not the group slug
-    // The order placement uses MarketType.NEGRISK for proper signature
+    // Contract address is dynamically resolved from venue data
     const orderResponse = await orderClient.createOrder({
       tokenId: detailedInfo.tokens.yes, // YES token ID from submarket
       price: 0.1, // Limit price

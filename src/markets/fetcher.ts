@@ -4,13 +4,13 @@
  */
 
 import { HttpClient } from '../api/http';
+import { Market } from '../types/market-class';
 import type {
-  Market,
   MarketsResponse,
   OrderBook,
-  MarketPrice,
   ActiveMarketsParams,
   ActiveMarketsResponse,
+  Venue,
 } from '../types/markets';
 import type { ILogger } from '../types/logger';
 import { NoOpLogger } from '../types/logger';
@@ -22,11 +22,16 @@ import { NoOpLogger } from '../types/logger';
  * This class provides methods to fetch market data, orderbooks, and prices
  * from the Limitless Exchange API.
  *
+ * Venue caching: When fetching market data, venue information is automatically
+ * cached for efficient order signing. This eliminates redundant API calls when
+ * creating orders for the same market.
+ *
  * @public
  */
 export class MarketFetcher {
   private httpClient: HttpClient;
   private logger: ILogger;
+  private venueCache: Map<string, Venue>;
 
   /**
    * Creates a new market fetcher instance.
@@ -42,6 +47,7 @@ export class MarketFetcher {
   constructor(httpClient: HttpClient, logger?: ILogger) {
     this.httpClient = httpClient;
     this.logger = logger || new NoOpLogger();
+    this.venueCache = new Map();
   }
 
 
@@ -90,16 +96,24 @@ export class MarketFetcher {
     this.logger.debug('Fetching active markets', { params });
 
     try {
-      const response = await this.httpClient.get<ActiveMarketsResponse>(endpoint);
+      const response = await this.httpClient.get<any>(endpoint);
+
+      // Convert market data to Market instances with httpClient attached
+      const markets = response.data.map((marketData: any) => new Market(marketData, this.httpClient));
+
+      const result = {
+        data: markets,
+        totalMarketsCount: response.totalMarketsCount,
+      };
 
       this.logger.info('Active markets fetched successfully', {
-        count: response.data.length,
+        count: markets.length,
         total: response.totalMarketsCount,
         sortBy: params?.sortBy,
         page: params?.page,
       });
 
-      return response;
+      return result;
     } catch (error) {
       this.logger.error('Failed to fetch active markets', error as Error, { params });
       throw error;
@@ -109,21 +123,52 @@ export class MarketFetcher {
   /**
    * Gets a single market by slug.
    *
+   * @remarks
+   * Automatically caches venue information for efficient order signing.
+   * Always call this method before creating orders to ensure venue data
+   * is available and avoid additional API requests.
+   *
    * @param slug - Market slug identifier
    * @returns Promise resolving to market details
    * @throws Error if API request fails or market not found
    *
    * @example
    * ```typescript
+   * // Get market
    * const market = await fetcher.getMarket('bitcoin-price-2024');
    * console.log(`Market: ${market.title}`);
+   *
+   * // Fluent API - get user orders for this market (clean!)
+   * const orders = await market.getUserOrders();
+   * console.log(`You have ${orders.length} orders`);
+   *
+   * // Venue is now cached for order signing
+   * await orderClient.createOrder({
+   *   marketSlug: 'bitcoin-price-2024',
+   *   ...
+   * });
    * ```
    */
   async getMarket(slug: string): Promise<Market> {
     this.logger.debug('Fetching market', { slug });
 
     try {
-      const market = await this.httpClient.get<Market>(`/markets/${slug}`);
+      const response = await this.httpClient.get<any>(`/markets/${slug}`);
+
+      // Create Market instance with httpClient attached for fluent API
+      const market = new Market(response, this.httpClient);
+
+      if (market.venue) {
+        this.venueCache.set(slug, market.venue);
+        this.logger.debug('Venue cached for order signing', {
+          slug,
+          exchange: market.venue.exchange,
+          adapter: market.venue.adapter,
+          cacheSize: this.venueCache.size,
+        });
+      } else {
+        this.logger.warn('Market has no venue data', { slug });
+      }
 
       this.logger.info('Market fetched successfully', {
         slug,
@@ -134,6 +179,39 @@ export class MarketFetcher {
       this.logger.error('Failed to fetch market', error as Error, { slug });
       throw error;
     }
+  }
+
+  /**
+   * Gets cached venue information for a market.
+   *
+   * @remarks
+   * Returns venue data previously cached by getMarket() call.
+   * Used internally by OrderClient for efficient order signing.
+   *
+   * @param slug - Market slug identifier
+   * @returns Cached venue information, or undefined if not in cache
+   *
+   * @example
+   * ```typescript
+   * const venue = fetcher.getVenue('bitcoin-price-2024');
+   * if (venue) {
+   *   console.log(`Exchange: ${venue.exchange}`);
+   * }
+   * ```
+   */
+  getVenue(slug: string): Venue | undefined {
+    const venue = this.venueCache.get(slug);
+
+    if (venue) {
+      this.logger.debug('Venue cache hit', {
+        slug,
+        exchange: venue.exchange,
+      });
+    } else {
+      this.logger.debug('Venue cache miss', { slug });
+    }
+
+    return venue;
   }
 
   /**
@@ -170,33 +248,4 @@ export class MarketFetcher {
     }
   }
 
-  /**
-   * Gets the current price for a token.
-   *
-   * @param tokenId - Token ID
-   * @returns Promise resolving to price information
-   * @throws Error if API request fails
-   *
-   * @example
-   * ```typescript
-   * const price = await fetcher.getPrice('123456');
-   * console.log(`Current price: ${price.price}`);
-   * ```
-   */
-  async getPrice(tokenId: string): Promise<MarketPrice> {
-    this.logger.debug('Fetching price', { tokenId });
-
-    try {
-      const price = await this.httpClient.get<MarketPrice>(`/prices/${tokenId}`);
-
-      this.logger.info('Price fetched successfully', {
-        tokenId,
-        price: price.price,
-      });
-      return price;
-    } catch (error) {
-      this.logger.error('Failed to fetch price', error as Error, { tokenId });
-      throw error;
-    }
-  }
 }

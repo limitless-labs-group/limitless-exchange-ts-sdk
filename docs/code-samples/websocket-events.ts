@@ -1,100 +1,102 @@
 /**
  * WebSocket Event Debugging
  *
- * This script connects to the WebSocket and logs subscription responses
+ * This script connects to the WebSocket and logs all subscription responses
+ * and events for debugging purposes.
  */
 
 import { config } from 'dotenv';
-import { ethers } from 'ethers';
-import { HttpClient, MessageSigner, Authenticator, ConsoleLogger } from '@limitless-exchange/sdk';
+import { WebSocketClient } from '@limitless-exchange/sdk';
 
 config();
 
-const API_URL = process.env.API_URL || 'https://api.limitless.exchange';
 const WS_URL = process.env.WS_URL || 'wss://ws.limitless.exchange';
 const MARKET_SLUG = process.env.EXAMPLE_MARKET_SLUG || '';
 
 async function main() {
   console.log('🔍 WebSocket Event Debugger\n');
 
+  // Check for API key (required for authenticated subscriptions)
+  const apiKey = process.env.LIMITLESS_API_KEY;
+  if (!apiKey) {
+    throw new Error(
+      'Please set LIMITLESS_API_KEY in .env file\n' +
+        'Get your API key from: https://limitless.exchange'
+    );
+  }
+
   try {
-    // Authenticate
-    const wallet = new ethers.Wallet(process.env.PRIVATE_KEY!);
-    const httpClient = new HttpClient({ baseURL: API_URL });
-    const signer = new MessageSigner(wallet);
-    const authenticator = new Authenticator(httpClient, signer);
-
-    const { sessionCookie } = await authenticator.authenticate({ client: 'eoa' });
-    console.log('✅ Authenticated\n');
-    console.log('Session Cookie:', sessionCookie.substring(0, 50) + '...\n');
-
-    // Import socket.io-client dynamically from SDK's dependencies
-    const { io } = await import('socket.io-client');
-
-    console.log('🔌 Connecting to WebSocket...');
-    console.log(`   URL: ${WS_URL}/markets\n`);
-
-    // Connect to the /markets namespace
-    // Pass session cookie as HTTP cookie header (required for authentication)
-    const socket = io(`${WS_URL}/markets`, {
-      transports: ['websocket'],
-      extraHeaders: {
-        cookie: `limitless_session=${sessionCookie}`,
-      },
+    // Initialize WebSocket client with API key
+    const wsClient = new WebSocketClient({
+      url: WS_URL,
+      apiKey,
+      autoReconnect: true,
     });
 
-    // Log ALL events using onAny
-    socket.onAny((eventName: string, ...args: any[]) => {
-      console.log(`\n📨 Event: "${eventName}"`);
-      console.log(JSON.stringify(args, null, 2));
-    });
-
-    socket.on('connect', () => {
+    // Set up event listeners to log ALL events
+    wsClient.on('connect', () => {
       console.log('✅ Connected!\n');
-      console.log('📡 Subscribing to channels...\n');
-
-      // Subscribe to market prices and orderbook
-      socket.emit(
-        'subscribe_market_prices',
-        {
-          marketSlugs: [MARKET_SLUG],
-        },
-        (response: any) => {
-          console.log('📊 Market prices subscription response:', response);
-        }
-      );
-
-      // Subscribe to positions (requires auth)
-      socket.emit(
-        'subscribe_positions',
-        {
-          marketSlugs: [MARKET_SLUG],
-        },
-        (response: any) => {
-          console.log('📋 Positions subscription response:', response);
-        }
-      );
-
-      // Subscribe to transactions (requires auth)
-      socket.emit('subscribe_transactions', {}, (response: any) => {
-        console.log('🎯 Transactions subscription response:', response);
-      });
-
-      console.log('\n✅ Subscription requests sent. Waiting for events...\n');
-      console.log('💡 Now create/cancel orders to see events appear\n');
     });
 
-    socket.on('disconnect', (reason: string) => {
+    wsClient.on('disconnect', (reason: string) => {
       console.log(`\n⚠️  Disconnected: ${reason}`);
     });
 
-    socket.on('connect_error', (error: Error) => {
-      console.error('\n❌ Connection error:', error.message);
-    });
-
-    socket.on('error', (error: Error) => {
+    wsClient.on('error', (error: Error) => {
       console.error('\n❌ Socket error:', error);
     });
+
+    wsClient.on('reconnecting', (attempt: number) => {
+      console.log(`🔄 Reconnecting... (attempt ${attempt})`);
+    });
+
+    // Log market price updates
+    wsClient.on('newPriceData', (data) => {
+      console.log('\n📊 AMM Price Update:', JSON.stringify(data, null, 2));
+    });
+
+    // Log orderbook updates
+    wsClient.on('orderbookUpdate', (data) => {
+      console.log('\n📖 Orderbook Update:', JSON.stringify(data, null, 2));
+    });
+
+    // Log position updates (requires API key)
+    wsClient.on('positions', (data) => {
+      console.log('\n📋 Position Update:', JSON.stringify(data, null, 2));
+    });
+
+    // Log transaction events (requires API key)
+    // TransactionEvent contains: userId, txHash, status, source, timestamp, marketAddress, marketSlug, tokenId
+    wsClient.on('tx', (data) => {
+      console.log('\n🎯 Transaction Event:', JSON.stringify(data, null, 2));
+    });
+
+    // Connect to WebSocket
+    console.log('🔌 Connecting to WebSocket...');
+    console.log(`   URL: ${WS_URL}\n`);
+    await wsClient.connect();
+
+    // Subscribe to market prices (public - no API key required)
+    console.log('📡 Subscribing to market prices...\n');
+    await wsClient.subscribe('subscribe_market_prices', {
+      marketSlugs: [MARKET_SLUG],
+    });
+    console.log('✅ Subscribed to market prices\n');
+
+    // Subscribe to positions (requires API key)
+    console.log('📡 Subscribing to positions...\n');
+    await wsClient.subscribe('subscribe_positions', {
+      marketSlugs: [MARKET_SLUG],
+    });
+    console.log('✅ Subscribed to positions\n');
+
+    // Subscribe to transactions (requires API key)
+    console.log('📡 Subscribing to transactions...\n');
+    await wsClient.subscribe('subscribe_transactions', {});
+    console.log('✅ Subscribed to transactions\n');
+
+    console.log('\n✅ All subscriptions active. Waiting for events...\n');
+    console.log('💡 Now create/cancel orders to see events appear\n');
 
     // Keep alive
     await new Promise(() => {});

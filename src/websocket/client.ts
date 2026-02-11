@@ -11,12 +11,6 @@ import {
   type WebSocketEvents,
   type SubscriptionChannel,
   type SubscriptionOptions,
-  type OrderbookUpdate,
-  type TradeEvent,
-  type OrderUpdate,
-  type FillEvent,
-  type MarketUpdate,
-  type PriceUpdate,
 } from '../types/websocket';
 import type { ILogger } from '../types/logger';
 import { NoOpLogger } from '../types/logger';
@@ -28,22 +22,36 @@ import { NoOpLogger } from '../types/logger';
  * This client uses Socket.IO to connect to the WebSocket server and provides
  * typed event subscriptions for orderbook, trades, orders, and market data.
  *
+ * **Public Subscriptions** (no authentication required):
+ * - Market prices (AMM)
+ * - Orderbook updates (CLOB)
+ *
+ * **Authenticated Subscriptions** (require API key):
+ * - User positions
+ * - User transactions
+ *
  * @example
  * ```typescript
- * // Create client
+ * // Public subscription (no API key needed)
  * const wsClient = new WebSocketClient({
- *   sessionCookie: 'your-session-cookie',
  *   autoReconnect: true,
  * });
  *
- * // Subscribe to orderbook updates
- * wsClient.on('orderbook', (data) => {
- *   console.log('Orderbook update:', data);
+ * await wsClient.connect();
+ * await wsClient.subscribe('subscribe_market_prices', {
+ *   marketSlugs: ['market-123']
  * });
  *
- * // Connect and subscribe
- * await wsClient.connect();
- * await wsClient.subscribe('orderbook', { marketSlug: 'market-123' });
+ * // Authenticated subscription (API key required)
+ * const wsClientAuth = new WebSocketClient({
+ *   apiKey: process.env.LIMITLESS_API_KEY,
+ *   autoReconnect: true,
+ * });
+ *
+ * await wsClientAuth.connect();
+ * await wsClientAuth.subscribe('subscribe_positions', {
+ *   marketSlugs: ['market-123']
+ * });
  * ```
  *
  * @public
@@ -66,7 +74,7 @@ export class WebSocketClient {
   constructor(config: WebSocketConfig = {}, logger?: ILogger) {
     this.config = {
       url: config.url || DEFAULT_WS_URL,
-      sessionCookie: config.sessionCookie || '',
+      apiKey: config.apiKey || process.env.LIMITLESS_API_KEY || '',
       autoReconnect: config.autoReconnect ?? true,
       reconnectDelay: config.reconnectDelay || 1000,
       maxReconnectAttempts: config.maxReconnectAttempts || Infinity,
@@ -94,19 +102,32 @@ export class WebSocketClient {
   }
 
   /**
-   * Sets the session cookie for authentication.
+   * Sets the API key for authentication.
    *
-   * @param sessionCookie - Session cookie value
+   * @param apiKey - API key value
+   *
+   * @remarks
+   * API key is required for authenticated subscriptions (positions, transactions).
+   * If already connected, this will trigger a reconnection with the new API key.
    */
-  setSessionCookie(sessionCookie: string): void {
-    this.config.sessionCookie = sessionCookie;
+  setApiKey(apiKey: string): void {
+    this.config.apiKey = apiKey;
 
     // If already connected, reconnect with new auth
     if (this.socket?.connected) {
-      this.logger.info('Session cookie updated, reconnecting...');
-      this.disconnect();
-      this.connect();
+      this.logger.info('API key updated, reconnecting...');
+      // Schedule async reconnection without blocking
+      this.reconnectWithNewAuth();
     }
+  }
+
+  /**
+   * Reconnects with new authentication credentials.
+   * @internal
+   */
+  private async reconnectWithNewAuth(): Promise<void> {
+    await this.disconnect();
+    await this.connect();
   }
 
   /**
@@ -122,8 +143,9 @@ export class WebSocketClient {
    * ```
    */
   async connect(): Promise<void> {
-    if (this.socket?.connected) {
-      this.logger.info('Already connected');
+    // Fix: Prevent race condition by checking CONNECTING state
+    if (this.socket?.connected || this.state === WebSocketState.CONNECTING) {
+      this.logger.info('Already connected or connecting');
       return;
     }
 
@@ -136,21 +158,30 @@ export class WebSocketClient {
       }, this.config.timeout);
 
       // Create Socket.IO connection to /markets namespace
-      // Authentication via cookie header (required by WsJwtAuthGuard)
-      const wsUrl = this.config.url.endsWith('/markets')
-        ? this.config.url
-        : `${this.config.url}/markets`;
+      // API key is sent via X-API-Key header for authenticated subscriptions
+      const wsUrl = this.config.url;
 
-      this.socket = io(wsUrl, {
+      const socketOptions: any = {
         transports: ['websocket'], // Use WebSocket transport only
-        extraHeaders: {
-          cookie: `limitless_session=${this.config.sessionCookie}`
-        },
         reconnection: this.config.autoReconnect,
         reconnectionDelay: this.config.reconnectDelay,
-        reconnectionAttempts: this.config.maxReconnectAttempts,
+        reconnectionDelayMax: Math.min(this.config.reconnectDelay * 32, 60000), // Max 60s
+        reconnectionAttempts:
+          this.config.maxReconnectAttempts === Infinity ? 0 : this.config.maxReconnectAttempts, // 0 = infinite
+        randomizationFactor: 0.2, // Add jitter to prevent thundering herd
         timeout: this.config.timeout,
-      });
+      };
+
+      // Add API key to headers if provided
+      // Required for authenticated subscriptions (positions, transactions)
+      if (this.config.apiKey) {
+        socketOptions.extraHeaders = {
+          'X-API-Key': this.config.apiKey,
+        };
+      }
+
+      // Connect to base URL with /markets namespace
+      this.socket = io(wsUrl + '/markets', socketOptions);
 
       // Attach any pending listeners that were added before connect()
       this.attachPendingListeners();
@@ -184,12 +215,14 @@ export class WebSocketClient {
   /**
    * Disconnects from the WebSocket server.
    *
+   * @returns Promise that resolves when disconnected
+   *
    * @example
    * ```typescript
-   * wsClient.disconnect();
+   * await wsClient.disconnect();
    * ```
    */
-  disconnect(): void {
+  async disconnect(): Promise<void> {
     if (!this.socket) {
       return;
     }
@@ -206,13 +239,13 @@ export class WebSocketClient {
    *
    * @param channel - Channel to subscribe to
    * @param options - Subscription options
-   * @returns Promise that resolves when subscribed
+   * @returns Promise that resolves immediately (kept async for API compatibility)
    * @throws Error if not connected
    *
    * @example
    * ```typescript
    * // Subscribe to orderbook for a specific market
-   * await wsClient.subscribe('orderbook', { marketSlug: 'market-123' });
+   * await wsClient.subscribe('orderbook', { marketSlugs: ['market-123'] });
    *
    * // Subscribe to all trades
    * await wsClient.subscribe('trades');
@@ -226,24 +259,29 @@ export class WebSocketClient {
       throw new Error('WebSocket not connected. Call connect() first.');
     }
 
+    // Check if API key is required for authenticated channels
+    const authenticatedChannels: SubscriptionChannel[] = [
+      'subscribe_positions',
+      'subscribe_transactions',
+    ];
+    if (authenticatedChannels.includes(channel) && !this.config.apiKey) {
+      throw new Error(
+        `API key is required for '${channel}' subscription. ` +
+          'Please provide an API key in the constructor or set LIMITLESS_API_KEY environment variable. ' +
+          'You can generate an API key at https://limitless.exchange'
+      );
+    }
+
     const subscriptionKey = this.getSubscriptionKey(channel, options);
     this.subscriptions.set(subscriptionKey, options);
 
     this.logger.info('Subscribing to channel', { channel, options });
 
     // Pass channel and options as-is to the server - no transformation
-    return new Promise((resolve, reject) => {
-      this.socket!.emit(channel, options, (response: any) => {
-        if (response?.error) {
-          this.logger.error('Subscription failed', response.error);
-          this.subscriptions.delete(subscriptionKey);
-          reject(new Error(response.error));
-        } else {
-          this.logger.info('Subscribed successfully', { channel, options });
-          resolve();
-        }
-      });
-    });
+    // Note: Server returns Promise<void>, so no acknowledgment callback is used
+    // This is fire-and-forget to avoid timeout issues when server doesn't send ACK
+    this.socket!.emit(channel, options);
+    this.logger.info('Subscription request sent', { channel, options });
   }
 
   /**
@@ -252,13 +290,17 @@ export class WebSocketClient {
    * @param channel - Channel to unsubscribe from
    * @param options - Subscription options (must match subscribe call)
    * @returns Promise that resolves when unsubscribed
+   * @throws Error if not connected or unsubscribe fails
    *
    * @example
    * ```typescript
-   * await wsClient.unsubscribe('orderbook', { marketSlug: 'market-123' });
+   * await wsClient.unsubscribe('orderbook', { marketSlugs: ['market-123'] });
    * ```
    */
-  async unsubscribe(channel: SubscriptionChannel, options: SubscriptionOptions = {}): Promise<void> {
+  async unsubscribe(
+    channel: SubscriptionChannel,
+    options: SubscriptionOptions = {}
+  ): Promise<void> {
     if (!this.isConnected()) {
       throw new Error('WebSocket not connected');
     }
@@ -268,18 +310,23 @@ export class WebSocketClient {
 
     this.logger.info('Unsubscribing from channel', { channel, options });
 
-    // Pass raw unsubscribe event with channel and options
-    return new Promise((resolve, reject) => {
-      this.socket!.emit('unsubscribe', { channel, ...options }, (response: any) => {
-        if (response?.error) {
-          this.logger.error('Unsubscribe failed', response.error);
-          reject(new Error(response.error));
-        } else {
-          this.logger.info('Unsubscribed successfully', { channel, options });
-          resolve();
-        }
-      });
-    });
+    try {
+      // Emit unsubscribe event with acknowledgment (waits for server response)
+      const unsubscribeData = { channel, ...options };
+      const response = await this.socket!.timeout(5000).emitWithAck('unsubscribe', unsubscribeData);
+
+      // Check for errors in response
+      if (response && typeof response === 'object' && 'error' in response) {
+        const errorMsg = (response as any).error;
+        this.logger.error('Unsubscribe failed', new Error(errorMsg), { error: errorMsg });
+        throw new Error(`Unsubscribe failed: ${errorMsg}`);
+      }
+
+      this.logger.info('Unsubscribed successfully', { channel, options });
+    } catch (error) {
+      this.logger.error('Unsubscribe error', error as Error, { channel });
+      throw error;
+    }
   }
 
   /**
@@ -297,10 +344,7 @@ export class WebSocketClient {
    *   .on('error', (error) => console.error('Error:', error));
    * ```
    */
-  on<K extends keyof WebSocketEvents>(
-    event: K,
-    handler: WebSocketEvents[K]
-  ): this {
+  on<K extends keyof WebSocketEvents>(event: K, handler: WebSocketEvents[K]): this {
     if (!this.socket) {
       // Store listener to be attached when socket is created
       this.pendingListeners.push({ event: event as string, handler });
@@ -319,10 +363,7 @@ export class WebSocketClient {
    * @param handler - Event handler
    * @returns This client for chaining
    */
-  once<K extends keyof WebSocketEvents>(
-    event: K,
-    handler: WebSocketEvents[K]
-  ): this {
+  once<K extends keyof WebSocketEvents>(event: K, handler: WebSocketEvents[K]): this {
     if (!this.socket) {
       throw new Error('WebSocket not initialized. Call connect() first.');
     }
@@ -336,19 +377,31 @@ export class WebSocketClient {
    * Removes an event listener.
    *
    * @param event - Event name
-   * @param handler - Event handler to remove
+   * @param handler - Event handler to remove (if undefined, removes all handlers for event)
    * @returns This client for chaining
+   *
+   * @example
+   * ```typescript
+   * // Remove specific handler
+   * wsClient.off('orderbookUpdate', myHandler);
+   *
+   * // Remove all handlers for event
+   * wsClient.off('orderbookUpdate');
+   * ```
    */
-  off<K extends keyof WebSocketEvents>(
-    event: K,
-    handler: WebSocketEvents[K]
-  ): this {
+  off<K extends keyof WebSocketEvents>(event: K, handler?: WebSocketEvents[K]): this {
     if (!this.socket) {
       return this;
     }
 
-    // Pass raw event names, no transformation
-    this.socket.off(event as string, handler as any);
+    if (handler === undefined) {
+      // Remove all handlers for event
+      this.socket.removeAllListeners(event as string);
+    } else {
+      // Remove specific handler
+      this.socket.off(event as string, handler as any);
+    }
+
     return this;
   }
 

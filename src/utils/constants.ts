@@ -41,25 +41,37 @@ export const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
 /**
  * Contract addresses by network
+ *
+ * @remarks
+ * Note: CLOB and NegRisk exchange addresses are provided dynamically via the venue system
+ * (market.venue.exchange and market.venue.adapter). These addresses vary per market and
+ * should be fetched from the API rather than hardcoded.
+ *
  * @public
  */
 export const CONTRACT_ADDRESSES = {
   // Base mainnet (chainId: 8453)
   8453: {
-    CLOB: '0xa4409D988CA2218d956BeEFD3874100F444f0DC3',
-    NEGRISK: '0x5a38afc17F7E97ad8d6C547ddb837E40B4aEDfC6',
+    USDC: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',  // Native USDC on Base
+    CTF: '0xC9c98965297Bc527861c898329Ee280632B76e18',   // Conditional Token Framework
   },
   // Base Sepolia testnet (chainId: 84532)
   84532: {
-    CLOB: '0x...',  // Add testnet addresses when available
-    NEGRISK: '0x...',
+    USDC: '0x...',
+    CTF: '0x...',
   },
 } as const;
 
 /**
- * Get contract address for a specific market type and chain
+ * Get contract address for tokens (USDC or CTF)
  *
- * @param marketType - Market type (CLOB or NEGRISK)
+ * @remarks
+ * For CLOB and NegRisk exchange addresses, use the venue system instead:
+ * - Fetch market via `marketFetcher.getMarket(slug)`
+ * - Use `market.venue.exchange` for signing and approvals
+ * - Use `market.venue.adapter` for NegRisk adapter approvals
+ *
+ * @param contractType - Contract type (USDC or CTF)
  * @param chainId - Chain ID (default: 8453 for Base mainnet)
  * @returns Contract address
  *
@@ -68,7 +80,7 @@ export const CONTRACT_ADDRESSES = {
  * @public
  */
 export function getContractAddress(
-  marketType: 'CLOB' | 'NEGRISK',
+  contractType: 'USDC' | 'CTF',
   chainId: number = DEFAULT_CHAIN_ID
 ): string {
   const addresses = CONTRACT_ADDRESSES[chainId as keyof typeof CONTRACT_ADDRESSES];
@@ -80,5 +92,14 @@ export function getContractAddress(
     );
   }
 
-  return addresses[marketType];
+  const address = addresses[contractType];
+
+  if (!address || address === '0x...') {
+    throw new Error(
+      `Contract address for ${contractType} not available on chainId ${chainId}. ` +
+      `Please configure the address in constants.ts or use environment variables.`
+    );
+  }
+
+  return address;
 }

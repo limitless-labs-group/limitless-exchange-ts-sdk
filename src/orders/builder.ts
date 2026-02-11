@@ -4,7 +4,7 @@
  */
 
 import { ethers } from 'ethers';
-import { OrderArgs, UnsignedOrder, Side, MarketType, SignatureType } from '../types/orders';
+import { OrderArgs, UnsignedOrder, Side, SignatureType } from '../types/orders';
 
 /**
  * Zero address constant for any-taker orders.
@@ -80,8 +80,7 @@ export class OrderBuilder {
    * const fokOrder = builder.buildOrder({
    *   tokenId: '123456',
    *   makerAmount: 50,  // 50 USDC to spend
-   *   side: Side.BUY,
-   *   marketType: MarketType.CLOB
+   *   side: Side.BUY
    * });
    *
    * // GTC order (price + size)
@@ -89,8 +88,7 @@ export class OrderBuilder {
    *   tokenId: '123456',
    *   price: 0.38,
    *   size: 22.123,  // Will be rounded to tick-aligned: 22.123 shares
-   *   side: Side.BUY,
-   *   marketType: MarketType.CLOB
+   *   side: Side.BUY
    * });
    * ```
    */
@@ -132,7 +130,7 @@ export class OrderBuilder {
    * @internal
    */
   private isFOKOrder(args: OrderArgs): args is import('../types/orders').FOKOrderArgs {
-    return 'amount' in args;
+    return 'makerAmount' in args;
   }
 
   /**
@@ -368,7 +366,7 @@ export class OrderBuilder {
       }
     } else {
       // GTC order validation
-      if (args.price < 0 || args.price > 1) {
+      if (args.price == null || args.price < 0 || args.price > 1) {
         throw new Error(`Invalid price: ${args.price}. Price must be between 0 and 1.`);
       }
 

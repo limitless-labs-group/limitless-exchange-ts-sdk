@@ -1,103 +1,87 @@
 /**
- * Basic Authentication Example
+ * API Key Authentication Example
  *
- * This example demonstrates how to use the locally built SDK
- * for basic EOA (Externally Owned Account) authentication.
+ * This example demonstrates how to use the SDK with API key authentication.
+ * API keys are used for authenticated endpoints like portfolio and orders.
  */
 
 import { config } from 'dotenv';
-import { ethers } from 'ethers';
-import { HttpClient, MessageSigner, Authenticator } from '@limitless-exchange/sdk';
-import { ConsoleLogger } from '@limitless-exchange/sdk';
+import { HttpClient, PortfolioFetcher, ConsoleLogger } from '@limitless-exchange/sdk';
+
 // Load environment variables
 config();
 
 async function main() {
-  console.log('🚀 Limitless Exchange SDK - Basic Authentication Example\n');
-  const logger = new ConsoleLogger('debug');
+  console.log('🚀 Limitless Exchange SDK - API Key Authentication Example\n');
+
   // Validate environment
-  const privateKey = process.env.PRIVATE_KEY;
-  if (
-    !privateKey ||
-    privateKey === '0x0000000000000000000000000000000000000000000000000000000000000000'
-  ) {
+  const apiKey = process.env.LIMITLESS_API_KEY;
+  if (!apiKey) {
     throw new Error(
-      'Please set PRIVATE_KEY in .env file\n' + 'Copy .env.example to .env and add your private key'
+      'Please set LIMITLESS_API_KEY in .env file\n' +
+        'Get your API key from: https://limitless.exchange/settings'
     );
   }
 
   const apiUrl = process.env.API_URL || 'https://api.limitless.exchange';
 
   try {
-    // Step 1: Create wallet
-    console.log('📝 Step 1: Creating wallet from private key...');
-    const wallet = new ethers.Wallet(privateKey);
-    console.log(`   Wallet address: ${wallet.address}\n`);
-
-    // Step 2: Initialize HTTP client
-    console.log('🌐 Step 2: Initializing HTTP client...');
+    // Step 1: Initialize HTTP client with API key
+    console.log('🌐 Step 1: Initializing HTTP client...');
+    const logger = new ConsoleLogger('debug');
     const httpClient = new HttpClient({
       baseURL: apiUrl,
+      apiKey, // API key for authenticated requests
       timeout: 30000,
+      logger,
     });
-    console.log(`   API URL: ${apiUrl}\n`);
+    console.log(`   API URL: ${apiUrl}`);
+    console.log('   ✅ API key configured\n');
 
-    // Step 3: Initialize signer and authenticator
-    console.log('🔐 Step 3: Setting up authentication...');
-    const signer = new MessageSigner(wallet);
-    const authenticator = new Authenticator(httpClient, signer);
-    console.log('   Signer and authenticator ready\n');
+    // Step 2: Test authenticated endpoint (Portfolio)
+    console.log('📊 Step 2: Fetching portfolio positions...');
+    const portfolio = new PortfolioFetcher(httpClient);
+    const positions = await portfolio.getPositions();
 
-    // Step 4: Get signing message
-    console.log('📨 Step 4: Requesting signing message from API...');
-    const signingMessage = await authenticator.getSigningMessage();
-    console.log(`   Message: ${signingMessage.substring(0, 60)}...\n`);
-
-    // Step 5: Authenticate
-    console.log('✍️  Step 5: Signing and authenticating...');
-    const result = await authenticator.authenticate({
-      client: 'etherspot',
-    });
     console.log('   ✅ Authentication successful!');
-    console.log(`   Session cookie: ${result.sessionCookie.substring(0, 30)}...`);
-    console.log(`   Profile:`, {
-      account: result.profile.account,
-      displayName: result.profile.displayName,
-      client: result.profile.client,
-    });
-    console.log();
+    console.log(`   CLOB positions: ${positions.clob?.length || 0}`);
+    console.log(`   AMM positions: ${positions.amm?.length || 0}`);
+    console.log(`   Accumulative points: ${positions.accumulativePoints || 0}\n`);
 
-    // Step 6: Verify authentication
-    console.log('🔍 Step 6: Verifying authentication...');
-    const verifiedAddress = await authenticator.verifyAuth(result.sessionCookie);
-    console.log(`   ✅ Verified address: ${verifiedAddress}\n`);
-
-    // Step 7: Logout
-    console.log('👋 Step 7: Logging out...');
-    await authenticator.logout(result.sessionCookie);
-    console.log('   ✅ Logged out successfully\n');
+    // Step 3: Fetch transaction history
+    console.log('📜 Step 3: Fetching transaction history...');
+    const history = await portfolio.getUserHistory(1, 5);
+    console.log(`   ✅ Retrieved ${history.data?.length || 0} of ${history.totalCount} entries\n`);
 
     console.log('🎉 All steps completed successfully!');
     console.log('\n📚 Next steps:');
-    console.log('   - Try the smart wallet example: pnpm start:smart-wallet');
-    console.log('   - Explore error handling: pnpm start:error-handling');
+    console.log('   - Create orders: check trading examples');
+    console.log('   - WebSocket streaming: check websocket examples');
   } catch (error) {
     console.error('\n❌ Error occurred');
 
-    // Check if it's an APIError with raw response data
-    if (error && typeof error === 'object' && 'status' in error && 'data' in error) {
-      console.error('   Status:', (error as any).status);
-      console.error('   Message:', (error as any).message);
-      console.error('   URL:', (error as any).url);
-      console.error('   Method:', (error as any).method);
-      console.error('   Raw API Response:', JSON.stringify((error as any).data, null, 2));
+    // Check if it's an APIError
+    if (error && typeof error === 'object' && 'status' in error) {
+      const apiError = error as any;
+      console.error('   Status:', apiError.status);
+      console.error('   Message:', apiError.message);
+
+      if (apiError.status === 401 || apiError.status === 403) {
+        console.error('\n   ⚠️  Authentication failed - check your API key');
+        console.error('   Get your API key from: https://limitless.exchange');
+      }
+
+      if (apiError.url) console.error('   URL:', apiError.url);
+      if (apiError.data) {
+        console.error('   Raw API Response:', JSON.stringify(apiError.data, null, 2));
+      }
     } else if (error instanceof Error) {
       console.error('   Message:', error.message);
     } else {
       console.error('   Unknown error:', error);
     }
 
-    // Only show stack trace in debug mode
+    // Show stack trace in debug mode
     if (process.env.DEBUG === 'true' && error instanceof Error && error.stack) {
       console.error('\n   Stack trace:');
       console.error(error.stack);

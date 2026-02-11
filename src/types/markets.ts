@@ -231,26 +231,6 @@ export interface OrderBook {
   lastTradePrice: number;
 }
 
-/**
- * Market price information.
- * @public
- */
-export interface MarketPrice {
-  /**
-   * Token ID
-   */
-  tokenId: string;
-
-  /**
-   * Current price
-   */
-  price: number;
-
-  /**
-   * Last update timestamp
-   */
-  updatedAt?: string;
-}
 
 /**
  * Market outcome information.
@@ -276,6 +256,37 @@ export interface MarketOutcome {
    * Current price
    */
   price?: number;
+}
+
+/**
+ * Venue information for CLOB markets.
+ *
+ * @remarks
+ * Contains contract addresses required for trading:
+ * - exchange: Used as verifyingContract for EIP-712 order signing
+ * - adapter: Required for NegRisk/Grouped market SELL approvals
+ *
+ * @public
+ */
+export interface Venue {
+  /**
+   * Exchange contract address.
+   *
+   * @remarks
+   * This address is used as the verifyingContract in EIP-712 order signing.
+   * All BUY orders require USDC approval to this address.
+   * Simple CLOB SELL orders require CT approval to this address.
+   */
+  exchange: string;
+
+  /**
+   * Adapter contract address.
+   *
+   * @remarks
+   * Required for NegRisk/Grouped markets only.
+   * SELL orders on NegRisk markets require CT approval to both exchange AND adapter.
+   */
+  adapter: string;
 }
 
 /**
@@ -440,6 +451,18 @@ export interface Market {
    * Market settings (CLOB only)
    */
   settings?: MarketSettings;
+
+  /**
+   * Venue information for CLOB markets.
+   *
+   * @remarks
+   * Contains exchange and adapter contract addresses for order signing and approvals.
+   * The exchange address is used as verifyingContract in EIP-712 signatures.
+   *
+   * Performance tip: Call getMarket() before createOrder() to cache venue data
+   * and avoid additional API requests during order creation.
+   */
+  venue?: Venue;
 
   /**
    * Market logo URL

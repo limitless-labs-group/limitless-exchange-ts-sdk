@@ -11,9 +11,6 @@ Complete guide to fetching market data and orderbooks from the Limitless Exchang
   - [Get Market Details](#get-market-details)
 - [Orderbook Data](#orderbook-data)
   - [Get Current Orderbook](#get-current-orderbook)
-  - [Orderbook Structure](#orderbook-structure)
-  - [Analyze Market Depth](#analyze-market-depth)
-- [Market Statistics](#market-statistics)
 - [Best Practices](#best-practices)
 
 ## Overview
@@ -35,7 +32,6 @@ import { HttpClient, MarketFetcher } from '@limitless-exchange/sdk';
 
 const httpClient = new HttpClient({
   baseURL: 'https://api.limitless.exchange',
-  timeout: 30000,
 });
 
 const marketFetcher = new MarketFetcher(httpClient);
@@ -43,52 +39,44 @@ const marketFetcher = new MarketFetcher(httpClient);
 
 ### Get Active Markets
 
-The `getActiveMarkets` method allows you to fetch active prediction markets with sorting and pagination support.
-
-**No authentication required** - this is a public endpoint!
+Fetch active prediction markets with sorting and pagination support. **No authentication required** - this is a public endpoint!
 
 #### Basic Usage
 
 ```typescript
-// Get active markets (default behavior - returns all active markets)
+// Get active markets
 const markets = await marketFetcher.getActiveMarkets();
 
 console.log(`Found ${markets.data.length} of ${markets.totalMarketsCount} markets`);
-
-markets.data.forEach((market) => {
-  console.log('Title:', market.title);
-  console.log('Slug:', market.slug);
-  console.log('Type:', market.type);
-  console.log('---');
-});
+console.log(JSON.stringify(markets, null, 2));
 ```
 
-#### Sorting Options
-
-Fetch markets sorted by different criteria:
+#### With Sorting
 
 ```typescript
 // Sort by LP rewards (markets with highest liquidity provider rewards)
 const lpRewardsMarkets = await marketFetcher.getActiveMarkets({
-  limit: 8,
+  limit: 10,
   sortBy: 'lp_rewards',
 });
 
+console.log(JSON.stringify(lpRewardsMarkets, null, 2));
+
 // Sort by ending soon (markets closing soonest)
 const endingSoonMarkets = await marketFetcher.getActiveMarkets({
-  limit: 8,
+  limit: 10,
   sortBy: 'ending_soon',
 });
 
 // Sort by newest markets
 const newestMarkets = await marketFetcher.getActiveMarkets({
-  limit: 8,
+  limit: 10,
   sortBy: 'newest',
 });
 
 // Sort by high value (markets with highest total value)
 const highValueMarkets = await marketFetcher.getActiveMarkets({
-  limit: 8,
+  limit: 10,
   sortBy: 'high_value',
 });
 ```
@@ -100,14 +88,12 @@ const highValueMarkets = await marketFetcher.getActiveMarkets({
 - `'newest'` - Most recently created markets
 - `'high_value'` - Markets with highest total value
 
-#### Pagination
-
-Use pagination to fetch markets in batches:
+#### With Pagination
 
 ```typescript
-// Get first page (8 markets)
+// Get first page (10 markets)
 const page1 = await marketFetcher.getActiveMarkets({
-  limit: 8,
+  limit: 10,
   page: 1,
   sortBy: 'lp_rewards',
 });
@@ -117,50 +103,12 @@ console.log(`Total available: ${page1.totalMarketsCount} markets`);
 
 // Get second page
 const page2 = await marketFetcher.getActiveMarkets({
-  limit: 8,
+  limit: 10,
   page: 2,
   sortBy: 'lp_rewards',
 });
 
 console.log(`Page 2: ${page2.data.length} markets`);
-```
-
-#### Paginate Through All Markets
-
-```typescript
-async function fetchAllActiveMarkets(
-  marketFetcher: MarketFetcher,
-  sortBy: 'lp_rewards' | 'ending_soon' | 'newest' | 'high_value' = 'newest'
-) {
-  const allMarkets = [];
-  let currentPage = 1;
-  const pageSize = 20;
-
-  while (true) {
-    const response = await marketFetcher.getActiveMarkets({
-      limit: pageSize,
-      page: currentPage,
-      sortBy,
-    });
-
-    allMarkets.push(...response.data);
-
-    console.log(`Fetched page ${currentPage} with ${response.data.length} markets`);
-
-    // Check if we've fetched all markets
-    if (response.data.length < pageSize || allMarkets.length >= response.totalMarketsCount) {
-      break;
-    }
-
-    currentPage++;
-  }
-
-  console.log(`Total markets fetched: ${allMarkets.length}`);
-  return allMarkets;
-}
-
-// Usage
-const allMarkets = await fetchAllActiveMarkets(marketFetcher, 'lp_rewards');
 ```
 
 #### Response Structure
@@ -179,87 +127,59 @@ interface Market {
   type: 'CLOB' | 'NEGRISK';
   createdAt: string;
   resolutionDate?: string;
+  volume24h?: number;
+  liquidity?: number;
   // ... other market fields
 }
 ```
 
-#### Filter and Process Markets
-
-```typescript
-// Get markets and filter by criteria
-const markets = await marketFetcher.getActiveMarkets({
-  limit: 50,
-  sortBy: 'newest',
-});
-
-// Filter markets ending within 7 days
-const endingSoon = markets.data.filter((market) => {
-  if (!market.resolutionDate) return false;
-  const daysUntilResolution =
-    (new Date(market.resolutionDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24);
-  return daysUntilResolution <= 7 && daysUntilResolution > 0;
-});
-
-console.log(`${endingSoon.length} markets ending within 7 days`);
-
-// Filter by market type
-const clobMarkets = markets.data.filter((m) => m.type === 'CLOB');
-const negriskMarkets = markets.data.filter((m) => m.type === 'NEGRISK');
-
-console.log(`CLOB markets: ${clobMarkets.length}`);
-console.log(`NegRisk markets: ${negriskMarkets.length}`);
-```
-
-#### Complete Example
-
-```typescript
-import { HttpClient, MarketFetcher } from '@limitless-exchange/sdk';
-
-async function displayTopMarkets() {
-  const httpClient = new HttpClient({
-    baseURL: 'https://api.limitless.exchange',
-  });
-
-  const marketFetcher = new MarketFetcher(httpClient);
-
-  // Get top 10 markets by LP rewards
-  const response = await marketFetcher.getActiveMarkets({
-    limit: 10,
-    sortBy: 'lp_rewards',
-  });
-
-  console.log(`Displaying top ${response.data.length} of ${response.totalMarketsCount} markets:\n`);
-
-  response.data.forEach((market, index) => {
-    console.log(`${index + 1}. ${market.title}`);
-    console.log(`   Slug: ${market.slug}`);
-    console.log(`   Type: ${market.type}`);
-
-    if (market.resolutionDate) {
-      const resolveDate = new Date(market.resolutionDate);
-      console.log(`   Resolves: ${resolveDate.toLocaleDateString()}`);
-    }
-
-    console.log('');
-  });
-}
-
-displayTopMarkets().catch(console.error);
-```
-
-For a complete working example, see [examples/project-integration/src/active-markets.ts](../../examples/project-integration/src/active-markets.ts).
-
 ### Get Market Details
+
+Fetch comprehensive market information including venue data for order signing.
 
 ```typescript
 // Get specific market by slug
 const market = await marketFetcher.getMarket('market-slug-here');
 
+console.log(JSON.stringify(market, null, 2));
+
+// Access specific fields
 console.log('Title:', market.title);
-console.log('Description:', market.description);
 console.log('Type:', market.marketType);
 console.log('Created:', market.createdAt);
-console.log('Outcomes:', market.outcomes);
+
+// Venue information for order signing
+if (market.venue) {
+  console.log('Exchange Contract:', market.venue.exchange);
+  console.log('Adapter Contract:', market.venue.adapter);
+}
+
+// Token IDs for CLOB markets
+if (market.tokens) {
+  console.log('YES Token:', market.tokens.yes);
+  console.log('NO Token:', market.tokens.no);
+}
+```
+
+**Important**: The `venue` field contains contract addresses used for order signing. Always fetch market details before creating orders to cache venue data.
+
+### Get User Orders for a Market
+
+```typescript
+// Requires API key authentication
+const httpClient = new HttpClient({
+  baseURL: 'https://api.limitless.exchange',
+  apiKey: process.env.LIMITLESS_API_KEY,
+});
+
+const marketFetcher = new MarketFetcher(httpClient);
+
+// Get market and user orders
+const market = await marketFetcher.getMarket('market-slug-here');
+const orders = await market.getUserOrders(); // to get this we need to pas API key
+
+console.log(`Found ${orders.length} orders for ${market.title}`);
+console.log(JSON.stringify(orders, null, 2));
 ```
 
 ## Orderbook Data
@@ -268,6 +188,8 @@ console.log('Outcomes:', market.outcomes);
 
 ```typescript
 const orderbook = await marketFetcher.getOrderBook('market-slug-here');
+
+console.log(JSON.stringify(orderbook, null, 2));
 
 // Check if orderbook has liquidity
 if (orderbook.bids.length === 0 || orderbook.asks.length === 0) {
@@ -286,10 +208,10 @@ console.log('Best Ask:', bestAsk.price, '-', bestAsk.size, 'shares');
 const spread = bestAsk.price - bestBid.price;
 const spreadPercent = (spread / bestBid.price) * 100;
 
-console.log('Spread:', spread, \`(\${spreadPercent.toFixed(2)}%)\`);
+console.log('Spread:', spread, `(${spreadPercent.toFixed(2)}%)`);
 ```
 
-### Orderbook Structure
+#### Orderbook Structure
 
 ```typescript
 interface OrderbookLevel {
@@ -304,277 +226,63 @@ interface Orderbook {
 }
 ```
 
-### Analyze Market Depth
-
-```typescript
-const orderbook = await marketFetcher.getOrderBook('market-slug');
-
-// Calculate total liquidity
-const totalBidLiquidity = orderbook.bids.reduce(
-  (sum, bid) => sum + (bid.price * bid.size),
-  0
-);
-
-const totalAskLiquidity = orderbook.asks.reduce(
-  (sum, ask) => sum + (ask.price * ask.size),
-  0
-);
-
-console.log('Total Bid Liquidity:', totalBidLiquidity.toFixed(2));
-console.log('Total Ask Liquidity:', totalAskLiquidity.toFixed(2));
-
-// Show top 5 levels
-console.log('\nTop 5 Bids:');
-orderbook.bids.slice(0, 5).forEach((bid, i) => {
-  console.log(\`  \${i + 1}. \${(bid.price * 100).toFixed(1)}% - \${bid.size} shares\`);
-});
-
-console.log('\nTop 5 Asks:');
-orderbook.asks.slice(0, 5).forEach((ask, i) => {
-  console.log(\`  \${i + 1}. \${(ask.price * 100).toFixed(1)}% - \${ask.size} shares\`);
-});
-```
-
-## Market Statistics
-
-### Get Market Stats
-
-```typescript
-const market = await marketFetcher.getMarket('market-slug');
-
-// Volume data
-console.log('24h Volume:', market.volume24h);
-console.log('Total Volume:', market.totalVolume);
-
-// Price data
-console.log('Current Price:', market.currentPrice);
-console.log('24h Change:', market.priceChange24h);
-console.log('24h High:', market.high24h);
-console.log('24h Low:', market.low24h);
-```
-
-### Calculate Metrics
-
-```typescript
-async function getMarketMetrics(marketSlug: string) {
-  const [market, orderbook] = await Promise.all([
-    marketFetcher.getMarket(marketSlug),
-    marketFetcher.getOrderBook(marketSlug),
-  ]);
-
-  // Calculate mid price
-  const midPrice =
-    orderbook.bids.length > 0 && orderbook.asks.length > 0
-      ? (orderbook.bids[0].price + orderbook.asks[0].price) / 2
-      : market.currentPrice;
-
-  // Calculate spread
-  const spread =
-    orderbook.asks.length > 0 && orderbook.bids.length > 0
-      ? orderbook.asks[0].price - orderbook.bids[0].price
-      : 0;
-
-  // Total depth at top of book
-  const topBidDepth = orderbook.bids[0]?.size || 0;
-  const topAskDepth = orderbook.asks[0]?.size || 0;
-
-  return {
-    marketSlug,
-    midPrice,
-    spread,
-    spreadPercent: (spread / midPrice) * 100,
-    topBidDepth,
-    topAskDepth,
-    volume24h: market.volume24h,
-    liquidity: market.liquidity,
-  };
-}
-
-// Use it
-const metrics = await getMarketMetrics('market-slug');
-console.log('Market Metrics:', metrics);
-```
-
 ## Best Practices
 
-### 1. Error Handling
+### 1. Venue Caching for Order Signing
+
+Always fetch market details before creating orders to cache venue data and eliminate redundant API calls.
 
 ```typescript
-import { ApiError } from '@limitless-exchange/sdk';
+import { MarketFetcher, OrderClient } from '@limitless-exchange/sdk';
+import { ethers } from 'ethers';
+
+// Create marketFetcher once
+const marketFetcher = new MarketFetcher(httpClient);
+
+// Fetch market details (automatically caches venue)
+const market = await marketFetcher.getMarket('market-slug');
+
+// Share marketFetcher with OrderClient for venue caching
+const orderClient = new OrderClient({
+  httpClient,
+  wallet: new ethers.Wallet(process.env.PRIVATE_KEY!),
+  marketFetcher, // Shared instance - venue already cached!
+});
+
+// Create order (uses cached venue - no extra API calls)
+await orderClient.createGTCOrder({
+  marketId: 'market-slug',
+  side: 'BUY',
+  price: 0.65,
+  amount: 10,
+});
+```
+
+**Performance Benefits**:
+
+- Zero extra API calls - venue data reused from market fetch
+- Faster order creation - no network round-trip for venue lookup
+- Automatic caching - SDK handles cache management internally
+
+### 2. Error Handling
+
+```typescript
+import { APIError } from '@limitless-exchange/sdk';
 
 try {
   const orderbook = await marketFetcher.getOrderBook('market-slug');
-  console.log('Orderbook fetched successfully');
+  console.log(JSON.stringify(orderbook, null, 2));
 } catch (error) {
-  if (error instanceof ApiError) {
-    switch (error.status) {
-      case 404:
-        console.error('Market not found');
-        break;
-      case 429:
-        console.error('Rate limited - slow down requests');
-        break;
-      case 500:
-        console.error('Server error - try again later');
-        break;
-      default:
-        console.error('API error:', error.message);
-    }
+  if (error instanceof APIError) {
+    console.error('API Error:', error.status, error.message);
+    console.error('Response:', JSON.stringify(error.data, null, 2));
   } else {
     console.error('Unknown error:', error);
   }
 }
 ```
 
-### 2. Caching
-
-```typescript
-class MarketCache {
-  private cache = new Map<string, { data: any; timestamp: number }>();
-  private ttl = 5000; // 5 seconds
-
-  async getOrderBook(marketFetcher: MarketFetcher, marketSlug: string): Promise<any> {
-    const cached = this.cache.get(marketSlug);
-
-    if (cached && Date.now() - cached.timestamp < this.ttl) {
-      return cached.data;
-    }
-
-    const data = await marketFetcher.getOrderBook(marketSlug);
-    this.cache.set(marketSlug, { data, timestamp: Date.now() });
-
-    return data;
-  }
-
-  clear() {
-    this.cache.clear();
-  }
-}
-
-// Usage
-const cache = new MarketCache();
-const orderbook = await cache.getOrderBook(marketFetcher, 'market-slug');
-```
-
-### 3. Rate Limiting
-
-```typescript
-// Batch market requests
-async function getMultipleOrderbooks(
-  marketFetcher: MarketFetcher,
-  marketSlugs: string[]
-): Promise<Map<string, any>> {
-  const results = new Map();
-
-  // Fetch in parallel with limit
-  const batchSize = 3;
-  for (let i = 0; i < marketSlugs.length; i += batchSize) {
-    const batch = marketSlugs.slice(i, i + batchSize);
-
-    const orderbooks = await Promise.all(batch.map((slug) => marketFetcher.getOrderBook(slug)));
-
-    batch.forEach((slug, index) => {
-      results.set(slug, orderbooks[index]);
-    });
-
-    // Delay between batches
-    if (i + batchSize < marketSlugs.length) {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-    }
-  }
-
-  return results;
-}
-```
-
-### 4. Data Validation
-
-```typescript
-function validateOrderbook(orderbook: any): boolean {
-  // Check structure
-  if (!orderbook || !Array.isArray(orderbook.bids) || !Array.isArray(orderbook.asks)) {
-    console.error('Invalid orderbook structure');
-    return false;
-  }
-
-  // Check for data
-  if (orderbook.bids.length === 0 && orderbook.asks.length === 0) {
-    console.warn('Empty orderbook');
-    return false;
-  }
-
-  // Validate price ordering
-  for (let i = 1; i < orderbook.bids.length; i++) {
-    if (orderbook.bids[i].price > orderbook.bids[i - 1].price) {
-      console.error('Bids not sorted correctly');
-      return false;
-    }
-  }
-
-  for (let i = 1; i < orderbook.asks.length; i++) {
-    if (orderbook.asks[i].price < orderbook.asks[i - 1].price) {
-      console.error('Asks not sorted correctly');
-      return false;
-    }
-  }
-
-  return true;
-}
-
-// Use before processing
-const orderbook = await marketFetcher.getOrderBook('market-slug');
-if (validateOrderbook(orderbook)) {
-  // Safe to use
-}
-```
-
-### 5. Market Comparison
-
-```typescript
-async function compareMarkets(
-  marketFetcher: MarketFetcher,
-  marketSlugs: string[]
-) {
-  const comparisons = await Promise.all(
-    marketSlugs.map(async (slug) => {
-      try {
-        const [market, orderbook] = await Promise.all([
-          marketFetcher.getMarket(slug),
-          marketFetcher.getOrderBook(slug)
-        ]);
-
-        const bestBid = orderbook.bids[0]?.price || 0;
-        const bestAsk = orderbook.asks[0]?.price || 0;
-        const spread = bestAsk - bestBid;
-
-        return {
-          slug,
-          title: market.title,
-          midPrice: (bestBid + bestAsk) / 2,
-          spread,
-          volume24h: market.volume24h,
-          liquidity: market.liquidity,
-        };
-      } catch (error) {
-        console.error(\`Failed to fetch \${slug}:\`, error);
-        return null;
-      }
-    })
-  );
-
-  // Filter out failures and sort by volume
-  return comparisons
-    .filter(c => c !== null)
-    .sort((a, b) => b!.volume24h - a!.volume24h);
-}
-
-// Usage
-const markets = ['market-1', 'market-2', 'market-3'];
-const comparison = await compareMarkets(marketFetcher, markets);
-console.table(comparison);
-```
-
-### 6. Real-time Updates
+### 3. Real-time Updates
 
 For real-time orderbook updates, use WebSocket instead of polling:
 
@@ -582,7 +290,6 @@ For real-time orderbook updates, use WebSocket instead of polling:
 // ❌ BAD - Polling (expensive, delayed)
 setInterval(async () => {
   const orderbook = await marketFetcher.getOrderBook('market-slug');
-  // Process orderbook
 }, 1000);
 
 // ✅ GOOD - WebSocket (efficient, real-time)
@@ -599,17 +306,57 @@ await wsClient.subscribe('subscribe_market_prices', {
 });
 
 wsClient.on('orderbookUpdate' as any, (data: any) => {
-  // Process real-time updates
+  console.log(JSON.stringify(data, null, 2));
 });
+```
+
+## Complete Example
+
+```typescript
+import { HttpClient, MarketFetcher } from '@limitless-exchange/sdk';
+
+async function main() {
+  const httpClient = new HttpClient({
+    baseURL: 'https://api.limitless.exchange',
+  });
+
+  const marketFetcher = new MarketFetcher(httpClient);
+
+  // Get top 10 markets by LP rewards
+  const markets = await marketFetcher.getActiveMarkets({
+    limit: 10,
+    sortBy: 'lp_rewards',
+  });
+
+  console.log(`Found ${markets.data.length} of ${markets.totalMarketsCount} markets`);
+  console.log(JSON.stringify(markets, null, 2));
+
+  // Get details for first market
+  if (markets.data.length > 0) {
+    const marketSlug = markets.data[0].slug;
+    const market = await marketFetcher.getMarket(marketSlug);
+
+    console.log('\nMarket Details:');
+    console.log(JSON.stringify(market, null, 2));
+
+    // Get orderbook
+    const orderbook = await marketFetcher.getOrderBook(marketSlug);
+
+    console.log('\nOrderbook:');
+    console.log(JSON.stringify(orderbook, null, 2));
+  }
+}
+
+main().catch(console.error);
 ```
 
 ## Examples
 
-Complete working examples available:
+Complete working examples:
 
-- **[Active Markets](../../examples/project-integration/src/active-markets.ts)** - Fetching and sorting active markets with pagination
-- **[Fetching Orderbooks](../../examples/project-integration/src/orderbook.ts)** - Getting and analyzing orderbook data
-- **[Real-time Orderbook Monitoring](../../examples/project-integration/src/websocket-orderbook.ts)** - Live orderbook updates via WebSocket
+- [Fetching Active Markets](../../docs/code-samples/active-markets.ts)
+- [Fetching Orderbooks](../../docs/code-samples/orderbook.ts)
+- [WebSocket Events](../../docs/code-samples/websocket-events.ts)
 
 ## Next Steps
 

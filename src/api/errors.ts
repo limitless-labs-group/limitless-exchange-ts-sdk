@@ -96,3 +96,111 @@ export class APIError extends Error {
     return this.status === 401 || this.status === 403;
   }
 }
+
+/**
+ * Rate limit error (HTTP 429).
+ *
+ * @remarks
+ * Thrown when API rate limits are exceeded. The request should be retried after a delay.
+ *
+ * @example
+ * ```typescript
+ * try {
+ *   await marketFetcher.getActiveMarkets();
+ * } catch (error) {
+ *   if (error instanceof RateLimitError) {
+ *     console.log('Rate limit exceeded, retry after delay');
+ *   }
+ * }
+ * ```
+ *
+ * @public
+ */
+export class RateLimitError extends APIError {
+  constructor(
+    message: string = 'Rate limit exceeded',
+    status: number = 429,
+    data: any = null,
+    url?: string,
+    method?: string
+  ) {
+    super(message, status, data, url, method);
+    this.name = 'RateLimitError';
+
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, RateLimitError);
+    }
+  }
+}
+
+/**
+ * Authentication error (HTTP 401, 403).
+ *
+ * @remarks
+ * Thrown when authentication fails or API key is invalid/missing.
+ *
+ * @example
+ * ```typescript
+ * try {
+ *   await portfolioFetcher.getPositions();
+ * } catch (error) {
+ *   if (error instanceof AuthenticationError) {
+ *     console.log('Authentication failed - check API key');
+ *   }
+ * }
+ * ```
+ *
+ * @public
+ */
+export class AuthenticationError extends APIError {
+  constructor(
+    message: string = 'Authentication failed',
+    status: number = 401,
+    data: any = null,
+    url?: string,
+    method?: string
+  ) {
+    super(message, status, data, url, method);
+    this.name = 'AuthenticationError';
+
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, AuthenticationError);
+    }
+  }
+}
+
+/**
+ * Validation error (HTTP 400).
+ *
+ * @remarks
+ * Thrown when request validation fails (invalid parameters, missing required fields, etc.).
+ *
+ * @example
+ * ```typescript
+ * try {
+ *   await orderClient.createOrder({ ... });
+ * } catch (error) {
+ *   if (error instanceof ValidationError) {
+ *     console.log('Validation failed:', error.message);
+ *   }
+ * }
+ * ```
+ *
+ * @public
+ */
+export class ValidationError extends APIError {
+  constructor(
+    message: string,
+    status: number = 400,
+    data: any = null,
+    url?: string,
+    method?: string
+  ) {
+    super(message, status, data, url, method);
+    this.name = 'ValidationError';
+
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, ValidationError);
+    }
+  }
+}

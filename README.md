@@ -1,6 +1,10 @@
 # Limitless Exchange TypeScript SDK
 
+**v1.0.2 LTS (Long-Term Support)** | Production-Ready | Type-Safe | Fully Documented
+
 A TypeScript SDK for interacting with the Limitless Exchange platform, providing type-safe access to CLOB and NegRisk prediction markets.
+
+> 🎉 **v1.0.2 LTS Release**: This is the first stable, production-ready release with long-term support. Recommended for all production deployments. See [Changelog](#changelog) for details.
 
 ## ⚠️ Disclaimer
 
@@ -23,16 +27,22 @@ For production use, we strongly recommend:
 3. Monitoring all transactions carefully
 4. Having proper error handling and recovery mechanisms
 
+**Feedback Welcome**: We encourage you to report any bugs, suggest improvements, or contribute to the project. Please submit issues or pull requests on our GitHub repository.
+
+## 🌍 Geographic Restrictions
+
+**Important**: Limitless restricts order placement from US locations due to regulatory requirements and compliance with international sanctions. Before placing orders, builders should verify their location complies with applicable regulations.
+
 ## Features
 
-- ✅ **Authentication**: Simple wallet-based authentication with session management
+- ✅ **Authentication**: API key authentication with X-API-Key header
 - ✅ **Order Management**: Create, cancel, and manage orders on CLOB and NegRisk markets
 - ✅ **Market Data**: Access real-time market data and orderbooks
 - ✅ **NegRisk Markets**: Full support for group markets with multiple outcomes
 - ✅ **Error Handling & Retry**: Automatic retry logic for rate limits and transient failures
 - ✅ **Type Safety**: Full TypeScript support with comprehensive type definitions
 - ✅ **TSDoc Documentation**: Complete API documentation with examples
-- ✅ **WebSocket**: Real-time price and position updates
+- ✅ **WebSocket**: Real-time price and position updates with API key auth
 
 ## Installation
 
@@ -58,7 +68,6 @@ const httpClient = new HttpClient({
   // Optional: Add custom headers to all requests
   additionalHeaders: {
     'X-Custom-Header': 'my-value',
-    'X-API-Version': 'v1',
   },
 });
 
@@ -84,48 +93,110 @@ See [examples/project-integration/src/active-markets.ts](./examples/project-inte
 
 ### Authentication
 
+The SDK uses API keys for authentication. API keys can be obtained from your Limitless Exchange account settings(Click on User Profile).
+
 ```typescript
-import { ethers } from 'ethers';
-import { HttpClient, MessageSigner, Authenticator } from '@limitless-exchange/sdk';
+import { HttpClient } from '@limitless-exchange/sdk';
 
-// Create wallet from private key
-const wallet = new ethers.Wallet(process.env.PRIVATE_KEY);
-
-// Initialize SDK components
+// Option 1: Automatic from environment variable (recommended)
+// Set LIMITLESS_API_KEY in your .env file
 const httpClient = new HttpClient({
   baseURL: 'https://api.limitless.exchange',
 });
 
-const signer = new MessageSigner(wallet);
-const authenticator = new Authenticator(httpClient, signer);
-
-// Authenticate
-const result = await authenticator.authenticate({
-  client: 'eoa', // 'eoa', 'base', or 'etherspot'
+// Option 2: Explicit API key
+const httpClient = new HttpClient({
+  baseURL: 'https://api.limitless.exchange',
+  apiKey: process.env.LIMITLESS_API_KEY,
 });
 
-console.log('Session cookie:', result.sessionCookie);
-console.log('Profile:', result.profile);
+// All requests automatically include X-API-Key header
+// For authenticated endpoints like portfolio, orders, etc.
 ```
 
-### ETHERSPOT Authentication (Smart Wallet)
+**Environment Variables:**
+
+Create a `.env` file:
+
+```bash
+# Required for authenticated endpoints
+LIMITLESS_API_KEY=sk_live_your_api_key_here
+
+# Optional: Private key for order signing (EIP-712)
+PRIVATE_KEY=0x...
+```
+
+### Token Approvals
+
+**Important**: Before placing orders, you must approve tokens for the exchange contracts. This is a **one-time setup** per wallet.
+
+#### Required Approvals
+
+**CLOB Markets:**
+
+- **BUY orders**: Approve USDC → `market.venue.exchange`
+- **SELL orders**: Approve Conditional Tokens → `market.venue.exchange`
+
+**NegRisk Markets:**
+
+- **BUY orders**: Approve USDC → `market.venue.exchange`
+- **SELL orders**: Approve Conditional Tokens → **both** `market.venue.exchange` AND `market.venue.adapter`
+
+#### Quick Setup
+
+Run the approval setup script:
+
+```bash
+# Copy .env.example and configure your wallet
+cp docs/code-samples/.env.example docs/code-samples/.env
+
+# Edit .env and set your PRIVATE_KEY and market slug
+# Then run the approval script
+npx tsx docs/code-samples/setup-approvals.ts
+```
+
+#### Manual Approval Example
 
 ```typescript
-const result = await authenticator.authenticate({
-  client: 'etherspot',
-  smartWallet: '0x...', // Your smart wallet address
-});
+import { ethers } from 'ethers';
+import { MarketFetcher, getContractAddress } from '@limitless-exchange/sdk';
+
+// 1. Fetch market to get venue addresses
+const market = await marketFetcher.getMarket('market-slug');
+
+// 2. Create contract instances
+const usdc = new ethers.Contract(
+  getContractAddress('USDC'),
+  ['function approve(address spender, uint256 amount) returns (bool)'],
+  wallet
+);
+
+const ctf = new ethers.Contract(
+  getContractAddress('CTF'),
+  ['function setApprovalForAll(address operator, bool approved)'],
+  wallet
+);
+
+// 3. Approve USDC for BUY orders
+await usdc.approve(market.venue.exchange, ethers.MaxUint256);
+
+// 4. Approve CT for SELL orders
+await ctf.setApprovalForAll(market.venue.exchange, true);
+
+// 5. For NegRisk SELL orders, also approve adapter
+if (market.negRiskRequestId) {
+  await ctf.setApprovalForAll(market.venue.adapter, true);
+}
 ```
+
+For complete examples, see [docs/code-samples/setup-approvals.ts](./docs/code-samples/setup-approvals.ts).
 
 ### Trading on NegRisk Markets
 
 NegRisk markets are group markets with multiple related outcomes. Here's a quick example:
 
 ```typescript
-import { OrderClient, MarketFetcher, MarketType, Side, OrderType } from '@limitless-exchange/sdk';
-
-// Set the NegRisk contract address
-process.env.NEGRISK_CONTRACT_ADDRESS = '0x5a38afc17F7E97ad8d6C547ddb837E40B4aEDfC6';
+import { OrderClient, MarketFetcher, Side, OrderType } from '@limitless-exchange/sdk';
 
 // 1. Fetch NegRisk group market
 const marketFetcher = new MarketFetcher(httpClient);
@@ -135,15 +206,10 @@ const groupMarket = await marketFetcher.getMarket('largest-company-end-of-2025-1
 const appleMarket = groupMarket.markets[0];
 const marketDetails = await marketFetcher.getMarket(appleMarket.slug);
 
-// 3. Create order client for NegRisk
+// 3. Create order client (userData fetched automatically from profile)
 const orderClient = new OrderClient({
   httpClient,
   wallet,
-  userData: {
-    userId: (authResult.profile as any).id,
-    feeRateBps: (authResult.profile as any).rank?.feeRateBps || 300,
-  },
-  marketType: MarketType.NEGRISK, // Important: Use NEGRISK
 });
 
 // 4. Place order on submarket (not group!)
@@ -160,6 +226,53 @@ const order = await orderClient.createOrder({
 **Important**: Always use the **submarket slug** for NegRisk orders, not the group market slug!
 
 For more details, see the [NegRisk Trading Guide](./docs/orders/README.md#negrisk-markets).
+
+### FOK Orders (Fill-or-Kill Market Orders)
+
+FOK orders execute immediately at the best available price or cancel entirely. Unlike GTC orders that use `price` + `size`, FOK orders use `makerAmount`.
+
+**Parameter Semantics**:
+
+- **BUY**: `makerAmount` = total USDC to spend
+- **SELL**: `makerAmount` = number of shares to sell
+
+```typescript
+import { OrderClient, Side, OrderType } from '@limitless-exchange/sdk';
+
+// BUY FOK - spend 50 USDC at market price
+const buyOrder = await orderClient.createOrder({
+  tokenId: marketDetails.tokens.yes,
+  makerAmount: 50, // 50 USDC to spend
+  side: Side.BUY,
+  orderType: OrderType.FOK,
+  marketSlug: 'market-slug',
+});
+
+// SELL FOK - sell 120 shares at market price
+const sellOrder = await orderClient.createOrder({
+  tokenId: marketDetails.tokens.no,
+  makerAmount: 120, // 120 shares to sell
+  side: Side.SELL,
+  orderType: OrderType.FOK,
+  marketSlug: 'market-slug',
+});
+
+// Check execution
+if (buyOrder.makerMatches && buyOrder.makerMatches.length > 0) {
+  console.log(`Order filled: ${buyOrder.makerMatches.length} matches`);
+} else {
+  console.log('Order cancelled (no liquidity)');
+}
+```
+
+**Key Differences from GTC**:
+
+- FOK uses `makerAmount` (not `price` + `size`)
+- Executes immediately or cancels (no orderbook placement)
+- All-or-nothing execution (no partial fills)
+- Best for immediate execution at market price
+
+For complete examples, see [docs/code-samples/clob-fok-order.ts](./docs/code-samples/clob-fok-order.ts).
 
 ### Error Handling & Retry
 
@@ -205,54 +318,21 @@ For detailed documentation, see the [Error Handling & Retry Guide](./docs/api/RE
 
 ### Authentication
 
-#### `MessageSigner`
-
-Handles message signing for authentication.
-
-```typescript
-const signer = new MessageSigner(wallet);
-
-// Create authentication headers
-const headers = await signer.createAuthHeaders(signingMessage);
-
-// Sign EIP-712 typed data
-const signature = await signer.signTypedData(domain, types, value);
-```
-
-#### `Authenticator`
-
-Manages the authentication flow.
-
-```typescript
-const authenticator = new Authenticator(httpClient, signer);
-
-// Get signing message
-const message = await authenticator.getSigningMessage();
-
-// Authenticate
-const result = await authenticator.authenticate({ client: 'eoa' });
-
-// Verify authentication
-const address = await authenticator.verifyAuth(sessionCookie);
-
-// Logout
-await authenticator.logout(sessionCookie);
-```
-
 #### `HttpClient`
 
-HTTP client with cookie management.
+HTTP client with API key authentication.
 
 ```typescript
 const httpClient = new HttpClient({
   baseURL: 'https://api.limitless.exchange',
+  apiKey: process.env.LIMITLESS_API_KEY, // Optional - auto-loads from env
   timeout: 30000,
 });
 
-// Set session cookie for authenticated requests
-httpClient.setSessionCookie(sessionCookie);
+// Set or update API key
+httpClient.setApiKey('sk_live_...');
 
-// Make requests
+// Make requests - X-API-Key header automatically included
 const data = await httpClient.get('/endpoint');
 await httpClient.post('/endpoint', { data });
 ```
@@ -262,10 +342,10 @@ await httpClient.post('/endpoint', { data });
 For detailed documentation, see the [docs](./docs) directory:
 
 - **[Complete Documentation](./docs/README.md)** - Full SDK documentation
-- **[Authentication Guide](./docs/auth/README.md)** - Authentication and session management
+- **[Authentication Guide](./docs/api/README.md)** - API key authentication and HTTP client
 - **[Trading & Orders](./docs/orders/README.md)** - Order creation, management, and NegRisk markets
 - **[Market Data](./docs/markets/README.md)** - Market discovery and orderbook access
-- **[Portfolio & Positions](./docs/portfolio/README.md)** - Position tracking and balances
+- **[Portfolio & Positions](./docs/portfolio/README.md)** - Position tracking and user history
 - **[WebSocket Streaming](./docs/websocket/README.md)** - Real-time data updates
 - **[Error Handling & Retry](./docs/api/README.md)** - API error handling and retry mechanisms
 - **[Logging](./docs/logging/LOGGING.md)** - Logging configuration
@@ -276,8 +356,7 @@ Production-ready code samples are available in [docs/code-samples](./docs/code-s
 
 ### Authentication Examples
 
-- `basic-auth.ts` - Simple EOA authentication
-- `smart-wallet.ts` - Etherspot smart wallet integration
+- `basic-auth.ts` - API key authentication setup
 - `with-logging.ts` - Authentication with custom logging
 - `auth-retry.ts` - Authentication with retry logic
 - `error-handling.ts` - Comprehensive error handling
@@ -336,11 +415,12 @@ src/
 ├── types/          # TypeScript type definitions
 │   ├── markets.ts  # Market and active markets types
 │   ├── orders.ts   # Order types
-│   ├── auth.ts     # Authentication types
+│   ├── auth.ts     # User profile types
 │   └── ...
-├── auth/           # Authentication modules
-│   ├── signer.ts   # Message signing
-│   └── authenticator.ts
+├── api/            # HTTP client and API utilities
+│   ├── http.ts     # HTTP client with API key auth
+│   ├── errors.ts   # Error handling
+│   └── retry.ts    # Retry logic
 ├── markets/        # Market data modules
 │   ├── fetcher.ts  # Market and orderbook fetching
 │   └── index.ts
@@ -368,6 +448,65 @@ docs/
 └── */              # Documentation guides
 
 ```
+
+## Changelog
+
+### v1.0.2 (LTS - Long-Term Support Release)
+
+**Release Date**: January 2026
+
+This is the first stable, production-ready release of the Limitless Exchange TypeScript SDK, designated as a Long-Term Support (LTS) version.
+
+#### Highlights
+
+- ✅ **Production-Ready**: Thoroughly tested and validated against Base mainnet
+- 🔒 **Type-Safe**: Full TypeScript support with comprehensive type definitions
+- 📚 **Well-Documented**: 17 production-ready code samples + comprehensive guides
+- ⚡ **Performance Optimized**: Venue caching system and connection pooling
+- 🔄 **Robust Error Handling**: Automatic retry logic with multiple strategies
+- 🌐 **Real-Time Updates**: WebSocket support for orderbook and position streaming
+- 🎯 **NegRisk Support**: Full support for group markets with multiple outcomes
+
+#### Core Features
+
+- **Authentication**: API key authentication, EIP-712 signing, EOA support
+- **Market Data**: Active markets with sorting, orderbook access, venue caching
+- **Order Management**: GTC and FOK orders, tick alignment, automatic signing
+- **Portfolio**: Position tracking, user history
+- **WebSocket**: Real-time orderbook, price updates, event streaming
+- **Error Handling**: Decorator and wrapper retry patterns, configurable strategies
+- **Token Approvals**: Complete setup script, CLOB and NegRisk workflows
+
+#### Documentation Enhancements (v1.0.2)
+
+- Added FOK order examples to README with clear `makerAmount` semantics
+- Created comprehensive CHANGELOG.md following Keep a Changelog format
+- All 17 code samples include step-by-step comments and error handling
+- Detailed guides for authentication, trading, markets, portfolio, and WebSocket
+
+For complete release notes, see [CHANGELOG.md](./CHANGELOG.md).
+
+---
+
+### Pre-Release Versions
+
+- **v0.0.3** - WebSocket streaming, enhanced code samples, NegRisk examples
+- **v0.0.2** - Venue caching, retry mechanisms, portfolio fetcher
+- **v0.0.1** - Initial release with core functionality
+
+---
+
+## LTS Support Policy
+
+**v1.0.2 LTS** will receive:
+
+- Security updates and critical bug fixes
+- Compatibility maintenance with Limitless Exchange API
+- Community support and issue resolution
+- Documentation updates and improvements
+- Long-term stability for production deployments
+
+**Recommended for production use.** We commit to maintaining backward compatibility and providing timely security updates for this LTS release.
 
 ## License
 
