@@ -1,10 +1,10 @@
 # Limitless Exchange TypeScript SDK
 
-**v1.0.0 LTS (Long-Term Support)** | Production-Ready | Type-Safe | Fully Documented
+**v1.0.2 LTS (Long-Term Support)** | Production-Ready | Type-Safe | Fully Documented
 
 A TypeScript SDK for interacting with the Limitless Exchange platform, providing type-safe access to CLOB and NegRisk prediction markets.
 
-> 🎉 **v1.0.0 LTS Release**: This is the first stable, production-ready release with long-term support. Recommended for all production deployments. See [Changelog](#changelog) for details.
+> 🎉 **v1.0.2 LTS Release**: This is the first stable, production-ready release with long-term support. Recommended for all production deployments. See [Changelog](#changelog) for details.
 
 ## ⚠️ Disclaimer
 
@@ -93,7 +93,7 @@ See [examples/project-integration/src/active-markets.ts](./examples/project-inte
 
 ### Authentication
 
-The SDK uses API keys for authentication. API keys can be obtained from your Limitless Exchange account settings.
+The SDK uses API keys for authentication. API keys can be obtained from your Limitless Exchange account settings(Click on User Profile).
 
 ```typescript
 import { HttpClient } from '@limitless-exchange/sdk';
@@ -451,7 +451,7 @@ docs/
 
 ## Changelog
 
-### v1.0.0 (LTS - Long-Term Support Release)
+### v1.0.2 (LTS - Long-Term Support Release)
 
 **Release Date**: January 2026
 
@@ -477,7 +477,7 @@ This is the first stable, production-ready release of the Limitless Exchange Typ
 - **Error Handling**: Decorator and wrapper retry patterns, configurable strategies
 - **Token Approvals**: Complete setup script, CLOB and NegRisk workflows
 
-#### Documentation Enhancements (v1.0.0)
+#### Documentation Enhancements (v1.0.2)
 
 - Added FOK order examples to README with clear `makerAmount` semantics
 - Created comprehensive CHANGELOG.md following Keep a Changelog format
@@ -498,7 +498,7 @@ For complete release notes, see [CHANGELOG.md](./CHANGELOG.md).
 
 ## LTS Support Policy
 
-**v1.0.0 LTS** will receive:
+**v1.0.2 LTS** will receive:
 
 - Security updates and critical bug fixes
 - Compatibility maintenance with Limitless Exchange API

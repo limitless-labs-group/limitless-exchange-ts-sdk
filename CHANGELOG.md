@@ -5,7 +5,7 @@ All notable changes to the Limitless Exchange TypeScript SDK will be documented 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.0]
+## [1.0.2]
 
 ### Release Notes
 
@@ -191,7 +191,7 @@ This is the first stable, production-ready release of the Limitless Exchange Typ
 
 ## Pre-Release Versions
 
-The following versions were development releases leading to v1.0.0:
+The following versions were development releases leading to v1.0.2:
 
 ## [0.0.3] - 2026-01 (Pre-release)
 
@@ -255,7 +255,7 @@ The following versions were development releases leading to v1.0.0:
 
 ## LTS Support Policy
 
-**v1.0.0 LTS** will receive:
+**v1.0.2 LTS** will receive:
 
 - Security updates and critical bug fixes
 - Compatibility maintenance with Limitless Exchange API
@@ -268,7 +268,7 @@ For production deployments, we recommend using the LTS version for stability and
 
 ## Migration Guide
 
-### From v0.0.3 to v1.0.0
+### From v0.0.3 to v1.0.2
 
 Important change to move from Cookie based auth to API-KEY due to /auth endpoint deprication in nearest future.
 
@@ -276,7 +276,7 @@ Important change to move from Cookie based auth to API-KEY due to /auth endpoint
 
 - Review new FOK order examples in README
 - Check CHANGELOG for full feature list
-- Update to LTS version in package.json: `"@limitless-exchange/sdk": "^1.0.0"`
+- Update to LTS version in package.json: `"@limitless-exchange/sdk": "^1.0.2"`
 
 ### Key API Patterns
 
