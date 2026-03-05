@@ -1,4 +1,4 @@
-import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
+import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosResponseHeaders, RawAxiosResponseHeaders } from 'axios';
 import http from 'http';
 import https from 'https';
 import { DEFAULT_API_URL } from '../utils/constants';
@@ -89,6 +89,31 @@ export interface HttpClientConfig {
    * ```
    */
   additionalHeaders?: Record<string, string>;
+}
+
+/**
+ * Raw HTTP response with status and headers.
+ *
+ * @remarks
+ * Useful for endpoints where response metadata matters (for example redirect handling).
+ *
+ * @public
+ */
+export interface HttpRawResponse<T = any> {
+  /**
+   * HTTP status code.
+   */
+  status: number;
+
+  /**
+   * Response headers.
+   */
+  headers: RawAxiosResponseHeaders | AxiosResponseHeaders;
+
+  /**
+   * Response body.
+   */
+  data: T;
 }
 
 /**
@@ -297,6 +322,25 @@ export class HttpClient {
   async get<T = any>(url: string, config?: AxiosRequestConfig): Promise<T> {
     const response: AxiosResponse<T> = await this.client.get(url, config);
     return response.data;
+  }
+
+  /**
+   * Performs a GET request and returns raw response metadata.
+   *
+   * @remarks
+   * Use this when callers need access to status code or headers (e.g. redirect `Location`).
+   *
+   * @param url - Request URL
+   * @param config - Additional request configuration
+   * @returns Promise resolving to status, headers, and response data
+   */
+  async getRaw<T = any>(url: string, config?: AxiosRequestConfig): Promise<HttpRawResponse<T>> {
+    const response: AxiosResponse<T> = await this.client.get(url, config);
+    return {
+      status: response.status,
+      headers: response.headers,
+      data: response.data,
+    };
   }
 
   /**

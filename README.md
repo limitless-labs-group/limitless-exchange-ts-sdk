@@ -91,6 +91,37 @@ const page2 = await marketFetcher.getActiveMarkets({
 
 See [examples/project-integration/src/active-markets.ts](./examples/project-integration/src/active-markets.ts) for more examples.
 
+### Market Pages & Navigation (No Authentication Required)
+
+```typescript
+import { HttpClient, MarketPageFetcher } from '@limitless-exchange/sdk';
+
+const httpClient = new HttpClient({
+  baseURL: 'https://api.limitless.exchange',
+});
+
+const pageFetcher = new MarketPageFetcher(httpClient);
+
+// Resolve a page from URL path
+const page = await pageFetcher.getMarketPageByPath('/crypto');
+
+// Fetch page markets with dynamic filters
+const markets = await pageFetcher.getMarkets(page.id, {
+  limit: 20,
+  sort: '-updatedAt',
+  filters: {
+    duration: 'hourly',
+    ticker: ['btc', 'eth'],
+  },
+});
+
+if ('pagination' in markets) {
+  console.log(`Total markets: ${markets.pagination.total}`);
+}
+```
+
+Detailed guide: [docs/market-pages/README.md](./docs/market-pages/README.md)
+
 ### Authentication
 
 The SDK uses API keys for authentication. API keys can be obtained from your Limitless Exchange account settings(Click on User Profile).
@@ -122,7 +153,7 @@ Create a `.env` file:
 # Required for authenticated endpoints
 LIMITLESS_API_KEY=sk_live_your_api_key_here
 
-# Optional: Private key for order signing (EIP-712)
+# REQUIRED: Private key for order signing (EIP-712)
 PRIVATE_KEY=0x...
 ```
 
@@ -325,7 +356,7 @@ HTTP client with API key authentication.
 ```typescript
 const httpClient = new HttpClient({
   baseURL: 'https://api.limitless.exchange',
-  apiKey: process.env.LIMITLESS_API_KEY, // Optional - auto-loads from env
+  apiKey: process.env.LIMITLESS_API_KEY, // you are allowed to pass it that way, otherwise will be loaded from .env
   timeout: 30000,
 });
 

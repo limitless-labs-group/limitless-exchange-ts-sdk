@@ -13,5 +13,6 @@ export * from './api';
 export * from './utils';
 export * from './orders';
 export * from './markets';
+export * from './market-pages';
 export * from './portfolio';
 export * from './websocket';
