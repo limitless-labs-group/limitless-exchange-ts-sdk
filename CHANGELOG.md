@@ -5,6 +5,32 @@ All notable changes to the Limitless Exchange TypeScript SDK will be documented 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.3]
+
+### Added
+
+- New `MarketPageFetcher` module for navigation-based market discovery:
+  - `getNavigation()`
+  - `getMarketPageByPath()` with manual `301` follow via `Location`
+  - `getMarkets()` with dynamic filters and offset/cursor pagination support
+  - `getPropertyKeys()`, `getPropertyKey()`, `getPropertyOptions()`
+- New market-pages type definitions:
+  - `NavigationNode`, `MarketPage`, `PropertyKey`, `PropertyOption`
+  - `MarketPageMarketsParams`
+  - `MarketPageMarketsOffsetResponse`, `MarketPageMarketsCursorResponse`
+- `HttpClient.getRaw()` with status/headers/data response metadata for redirect handling.
+- Comprehensive market-pages test suite (redirect flow, filters serialization, pagination modes, property-keys endpoints).
+- Market-pages documentation and README integration section for public endpoint usage.
+
+### Changed
+
+- Extended market type parity for market-pages responses:
+  - `MarketSettings.rewardsEpoch` and `MarketSettings.c` accept string/number
+  - added optional `MarketSettings.rebateRate`
+  - added optional market fields (`automationType`, `imageUrl`, `trends`, `openInterest`, `liquidity`, `positionIds`, formatted variants)
+  - `Venue.adapter` nullable parity support
+- Public exports updated to include market-pages module and types.
+
 ## [1.0.2]
 
 ### Release Notes
