@@ -106,6 +106,18 @@ describe('MarketPageFetcher', () => {
     );
   });
 
+  it('getMarketPageByPath throws on malformed by-path redirect without path query param', async () => {
+    vi.mocked(httpClient.getRaw).mockResolvedValue({
+      status: 301,
+      headers: { location: '/market-pages/by-path' },
+      data: null,
+    });
+
+    await expect(fetcher.getMarketPageByPath('/start')).rejects.toThrow(
+      "Redirect location '/market-pages/by-path' is missing required 'path' query parameter"
+    );
+  });
+
   it('getMarketPageByPath bubbles 404 APIError', async () => {
     vi.mocked(httpClient.getRaw).mockRejectedValue(
       new APIError('not found', 404, { message: 'not_found' }, '/market-pages/by-path', 'GET')
@@ -180,6 +192,29 @@ describe('MarketPageFetcher', () => {
     expect(params.get('cursor')).toBe('');
     expect(params.has('page')).toBe(false);
     expect(result).toHaveProperty('cursor');
+  });
+
+  it('getMarkets accepts numeric/boolean filters and serializes booleans as lowercase', async () => {
+    vi.mocked(httpClient.get).mockResolvedValue({
+      data: [],
+      pagination: { page: 1, limit: 10, total: 0, totalPages: 0 },
+    });
+
+    await fetcher.getMarkets('page-1', {
+      limit: 10,
+      filters: {
+        durationHours: 24,
+        isLive: true,
+        ticker: ['btc', 7, false],
+      },
+    });
+
+    const endpoint = vi.mocked(httpClient.get).mock.calls[0][0] as string;
+    const params = new URLSearchParams(endpoint.split('?')[1]);
+
+    expect(params.get('durationHours')).toBe('24');
+    expect(params.get('isLive')).toBe('true');
+    expect(params.getAll('ticker')).toEqual(['btc', '7', 'false']);
   });
 
   it('getMarkets throws on page + cursor conflict', async () => {

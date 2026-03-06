@@ -297,6 +297,57 @@ export class HttpClient {
   }
 
   /**
+   * Extracts a human-readable error message from API response payload.
+   * @internal
+   */
+  private extractErrorMessage(data: any, fallback: string): string {
+    if (!data) {
+      return fallback;
+    }
+
+    if (typeof data === 'object') {
+      if (Array.isArray(data.message)) {
+        const messages = data.message
+          .map((err: any) => {
+            const details = Object.entries(err || {})
+              .filter(([_key, val]) => val !== '' && val !== null && val !== undefined)
+              .map(([key, val]) => `${key}: ${val}`)
+              .join(', ');
+            return details || JSON.stringify(err);
+          })
+          .filter((msg: string) => msg.trim() !== '')
+          .join(' | ');
+
+        return messages || data.error || JSON.stringify(data);
+      }
+
+      return data.message || data.error || data.msg || (data.errors && JSON.stringify(data.errors)) || JSON.stringify(data);
+    }
+
+    return String(data);
+  }
+
+  /**
+   * Creates a typed API error class from status code.
+   * @internal
+   */
+  private createTypedApiError(status: number, message: string, data: any, url?: string, method?: string): APIError {
+    if (status === 429) {
+      return new RateLimitError(message, status, data, url, method);
+    }
+
+    if (status === 401 || status === 403) {
+      return new AuthenticationError(message, status, data, url, method);
+    }
+
+    if (status === 400) {
+      return new ValidationError(message, status, data, url, method);
+    }
+
+    return new APIError(message, status, data, url, method);
+  }
+
+  /**
    * Sets the API key for authenticated requests.
    *
    * @param apiKey - API key value
@@ -336,6 +387,14 @@ export class HttpClient {
    */
   async getRaw<T = any>(url: string, config?: AxiosRequestConfig): Promise<HttpRawResponse<T>> {
     const response: AxiosResponse<T> = await this.client.get(url, config);
+
+    // Guard against callers allowing 4xx/5xx through custom validateStatus.
+    // getRaw should preserve normal typed API error behavior for error responses.
+    if (response.status >= 400) {
+      const message = this.extractErrorMessage(response.data, `Request failed with status ${response.status}`);
+      throw this.createTypedApiError(response.status, message, response.data, url, 'GET');
+    }
+
     return {
       status: response.status,
       headers: response.headers,

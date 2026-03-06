@@ -107,14 +107,22 @@ export class MarketPageFetcher {
     // Already in by-path format
     if (location.startsWith(directByPathPrefix)) {
       const url = new URL(location, 'https://api.limitless.exchange');
-      return url.searchParams.get('path') || '/';
+      const path = url.searchParams.get('path');
+      if (!path) {
+        throw new Error("Redirect location '/market-pages/by-path' is missing required 'path' query parameter");
+      }
+      return path;
     }
 
     // Absolute URL
     if (/^https?:\/\//i.test(location)) {
       const url = new URL(location);
       if (url.pathname === directByPathPrefix) {
-        return url.searchParams.get('path') || '/';
+        const path = url.searchParams.get('path');
+        if (!path) {
+          throw new Error("Redirect location '/market-pages/by-path' is missing required 'path' query parameter");
+        }
+        return path;
       }
       return url.pathname || '/';
     }
@@ -156,10 +164,10 @@ export class MarketPageFetcher {
       for (const [key, value] of Object.entries(params.filters)) {
         if (Array.isArray(value)) {
           for (const item of value) {
-            query.append(key, item);
+            query.append(key, this.stringifyFilterValue(item));
           }
         } else {
-          query.append(key, value);
+          query.append(key, this.stringifyFilterValue(value));
         }
       }
     }
@@ -216,5 +224,13 @@ export class MarketPageFetcher {
     const endpoint = `/property-keys/${keyId}/options${queryString ? `?${queryString}` : ''}`;
 
     return this.httpClient.get<PropertyOption[]>(endpoint);
+  }
+
+  private stringifyFilterValue(value: string | number | boolean): string {
+    if (typeof value === 'boolean') {
+      return value ? 'true' : 'false';
+    }
+
+    return String(value);
   }
 }

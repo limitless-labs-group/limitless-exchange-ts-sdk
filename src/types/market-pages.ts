@@ -129,12 +129,19 @@ export type MarketPageSort = MarketPageSortField | `-${MarketPageSortField}`;
  * Query params for /market-pages/:id/markets endpoint.
  * @public
  */
+export type MarketPageFilterPrimitive = string | number | boolean;
+export type MarketPageFilterValue = MarketPageFilterPrimitive | MarketPageFilterPrimitive[];
+
+/**
+ * Query params for /market-pages/:id/markets endpoint.
+ * @public
+ */
 export interface MarketPageMarketsParams {
   page?: number;
   limit?: number;
   sort?: MarketPageSort;
   cursor?: string;
-  filters?: Record<string, string | string[]>;
+  filters?: Record<string, MarketPageFilterValue>;
 }
 
 /**
