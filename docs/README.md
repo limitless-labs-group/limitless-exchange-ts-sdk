@@ -8,6 +8,7 @@ Official TypeScript SDK for the Limitless Exchange API.
 - [Clean Fluent API](./FLUENT_API.md) ✨ **New!**
 - [Trading & Orders](./orders/README.md)
 - [Markets](./markets/README.md)
+- [Market Pages & Navigation](./market-pages/README.md)
 - [Portfolio & Positions](./portfolio/README.md)
 - [WebSocket Streaming](./websocket/README.md)
 - [Error Handling & Retry](./api/README.md)

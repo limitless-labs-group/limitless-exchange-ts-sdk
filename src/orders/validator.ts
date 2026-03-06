@@ -27,7 +27,7 @@ export class OrderValidationError extends Error {
  * Type guard to check if order arguments are for FOK order.
  */
 function isFOKOrder(args: OrderArgs): args is FOKOrderArgs {
-  return 'amount' in args;
+  return 'makerAmount' in args;
 }
 
 /**

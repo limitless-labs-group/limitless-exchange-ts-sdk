@@ -3,6 +3,7 @@ export * from './logger';
 export * from './orders';
 export * from './portfolio';
 export * from './websocket';
+export * from './market-pages';
 
 // Export everything from markets except Market interface (to avoid conflict with Market class)
 export type {

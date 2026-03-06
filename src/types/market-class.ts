@@ -48,6 +48,14 @@ export class Market {
   metadata!: MarketMetadata;
   volume?: string;
   volumeFormatted?: string;
+  automationType?: 'manual' | 'lumy' | 'sports';
+  imageUrl?: string | null;
+  trends?: Record<string, unknown>;
+  openInterest?: string;
+  openInterestFormatted?: string;
+  liquidity?: string;
+  liquidityFormatted?: string;
+  positionIds?: string[];
 
   // CLOB single market fields
   conditionId?: string;

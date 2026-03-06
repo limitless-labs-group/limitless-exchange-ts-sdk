@@ -99,12 +99,17 @@ export interface MarketSettings {
   /**
    * Rewards epoch duration
    */
-  rewardsEpoch: string;
+  rewardsEpoch: string | number;
 
   /**
    * Constant parameter
    */
-  c: string;
+  c: string | number;
+
+  /**
+   * Market maker rebate rate.
+   */
+  rebateRate?: number;
 }
 
 /**
@@ -286,7 +291,7 @@ export interface Venue {
    * Required for NegRisk/Grouped markets only.
    * SELL orders on NegRisk markets require CT approval to both exchange AND adapter.
    */
-  adapter: string;
+  adapter: string | null;
 }
 
 /**
@@ -410,6 +415,46 @@ export interface Market {
    * Formatted trading volume
    */
   volumeFormatted?: string;
+
+  /**
+   * Market automation type.
+   */
+  automationType?: 'manual' | 'lumy' | 'sports';
+
+  /**
+   * Primary market image URL.
+   */
+  imageUrl?: string | null;
+
+  /**
+   * Price trend data.
+   */
+  trends?: Record<string, unknown>;
+
+  /**
+   * Open interest (AMM markets).
+   */
+  openInterest?: string;
+
+  /**
+   * Formatted open interest (AMM markets).
+   */
+  openInterestFormatted?: string;
+
+  /**
+   * Liquidity (AMM markets).
+   */
+  liquidity?: string;
+
+  /**
+   * Formatted liquidity (AMM markets).
+   */
+  liquidityFormatted?: string;
+
+  /**
+   * Position IDs (AMM markets).
+   */
+  positionIds?: string[];
 
   // CLOB single market fields
   /**
