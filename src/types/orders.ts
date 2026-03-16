@@ -172,8 +172,11 @@ export type OrderArgs = FOKOrderArgs | GTCOrderArgs;
 export interface UnsignedOrder {
   /**
    * Unique salt for order identification
+   *
+   * @remarks
+   * May be returned as a string when value exceeds JavaScript safe integer range.
    */
-  salt: number;
+  salt: number | string;
 
   /**
    * Maker address (order creator)

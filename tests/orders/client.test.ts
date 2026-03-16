@@ -36,9 +36,43 @@ describe('OrderClient', () => {
     expect(transformed.order.makerAmount).toBe(50);
     expect(transformed.order.takerAmount).toBe(100);
     expect(transformed.order.price).toBe(0.52);
+    expect(transformed.order.salt).toBe(1742000000000000);
 
-    // Out of scope: non-price payload fields are passed through unchanged.
-    expect(transformed.order.salt).toBe('1742000000000000');
+    // Out of scope: non-payload fields are passed through unchanged.
     expect(transformed.order.marketId).toBe('42');
+  });
+
+  it('preserves salt as string when integer is outside IEEE-754 safe range', () => {
+    const client = new OrderClient({
+      httpClient: {} as any,
+      wallet: {
+        address: '0x0000000000000000000000000000000000000001',
+      } as any,
+    });
+
+    const transformed = (client as any).transformOrderResponse({
+      order: {
+        id: 'order-2',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        makerAmount: '50',
+        takerAmount: '100',
+        expiration: '0',
+        signatureType: '0',
+        salt: '9007199254740993',
+        maker: '0x0000000000000000000000000000000000000001',
+        signer: '0x0000000000000000000000000000000000000001',
+        taker: '0x0000000000000000000000000000000000000000',
+        tokenId: '123',
+        side: '0',
+        feeRateBps: '300',
+        nonce: '0',
+        signature: '0xabc',
+        orderType: 'GTC',
+        price: '0.52',
+        marketId: '42',
+      },
+    });
+
+    expect(transformed.order.salt).toBe('9007199254740993');
   });
 });

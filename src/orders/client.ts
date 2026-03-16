@@ -351,7 +351,7 @@ export class OrderClient {
         takerAmount: toFiniteNumber(order.takerAmount) ?? order.takerAmount,
         expiration: order.expiration,
         signatureType: order.signatureType,
-        salt: order.salt,
+        salt: toFiniteInteger(order.salt) ?? order.salt,
         maker: order.maker,
         signer: order.signer,
         taker: order.taker,
