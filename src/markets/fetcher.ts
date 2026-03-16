@@ -14,6 +14,7 @@ import type {
 } from '../types/markets';
 import type { ILogger } from '../types/logger';
 import { NoOpLogger } from '../types/logger';
+import { toFiniteInteger, toFiniteNumber } from '../utils/number-flex';
 
 /**
  * Market data fetcher for retrieving market information and orderbooks.
@@ -103,7 +104,7 @@ export class MarketFetcher {
 
       const result = {
         data: markets,
-        totalMarketsCount: response.totalMarketsCount,
+        totalMarketsCount: toFiniteInteger(response.totalMarketsCount) ?? response.totalMarketsCount,
       };
 
       this.logger.info('Active markets fetched successfully', {
@@ -235,13 +236,29 @@ export class MarketFetcher {
         `/markets/${slug}/orderbook`
       );
 
+      const normalizedOrderBook: OrderBook = {
+        ...orderbook,
+        adjustedMidpoint: toFiniteNumber(orderbook.adjustedMidpoint) ?? orderbook.adjustedMidpoint,
+        lastTradePrice: toFiniteNumber(orderbook.lastTradePrice) ?? orderbook.lastTradePrice,
+        bids: (orderbook.bids || []).map((bid) => ({
+          ...bid,
+          price: toFiniteNumber(bid.price) ?? bid.price,
+          size: toFiniteNumber(bid.size) ?? bid.size,
+        })),
+        asks: (orderbook.asks || []).map((ask) => ({
+          ...ask,
+          price: toFiniteNumber(ask.price) ?? ask.price,
+          size: toFiniteNumber(ask.size) ?? ask.size,
+        })),
+      };
+
       this.logger.info('Orderbook fetched successfully', {
         slug,
-        bids: orderbook.bids.length,
-        asks: orderbook.asks.length,
-        tokenId: orderbook.tokenId,
+        bids: normalizedOrderBook.bids.length,
+        asks: normalizedOrderBook.asks.length,
+        tokenId: normalizedOrderBook.tokenId,
       });
-      return orderbook;
+      return normalizedOrderBook;
     } catch (error) {
       this.logger.error('Failed to fetch orderbook', error as Error, { slug });
       throw error;

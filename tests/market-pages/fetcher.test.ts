@@ -174,6 +174,27 @@ describe('MarketPageFetcher', () => {
     expect(result.data[0]).toBeInstanceOf(Market);
   });
 
+  it('getMarkets normalizes string-encoded pagination numbers', async () => {
+    vi.mocked(httpClient.get).mockResolvedValue({
+      data: [],
+      pagination: { page: '2', limit: '10', total: '20', totalPages: '2' },
+    });
+
+    const result = await fetcher.getMarkets('page-1', {
+      page: 2,
+      limit: 10,
+    });
+
+    if (!('pagination' in result)) {
+      throw new Error('Expected pagination response');
+    }
+
+    expect(result.pagination.page).toBe(2);
+    expect(result.pagination.limit).toBe(10);
+    expect(result.pagination.total).toBe(20);
+    expect(result.pagination.totalPages).toBe(2);
+  });
+
   it('getMarkets handles cursor mode and does not send page by default', async () => {
     vi.mocked(httpClient.get).mockResolvedValue({
       data: [],
@@ -250,6 +271,38 @@ describe('MarketPageFetcher', () => {
     await fetcher.getPropertyKeys();
 
     expect(httpClient.get).toHaveBeenCalledWith('/property-keys');
+  });
+
+  it('getPropertyKeys normalizes string-encoded sortOrder', async () => {
+    vi.mocked(httpClient.get).mockResolvedValue([
+      {
+        id: 'pk-1',
+        name: 'Domain',
+        slug: 'domain',
+        type: 'multi-select',
+        metadata: {},
+        isSystem: false,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+        options: [
+          {
+            id: 'opt-1',
+            propertyKeyId: 'pk-1',
+            value: 'sports',
+            label: 'Sports',
+            sortOrder: '3',
+            parentOptionId: null,
+            metadata: {},
+            createdAt: '2026-01-01T00:00:00.000Z',
+            updatedAt: '2026-01-01T00:00:00.000Z',
+          },
+        ],
+      },
+    ]);
+
+    const result = await fetcher.getPropertyKeys();
+
+    expect(result[0].options?.[0].sortOrder).toBe(3);
   });
 
   it('getPropertyKey calls correct endpoint', async () => {

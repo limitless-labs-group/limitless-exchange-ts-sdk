@@ -11,6 +11,7 @@ import type {
 } from '../types/market-pages';
 import type { ILogger } from '../types/logger';
 import { NoOpLogger } from '../types/logger';
+import { toFiniteInteger } from '../utils/number-flex';
 
 const MAX_REDIRECT_DEPTH = 3;
 
@@ -183,7 +184,13 @@ export class MarketPageFetcher {
     if (response.pagination) {
       return {
         data: markets,
-        pagination: response.pagination,
+        pagination: {
+          ...response.pagination,
+          page: toFiniteInteger(response.pagination.page) ?? response.pagination.page,
+          limit: toFiniteInteger(response.pagination.limit) ?? response.pagination.limit,
+          total: toFiniteInteger(response.pagination.total) ?? response.pagination.total,
+          totalPages: toFiniteInteger(response.pagination.totalPages) ?? response.pagination.totalPages,
+        },
       };
     }
 
@@ -201,14 +208,28 @@ export class MarketPageFetcher {
    * Lists all property keys with options.
    */
   async getPropertyKeys(): Promise<PropertyKey[]> {
-    return this.httpClient.get<PropertyKey[]>('/property-keys');
+    const keys = await this.httpClient.get<PropertyKey[]>('/property-keys');
+    return keys.map((key) => ({
+      ...key,
+      options: key.options?.map((option) => ({
+        ...option,
+        sortOrder: toFiniteInteger(option.sortOrder) ?? option.sortOrder,
+      })),
+    }));
   }
 
   /**
    * Gets a single property key by ID.
    */
   async getPropertyKey(id: string): Promise<PropertyKey> {
-    return this.httpClient.get<PropertyKey>(`/property-keys/${id}`);
+    const key = await this.httpClient.get<PropertyKey>(`/property-keys/${id}`);
+    return {
+      ...key,
+      options: key.options?.map((option) => ({
+        ...option,
+        sortOrder: toFiniteInteger(option.sortOrder) ?? option.sortOrder,
+      })),
+    };
   }
 
   /**
@@ -223,7 +244,11 @@ export class MarketPageFetcher {
     const queryString = query.toString();
     const endpoint = `/property-keys/${keyId}/options${queryString ? `?${queryString}` : ''}`;
 
-    return this.httpClient.get<PropertyOption[]>(endpoint);
+    const options = await this.httpClient.get<PropertyOption[]>(endpoint);
+    return options.map((option) => ({
+      ...option,
+      sortOrder: toFiniteInteger(option.sortOrder) ?? option.sortOrder,
+    }));
   }
 
   private stringifyFilterValue(value: string | number | boolean): string {

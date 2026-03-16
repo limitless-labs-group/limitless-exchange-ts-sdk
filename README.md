@@ -1,10 +1,10 @@
 # Limitless Exchange TypeScript SDK
 
-**v1.0.2 LTS (Long-Term Support)** | Production-Ready | Type-Safe | Fully Documented
+**v1.0.3** | Production-Ready | Type-Safe | Fully Documented
 
 A TypeScript SDK for interacting with the Limitless Exchange platform, providing type-safe access to CLOB and NegRisk prediction markets.
 
-> 🎉 **v1.0.2 LTS Release**: This is the first stable, production-ready release with long-term support. Recommended for all production deployments. See [Changelog](#changelog) for details.
+> 🎉 **v1.0.3 Release**: Adds market-pages navigation API support, redirect-aware path resolution, and expanded typing parity. See [Changelog](#changelog) for details.
 
 ## ⚠️ Disclaimer
 
@@ -482,11 +482,11 @@ docs/
 
 ## Changelog
 
-### v1.0.2 (LTS - Long-Term Support Release)
+### v1.0.3
 
-**Release Date**: January 2026
+**Release Date**: March 2026
 
-This is the first stable, production-ready release of the Limitless Exchange TypeScript SDK, designated as a Long-Term Support (LTS) version.
+Latest release with navigation-driven market discovery APIs and improved response/type parity.
 
 #### Highlights
 
@@ -497,23 +497,26 @@ This is the first stable, production-ready release of the Limitless Exchange Typ
 - 🔄 **Robust Error Handling**: Automatic retry logic with multiple strategies
 - 🌐 **Real-Time Updates**: WebSocket support for orderbook and position streaming
 - 🎯 **NegRisk Support**: Full support for group markets with multiple outcomes
+- 🧭 **Market Pages API**: Navigation tree, by-path resolver with 301 handling, page-scoped markets, property keys
 
 #### Core Features
 
 - **Authentication**: API key authentication, EIP-712 signing, EOA support
 - **Market Data**: Active markets with sorting, orderbook access, venue caching
+- **Market Pages & Navigation**: `/navigation`, `/market-pages/by-path`, `/market-pages/:id/markets`, `/property-keys`
 - **Order Management**: GTC and FOK orders, tick alignment, automatic signing
 - **Portfolio**: Position tracking, user history
 - **WebSocket**: Real-time orderbook, price updates, event streaming
 - **Error Handling**: Decorator and wrapper retry patterns, configurable strategies
 - **Token Approvals**: Complete setup script, CLOB and NegRisk workflows
 
-#### Documentation Enhancements (v1.0.2)
+#### Documentation Enhancements (v1.0.3)
 
 - Added FOK order examples to README with clear `makerAmount` semantics
 - Created comprehensive CHANGELOG.md following Keep a Changelog format
 - All 17 code samples include step-by-step comments and error handling
 - Detailed guides for authentication, trading, markets, portfolio, and WebSocket
+- Added market-pages guide and README quick-start for navigation-driven discovery
 
 For complete release notes, see [CHANGELOG.md](./CHANGELOG.md).
 
@@ -526,18 +529,6 @@ For complete release notes, see [CHANGELOG.md](./CHANGELOG.md).
 - **v0.0.1** - Initial release with core functionality
 
 ---
-
-## LTS Support Policy
-
-**v1.0.2 LTS** will receive:
-
-- Security updates and critical bug fixes
-- Compatibility maintenance with Limitless Exchange API
-- Community support and issue resolution
-- Documentation updates and improvements
-- Long-term stability for production deployments
-
-**Recommended for production use.** We commit to maintaining backward compatibility and providing timely security updates for this LTS release.
 
 ## License
 

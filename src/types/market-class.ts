@@ -15,6 +15,7 @@ import type {
   Venue,
   MarketOutcome,
 } from './markets';
+import { toFiniteInteger, toFiniteNumber } from '../utils/number-flex';
 
 /**
  * Market class with fluent API support.
@@ -97,12 +98,58 @@ export class Market {
     // Copy all properties from data
     Object.assign(this, data);
 
+    this.normalizeNumberLikeFields();
+
     // Store http client for fluent API
     this.httpClient = httpClient;
 
     // Handle nested Market[] for group markets
     if (data.markets && Array.isArray(data.markets)) {
       this.markets = data.markets.map((m: any) => new Market(m, httpClient));
+    }
+  }
+
+  private normalizeNumberLikeFields(): void {
+    this.id = toFiniteInteger(this.id) ?? this.id;
+    this.expirationTimestamp = toFiniteInteger(this.expirationTimestamp) ?? this.expirationTimestamp;
+    this.priorityIndex = toFiniteInteger(this.priorityIndex) ?? this.priorityIndex;
+
+    if (this.orderInGroup !== undefined && this.orderInGroup !== null) {
+      this.orderInGroup = toFiniteInteger(this.orderInGroup) ?? this.orderInGroup;
+    }
+    if (this.winningOutcomeIndex !== undefined && this.winningOutcomeIndex !== null) {
+      this.winningOutcomeIndex = toFiniteInteger(this.winningOutcomeIndex) ?? this.winningOutcomeIndex;
+    }
+
+    if (this.collateralToken) {
+      this.collateralToken.decimals =
+        toFiniteInteger(this.collateralToken.decimals) ?? this.collateralToken.decimals;
+    }
+
+    if (this.settings) {
+      this.settings.maxSpread = toFiniteNumber(this.settings.maxSpread) ?? this.settings.maxSpread;
+      if (this.settings.rebateRate !== undefined && this.settings.rebateRate !== null) {
+        this.settings.rebateRate = toFiniteNumber(this.settings.rebateRate) ?? this.settings.rebateRate;
+      }
+    }
+
+    if (Array.isArray(this.prices)) {
+      this.prices = this.prices.map((price) => toFiniteNumber(price) ?? price);
+    }
+
+    if (this.tradePrices) {
+      this.tradePrices.buy.market = this.tradePrices.buy.market.map(
+        (price) => toFiniteNumber(price) ?? price
+      ) as [number, number];
+      this.tradePrices.buy.limit = this.tradePrices.buy.limit.map(
+        (price) => toFiniteNumber(price) ?? price
+      ) as [number, number];
+      this.tradePrices.sell.market = this.tradePrices.sell.market.map(
+        (price) => toFiniteNumber(price) ?? price
+      ) as [number, number];
+      this.tradePrices.sell.limit = this.tradePrices.sell.limit.map(
+        (price) => toFiniteNumber(price) ?? price
+      ) as [number, number];
     }
   }
 

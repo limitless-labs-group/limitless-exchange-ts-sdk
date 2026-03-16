@@ -19,6 +19,7 @@ import { OrderSigner } from './signer';
 import type { ethers } from 'ethers';
 import type { UserData } from '../types/auth';
 import { ZERO_ADDRESS } from '../utils/constants';
+import { toFiniteInteger, toFiniteNumber } from '../utils/number-flex';
 import { MarketFetcher } from '../markets/fetcher';
 import { PortfolioFetcher } from '../portfolio/fetcher';
 
@@ -189,9 +190,15 @@ export class OrderClient {
       const portfolioFetcher = new PortfolioFetcher(this.httpClient);
       const profile = await portfolioFetcher.getProfile(this.wallet.address);
 
+      const userId = toFiniteInteger(profile.id);
+      const feeRateBps = toFiniteInteger(profile.rank?.feeRateBps) ?? 300;
+      if (userId === undefined) {
+        throw new Error(`Invalid user profile id: ${profile.id}`);
+      }
+
       this.cachedUserData = {
-        userId: profile.id,
-        feeRateBps: profile.rank?.feeRateBps || 300,
+        userId,
+        feeRateBps,
       };
 
       this.orderBuilder = new OrderBuilder(
@@ -334,26 +341,28 @@ export class OrderClient {
    * @internal
    */
   private transformOrderResponse(apiResponse: any): OrderResponse {
+    const order = apiResponse.order;
+
     const cleanOrder: OrderResponse = {
       order: {
-        id: apiResponse.order.id,
-        createdAt: apiResponse.order.createdAt,
-        makerAmount: apiResponse.order.makerAmount,
-        takerAmount: apiResponse.order.takerAmount,
-        expiration: apiResponse.order.expiration,
-        signatureType: apiResponse.order.signatureType,
-        salt: apiResponse.order.salt,
-        maker: apiResponse.order.maker,
-        signer: apiResponse.order.signer,
-        taker: apiResponse.order.taker,
-        tokenId: apiResponse.order.tokenId,
-        side: apiResponse.order.side,
-        feeRateBps: apiResponse.order.feeRateBps,
-        nonce: apiResponse.order.nonce,
-        signature: apiResponse.order.signature,
-        orderType: apiResponse.order.orderType,
-        price: apiResponse.order.price,
-        marketId: apiResponse.order.marketId,
+        id: order.id,
+        createdAt: order.createdAt,
+        makerAmount: toFiniteNumber(order.makerAmount) ?? order.makerAmount,
+        takerAmount: toFiniteNumber(order.takerAmount) ?? order.takerAmount,
+        expiration: order.expiration,
+        signatureType: toFiniteInteger(order.signatureType) ?? order.signatureType,
+        salt: toFiniteNumber(order.salt) ?? order.salt,
+        maker: order.maker,
+        signer: order.signer,
+        taker: order.taker,
+        tokenId: order.tokenId,
+        side: toFiniteInteger(order.side) ?? order.side,
+        feeRateBps: toFiniteInteger(order.feeRateBps) ?? order.feeRateBps,
+        nonce: toFiniteInteger(order.nonce) ?? order.nonce,
+        signature: order.signature,
+        orderType: order.orderType,
+        price: order.price === undefined || order.price === null ? order.price : toFiniteNumber(order.price) ?? order.price,
+        marketId: toFiniteInteger(order.marketId) ?? order.marketId,
       },
     };
 
