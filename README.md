@@ -4,7 +4,7 @@
 
 A TypeScript SDK for interacting with the Limitless Exchange platform, providing type-safe access to CLOB and NegRisk prediction markets.
 
-> 🎉 **v1.0.4 Release**: Adds IEEE-aware numeric parsing improvements so API fields returned as JSON strings are normalized safely across SDK flows. See [Changelog](#changelog) for details.
+> 🎉 **v1.0.4 Release**: Adds IEEE-aware numeric parsing improvements for `createOrder()` response payload fields (`makerAmount`, `takerAmount`, `price`) when API returns numeric strings. See [Changelog](#changelog) for details.
 
 ## ⚠️ Disclaimer
 
@@ -41,7 +41,7 @@ For production use, we strongly recommend:
 - ✅ **NegRisk Markets**: Full support for group markets with multiple outcomes
 - ✅ **Error Handling & Retry**: Automatic retry logic for rate limits and transient failures
 - ✅ **Type Safety**: Full TypeScript support with comprehensive type definitions
-- ✅ **IEEE-Safe Numeric Parsing**: Handles numeric API fields returned as either JSON numbers or strings
+- ✅ **IEEE-Safe Order Payload Parsing**: `createOrder()` handles `makerAmount`, `takerAmount`, and `price` returned as JSON strings
 - ✅ **TSDoc Documentation**: Complete API documentation with examples
 - ✅ **WebSocket**: Real-time price and position updates with API key auth
 
@@ -487,7 +487,7 @@ docs/
 
 **Release Date**: March 2026
 
-Latest release with IEEE-safe numeric parsing improvements and broader response normalization coverage.
+Latest release with IEEE-safe numeric parsing improvements focused on `createOrder()` response payload fields.
 
 #### Highlights
 
@@ -499,14 +499,14 @@ Latest release with IEEE-safe numeric parsing improvements and broader response 
 - 🌐 **Real-Time Updates**: WebSocket support for orderbook and position streaming
 - 🎯 **NegRisk Support**: Full support for group markets with multiple outcomes
 - 🧭 **Market Pages API**: Navigation tree, by-path resolver with 301 handling, page-scoped markets, property keys
-- 🔢 **IEEE-Aware Number Flexibility**: Normalizes numeric fields returned as JSON strings to avoid parsing/validation mismatches
+- 🔢 **IEEE-Aware CreateOrder Parsing**: Normalizes `makerAmount`, `takerAmount`, and `price` when returned as JSON strings
 
 #### Core Features
 
 - **Authentication**: API key authentication, EIP-712 signing, EOA support
 - **Market Data**: Active markets with sorting, orderbook access, venue caching
 - **Market Pages & Navigation**: `/navigation`, `/market-pages/by-path`, `/market-pages/:id/markets`, `/property-keys`
-- **Order Management**: GTC and FOK orders, tick alignment, automatic signing, normalized numeric responses
+- **Order Management**: GTC and FOK orders, tick alignment, automatic signing, IEEE-safe create-order payload parsing
 - **Portfolio**: Position tracking, user history
 - **WebSocket**: Real-time orderbook, price updates, event streaming
 - **Error Handling**: Decorator and wrapper retry patterns, configurable strategies

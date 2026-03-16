@@ -14,7 +14,6 @@ import type {
 } from '../types/portfolio';
 import type { ILogger } from '../types/logger';
 import { NoOpLogger } from '../types/logger';
-import { toFiniteInteger, toFiniteNumber } from '../utils/number-flex';
 
 /**
  * Portfolio data fetcher for retrieving user positions and portfolio information.
@@ -74,29 +73,6 @@ export class PortfolioFetcher {
 
     try {
       const response = await this.httpClient.get<any>(`/profiles/${address}`);
-
-      if (response && typeof response === 'object') {
-        response.id = toFiniteInteger(response.id) ?? response.id;
-        if (response.rank) {
-          response.rank.id = toFiniteInteger(response.rank.id) ?? response.rank.id;
-          response.rank.feeRateBps = toFiniteInteger(response.rank.feeRateBps) ?? response.rank.feeRateBps;
-        }
-        if (response.points !== undefined && response.points !== null) {
-          response.points = toFiniteNumber(response.points) ?? response.points;
-        }
-        if (response.accumulativePoints !== undefined && response.accumulativePoints !== null) {
-          response.accumulativePoints =
-            toFiniteNumber(response.accumulativePoints) ?? response.accumulativePoints;
-        }
-        if (response.leaderboardPosition !== undefined && response.leaderboardPosition !== null) {
-          response.leaderboardPosition =
-            toFiniteInteger(response.leaderboardPosition) ?? response.leaderboardPosition;
-        }
-        if (response.referredUsersCount !== undefined && response.referredUsersCount !== null) {
-          response.referredUsersCount =
-            toFiniteInteger(response.referredUsersCount) ?? response.referredUsersCount;
-        }
-      }
 
       this.logger.info('User profile fetched successfully', { address });
 
