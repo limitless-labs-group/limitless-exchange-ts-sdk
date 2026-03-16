@@ -6,6 +6,43 @@ import { APIError, RateLimitError, AuthenticationError, ValidationError } from '
 import type { ILogger } from '../types/logger';
 import { NoOpLogger } from '../types/logger';
 
+declare const __LMTS_SDK_VERSION__: string;
+
+const SDK_ID = 'lmts-sdk-ts';
+
+function resolveSdkVersion(): string {
+  if (typeof __LMTS_SDK_VERSION__ !== 'undefined' && __LMTS_SDK_VERSION__) {
+    return __LMTS_SDK_VERSION__;
+  }
+
+  if (typeof process !== 'undefined' && process.env?.npm_package_version) {
+    return process.env.npm_package_version;
+  }
+
+  return '0.0.0';
+}
+
+function resolveRuntimeToken(): string {
+  if (typeof process !== 'undefined' && process.versions?.node) {
+    return `node/${process.versions.node}`;
+  }
+
+  return 'runtime/unknown';
+}
+
+function buildSdkTrackingHeaders(): Record<string, string> {
+  const sdkVersion = resolveSdkVersion();
+  const headers: Record<string, string> = {
+    'x-sdk-version': `${SDK_ID}/${sdkVersion}`,
+  };
+
+  if (typeof process !== 'undefined' && process.versions?.node) {
+    headers['user-agent'] = `${SDK_ID}/${sdkVersion} (${resolveRuntimeToken()})`;
+  }
+
+  return headers;
+}
+
 /**
  * Configuration options for the HTTP client.
  * @public
@@ -176,6 +213,7 @@ export class HttpClient {
       headers: {
         'Content-Type': 'application/json',
         Accept: 'application/json',
+        ...buildSdkTrackingHeaders(),
         ...config.additionalHeaders,
       },
     });

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { OrderClient } from '../../src/orders/client';
 
 describe('OrderClient', () => {
-  it('normalizes numeric-string createOrder fields for makerAmount, takerAmount, and price', () => {
+  it('normalizes numeric-string createOrder fields for makerAmount, takerAmount, price, and safe salt', () => {
     const client = new OrderClient({
       httpClient: {} as any,
       wallet: {

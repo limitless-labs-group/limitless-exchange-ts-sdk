@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Improved `OrderClient.createOrder()` response handling for IEEE 754-safe numeric parsing.
 - Added numeric coercion helpers so order payload numeric fields returned as strings are accepted.
-- Normalized create-order response fields focused on trading precision: `makerAmount`, `takerAmount`, and `price`.
+- Normalized create-order response fields focused on trading precision: `makerAmount`, `takerAmount`, `price`, and safe-integer `salt` handling.
 
 ## [1.0.3]
 

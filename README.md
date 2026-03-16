@@ -4,7 +4,7 @@
 
 A TypeScript SDK for interacting with the Limitless Exchange platform, providing type-safe access to CLOB and NegRisk prediction markets.
 
-> 🎉 **v1.0.4 Release**: Adds IEEE-aware numeric parsing improvements for `createOrder()` response payload fields (`makerAmount`, `takerAmount`, `price`) when API returns numeric strings. See [Changelog](#changelog) for details.
+> 🎉 **v1.0.4 Release**: Adds IEEE-aware numeric parsing improvements for `createOrder()` response payload fields (`makerAmount`, `takerAmount`, `price`, `salt`) when API returns numeric strings. See [Changelog](#changelog) for details.
 
 ## ⚠️ Disclaimer
 
@@ -41,7 +41,7 @@ For production use, we strongly recommend:
 - ✅ **NegRisk Markets**: Full support for group markets with multiple outcomes
 - ✅ **Error Handling & Retry**: Automatic retry logic for rate limits and transient failures
 - ✅ **Type Safety**: Full TypeScript support with comprehensive type definitions
-- ✅ **IEEE-Safe Order Payload Parsing**: `createOrder()` handles `makerAmount`, `takerAmount`, and `price` returned as JSON strings
+- ✅ **IEEE-Safe Order Payload Parsing**: `createOrder()` handles `makerAmount`, `takerAmount`, `price`, and `salt` returned as JSON strings
 - ✅ **TSDoc Documentation**: Complete API documentation with examples
 - ✅ **WebSocket**: Real-time price and position updates with API key auth
 
@@ -499,7 +499,7 @@ Latest release with IEEE-safe numeric parsing improvements focused on `createOrd
 - 🌐 **Real-Time Updates**: WebSocket support for orderbook and position streaming
 - 🎯 **NegRisk Support**: Full support for group markets with multiple outcomes
 - 🧭 **Market Pages API**: Navigation tree, by-path resolver with 301 handling, page-scoped markets, property keys
-- 🔢 **IEEE-Aware CreateOrder Parsing**: Normalizes `makerAmount`, `takerAmount`, and `price` when returned as JSON strings
+- 🔢 **IEEE-Aware CreateOrder Parsing**: Normalizes `makerAmount`, `takerAmount`, `price`, and `salt` when returned as JSON strings
 
 #### Core Features
 
