@@ -28,6 +28,8 @@ describe('number-flex utils', () => {
     it('returns integer numbers', () => {
       expect(toFiniteInteger(42)).toBe(42);
       expect(toFiniteInteger('42')).toBe(42);
+      expect(toFiniteInteger(Number.MAX_SAFE_INTEGER)).toBe(Number.MAX_SAFE_INTEGER);
+      expect(toFiniteInteger(String(Number.MAX_SAFE_INTEGER))).toBe(Number.MAX_SAFE_INTEGER);
     });
 
     it('returns undefined for non-integer values', () => {
@@ -35,6 +37,11 @@ describe('number-flex utils', () => {
       expect(toFiniteInteger('1.5')).toBeUndefined();
       expect(toFiniteInteger('abc')).toBeUndefined();
     });
+
+    it('returns undefined for unsafe integers', () => {
+      const aboveSafe = Number.MAX_SAFE_INTEGER + 1;
+      expect(toFiniteInteger(aboveSafe)).toBeUndefined();
+      expect(toFiniteInteger('9007199254740993')).toBeUndefined();
+    });
   });
 });
-

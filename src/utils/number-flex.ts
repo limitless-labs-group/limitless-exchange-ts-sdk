@@ -26,7 +26,7 @@ export function toFiniteNumber(value: unknown): number | undefined {
 
 /**
  * Converts number-like values to finite integers.
- * Returns undefined when value is not an integer.
+ * Returns undefined when value is not a safe integer.
  */
 export function toFiniteInteger(value: unknown): number | undefined {
   const parsed = toFiniteNumber(value);
@@ -34,6 +34,5 @@ export function toFiniteInteger(value: unknown): number | undefined {
     return undefined;
   }
 
-  return Number.isInteger(parsed) ? parsed : undefined;
+  return Number.isSafeInteger(parsed) ? parsed : undefined;
 }
-
