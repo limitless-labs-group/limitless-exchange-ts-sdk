@@ -3,6 +3,14 @@ import { HttpClient } from '../../src/api/http';
 import { APIError } from '../../src/api/errors';
 
 describe('HttpClient.getRaw', () => {
+  it('sets SDK tracking headers by default', () => {
+    const client = new HttpClient({ baseURL: 'https://api.limitless.exchange' });
+    const headersJson = JSON.stringify((client as any).client.defaults.headers).toLowerCase();
+
+    expect(headersJson).toContain('x-sdk-version');
+    expect(headersJson).toContain('lmts-sdk-ts/');
+  });
+
   it('throws typed APIError for 4xx even if validateStatus allows it', async () => {
     const client = new HttpClient({ baseURL: 'https://api.limitless.exchange' });
 
@@ -41,4 +49,3 @@ describe('HttpClient.getRaw', () => {
     expect((response.headers as any).location).toBe('/crypto');
   });
 });
-

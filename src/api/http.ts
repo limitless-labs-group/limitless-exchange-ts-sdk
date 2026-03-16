@@ -6,17 +6,11 @@ import { APIError, RateLimitError, AuthenticationError, ValidationError } from '
 import type { ILogger } from '../types/logger';
 import { NoOpLogger } from '../types/logger';
 
-declare const __LMTS_SDK_VERSION__: string;
-
 const SDK_ID = 'lmts-sdk-ts';
 
 function resolveSdkVersion(): string {
   if (typeof __LMTS_SDK_VERSION__ !== 'undefined' && __LMTS_SDK_VERSION__) {
     return __LMTS_SDK_VERSION__;
-  }
-
-  if (typeof process !== 'undefined' && process.env?.npm_package_version) {
-    return process.env.npm_package_version;
   }
 
   return '0.0.0';
