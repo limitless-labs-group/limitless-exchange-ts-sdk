@@ -1,10 +1,10 @@
 # Limitless Exchange TypeScript SDK
 
-**v1.0.3** | Production-Ready | Type-Safe | Fully Documented
+**v1.0.4** | Production-Ready | Type-Safe | Fully Documented
 
 A TypeScript SDK for interacting with the Limitless Exchange platform, providing type-safe access to CLOB and NegRisk prediction markets.
 
-> 🎉 **v1.0.3 Release**: Adds market-pages navigation API support, redirect-aware path resolution, and expanded typing parity. See [Changelog](#changelog) for details.
+> 🎉 **v1.0.4 Release**: Adds IEEE-aware numeric parsing improvements so API fields returned as JSON strings are normalized safely across SDK flows. See [Changelog](#changelog) for details.
 
 ## ⚠️ Disclaimer
 
@@ -41,6 +41,7 @@ For production use, we strongly recommend:
 - ✅ **NegRisk Markets**: Full support for group markets with multiple outcomes
 - ✅ **Error Handling & Retry**: Automatic retry logic for rate limits and transient failures
 - ✅ **Type Safety**: Full TypeScript support with comprehensive type definitions
+- ✅ **IEEE-Safe Numeric Parsing**: Handles numeric API fields returned as either JSON numbers or strings
 - ✅ **TSDoc Documentation**: Complete API documentation with examples
 - ✅ **WebSocket**: Real-time price and position updates with API key auth
 
@@ -482,11 +483,11 @@ docs/
 
 ## Changelog
 
-### v1.0.3
+### v1.0.4
 
 **Release Date**: March 2026
 
-Latest release with navigation-driven market discovery APIs and improved response/type parity.
+Latest release with IEEE-safe numeric parsing improvements and broader response normalization coverage.
 
 #### Highlights
 
@@ -498,20 +499,22 @@ Latest release with navigation-driven market discovery APIs and improved respons
 - 🌐 **Real-Time Updates**: WebSocket support for orderbook and position streaming
 - 🎯 **NegRisk Support**: Full support for group markets with multiple outcomes
 - 🧭 **Market Pages API**: Navigation tree, by-path resolver with 301 handling, page-scoped markets, property keys
+- 🔢 **IEEE-Aware Number Flexibility**: Normalizes numeric fields returned as JSON strings to avoid parsing/validation mismatches
 
 #### Core Features
 
 - **Authentication**: API key authentication, EIP-712 signing, EOA support
 - **Market Data**: Active markets with sorting, orderbook access, venue caching
 - **Market Pages & Navigation**: `/navigation`, `/market-pages/by-path`, `/market-pages/:id/markets`, `/property-keys`
-- **Order Management**: GTC and FOK orders, tick alignment, automatic signing
+- **Order Management**: GTC and FOK orders, tick alignment, automatic signing, normalized numeric responses
 - **Portfolio**: Position tracking, user history
 - **WebSocket**: Real-time orderbook, price updates, event streaming
 - **Error Handling**: Decorator and wrapper retry patterns, configurable strategies
 - **Token Approvals**: Complete setup script, CLOB and NegRisk workflows
 
-#### Documentation Enhancements (v1.0.3)
+#### Documentation Enhancements (v1.0.4)
 
+- Added release notes for IEEE-safe numeric parsing adjustments
 - Added FOK order examples to README with clear `makerAmount` semantics
 - Created comprehensive CHANGELOG.md following Keep a Changelog format
 - All 17 code samples include step-by-step comments and error handling

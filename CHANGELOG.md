@@ -5,6 +5,16 @@ All notable changes to the Limitless Exchange TypeScript SDK will be documented 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.4]
+
+### Changed
+
+- Improved IEEE 754-safe numeric handling for API payloads that return number fields as strings.
+- Added shared numeric coercion helpers to normalize number-like values (`number` | `string`) before validation.
+- Extended normalization coverage across market, market-pages, orderbook, order-response, and portfolio profile parsing.
+- Preserved strict validation behavior while preventing false negatives caused by JSON number/string serialization differences.
+- Added test coverage for numeric coercion helpers and numeric-string response scenarios.
+
 ## [1.0.3]
 
 ### Added
