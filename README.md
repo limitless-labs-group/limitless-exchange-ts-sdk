@@ -158,6 +158,21 @@ LIMITLESS_API_KEY=sk_live_your_api_key_here
 PRIVATE_KEY=0x...
 ```
 
+### Partner API Token v3 / HMAC Usage
+
+The SDK also supports partner-scoped HMAC credentials for api-token v3 workflows such as token self-service, partner-account creation, and delegated trading.
+
+Use HMAC credentials only in a backend or BFF service. Do not expose partner HMAC secrets in browser bundles, frontend environment variables, or client-side storage.
+
+Recommended setup:
+
+- Keep public market and market-page reads in the browser.
+- Store the real HMAC `tokenId` / `secret` on your backend.
+- Use this SDK server-side to sign partner-authenticated requests.
+- Expose only your own app-specific endpoints to the frontend.
+
+See [`docs/code-samples/api-key-v3/`](./docs/code-samples/api-key-v3/) for the partner HMAC examples.
+
 ### Token Approvals
 
 **Important**: Before placing orders, you must approve tokens for the exchange contracts. This is a **one-time setup** per wallet.
