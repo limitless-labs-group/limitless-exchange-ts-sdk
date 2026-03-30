@@ -4,6 +4,7 @@
  */
 
 import type { OrderbookEntry } from './markets';
+import type { HMACCredentials } from './api-tokens';
 
 // Re-export OrderbookEntry for convenience
 export type { OrderbookEntry };
@@ -29,6 +30,14 @@ export interface WebSocketConfig {
    * and the LIMITLESS_API_KEY environment variable.
    */
   apiKey?: string;
+
+  /**
+   * HMAC credentials for authenticated subscriptions.
+   *
+   * @remarks
+   * When configured alongside `apiKey`, this client uses HMAC headers for authenticated subscriptions.
+   */
+  hmacCredentials?: HMACCredentials;
 
   /**
    * Auto-reconnect on connection loss (default: true)
