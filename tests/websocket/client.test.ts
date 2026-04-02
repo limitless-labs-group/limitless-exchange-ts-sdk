@@ -72,5 +72,46 @@ describe('WebSocketClient HMAC auth', () => {
     connectHandler?.();
     await connectPromise;
   });
-});
 
+  it('accepts market lifecycle event names on the typed websocket client', async () => {
+    vi.useFakeTimers();
+
+    const socketStub: any = {
+      connected: false,
+      once: vi.fn((event: string, handler: (...args: any[]) => void) => {
+        if (event === 'connect') {
+          connectHandler = handler as () => void;
+        }
+      }),
+      on: vi.fn(),
+      off: vi.fn(),
+      emit: vi.fn(),
+      disconnect: vi.fn(),
+      removeAllListeners: vi.fn(),
+      timeout: vi.fn(() => ({ emitWithAck: vi.fn() })),
+      io: {
+        on: vi.fn(),
+      },
+    };
+
+    ioMock.mockReturnValue(socketStub);
+
+    const { WebSocketClient } = await import('../../src/websocket/client');
+    const client = new WebSocketClient({
+      url: 'wss://ws.limitless.exchange',
+      autoReconnect: false,
+    });
+
+    const createdHandler = vi.fn();
+    const resolvedHandler = vi.fn();
+
+    client.on('marketCreated', createdHandler).on('marketResolved', resolvedHandler);
+
+    const connectPromise = client.connect();
+    connectHandler?.();
+    await connectPromise;
+
+    expect(socketStub.on).toHaveBeenCalledWith('marketCreated', createdHandler);
+    expect(socketStub.on).toHaveBeenCalledWith('marketResolved', resolvedHandler);
+  });
+});

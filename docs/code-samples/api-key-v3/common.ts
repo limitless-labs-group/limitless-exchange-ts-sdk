@@ -232,3 +232,20 @@ export function createDefaultDelegatedOrder(
     },
   };
 }
+
+export function createDefaultDelegatedFokOrder(
+  marketSlug: string,
+  onBehalfOf: number,
+  tokenId: string,
+): CreateDelegatedOrderParams {
+  return {
+    marketSlug,
+    orderType: OrderType.FOK,
+    onBehalfOf,
+    args: {
+      tokenId,
+      side: Side.BUY,
+      makerAmount: 1,
+    },
+  };
+}

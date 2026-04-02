@@ -19,8 +19,14 @@ These samples cover the new partner self-service token flow in the TypeScript SD
 - `e2e-flow.ts`
   Simple narrated end-to-end partner flow: capabilities, derive HMAC token, create child account, funding reminder, delegated trade, cleanup
 
+- `e2e-fok-flow.ts`
+  Simple narrated end-to-end partner flow for delegated `FOK` trading: capabilities, derive HMAC token, create child account, funding reminder, delegated `FOK` BUY order, no cleanup
+
 - `delegated-order.ts`
   Reuse or create delegated account, create delegated order, cancel by id, cancel all
+
+- `delegated-fok-order.ts`
+  Reuse or create delegated account, submit a delegated FOK BUY order, and inspect whether it matched or auto-cancelled
 
 - `websocket-hmac.ts`
   HMAC-authenticated websocket positions and transactions
@@ -56,6 +62,8 @@ From the SDK root:
 npx tsx docs/code-samples/api-key-v3/api-tokens.ts
 npx tsx docs/code-samples/api-key-v3/partner-account.ts
 npx tsx docs/code-samples/api-key-v3/e2e-flow.ts
+npx tsx docs/code-samples/api-key-v3/e2e-fok-flow.ts
 npx tsx docs/code-samples/api-key-v3/delegated-order.ts
+npx tsx docs/code-samples/api-key-v3/delegated-fok-order.ts
 npx tsx docs/code-samples/api-key-v3/websocket-hmac.ts
 ```

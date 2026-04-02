@@ -139,6 +139,16 @@ Walk through the partner sequence end-to-end: read capabilities, derive an HMAC 
 npx tsx docs/code-samples/api-key-v3/e2e-flow.ts
 ```
 
+### Partner E2E FOK Flow
+**File**: `api-key-v3/e2e-fok-flow.ts`
+
+Walk through the partner sequence end-to-end for delegated `FOK` trading: read capabilities, derive an HMAC token, create a server-wallet child account, remind the operator to fund it, then place a delegated `FOK` BUY order without a cleanup step.
+
+**Run**:
+```bash
+npx tsx docs/code-samples/api-key-v3/e2e-fok-flow.ts
+```
+
 ### Delegated Order Flow
 **File**: `api-key-v3/delegated-order.ts`
 
@@ -147,6 +157,16 @@ Create delegated orders with `onBehalfOf`, cancel by order id, and cancel all fo
 **Run**:
 ```bash
 npx tsx docs/code-samples/api-key-v3/delegated-order.ts
+```
+
+### Delegated FOK Order Flow
+**File**: `api-key-v3/delegated-fok-order.ts`
+
+Create a delegated `FOK` BUY order with `onBehalfOf` and inspect whether it matched immediately or auto-cancelled.
+
+**Run**:
+```bash
+npx tsx docs/code-samples/api-key-v3/delegated-fok-order.ts
 ```
 
 ### WebSocket with HMAC
