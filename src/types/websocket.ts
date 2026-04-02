@@ -4,6 +4,7 @@
  */
 
 import type { OrderbookEntry } from './markets';
+import type { HMACCredentials } from './api-tokens';
 
 // Re-export OrderbookEntry for convenience
 export type { OrderbookEntry };
@@ -29,6 +30,14 @@ export interface WebSocketConfig {
    * and the LIMITLESS_API_KEY environment variable.
    */
   apiKey?: string;
+
+  /**
+   * HMAC credentials for authenticated subscriptions.
+   *
+   * @remarks
+   * When configured alongside `apiKey`, this client uses HMAC headers for authenticated subscriptions.
+   */
+  hmacCredentials?: HMACCredentials;
 
   /**
    * Auto-reconnect on connection loss (default: true)
@@ -243,6 +252,44 @@ export interface TransactionEvent {
 }
 
 /**
+ * Market-created websocket event payload.
+ *
+ * @public
+ */
+export interface MarketCreatedEvent {
+  /** Market slug identifier */
+  slug: string;
+  /** Human-readable market title */
+  title: string;
+  /** Market venue type */
+  type: 'AMM' | 'CLOB';
+  /** Group market slug when this market belongs to a group */
+  groupSlug?: string;
+  /** Category identifiers when provided by the backend */
+  categoryIds?: number[];
+  /** Market creation timestamp */
+  createdAt: Date | number | string;
+}
+
+/**
+ * Market-resolved websocket event payload.
+ *
+ * @public
+ */
+export interface MarketResolvedEvent {
+  /** Market slug identifier */
+  slug: string;
+  /** Market venue type */
+  type: 'AMM' | 'CLOB';
+  /** Winning outcome label */
+  winningOutcome: 'YES' | 'NO';
+  /** Winning outcome index */
+  winningIndex: 0 | 1;
+  /** Resolution timestamp */
+  resolutionDate: Date | number | string;
+}
+
+/**
  * WebSocket event types.
  * @public
  */
@@ -296,6 +343,16 @@ export interface WebSocketEvents {
    * Market updates
    */
   market: (data: MarketUpdate) => void;
+
+  /**
+   * Market-created lifecycle events.
+   */
+  marketCreated: (data: MarketCreatedEvent) => void;
+
+  /**
+   * Market-resolved lifecycle events.
+   */
+  marketResolved: (data: MarketResolvedEvent) => void;
 
   /**
    * Position updates

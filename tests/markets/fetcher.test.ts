@@ -159,4 +159,5 @@ describe('MarketFetcher', () => {
       expect(result.totalMarketsCount).toBe(16);
     });
   });
+
 });

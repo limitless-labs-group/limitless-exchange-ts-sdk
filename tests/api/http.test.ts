@@ -3,6 +3,14 @@ import { HttpClient } from '../../src/api/http';
 import { APIError } from '../../src/api/errors';
 
 describe('HttpClient.getRaw', () => {
+  it('sets SDK tracking headers by default', () => {
+    const client = new HttpClient({ baseURL: 'https://api.limitless.exchange' });
+    const headersJson = JSON.stringify((client as any).client.defaults.headers).toLowerCase();
+
+    expect(headersJson).toContain('x-sdk-version');
+    expect(headersJson).toContain('lmts-sdk-ts/');
+  });
+
   it('throws typed APIError for 4xx even if validateStatus allows it', async () => {
     const client = new HttpClient({ baseURL: 'https://api.limitless.exchange' });
 
@@ -40,5 +48,45 @@ describe('HttpClient.getRaw', () => {
     expect(response.status).toBe(301);
     expect((response.headers as any).location).toBe('/crypto');
   });
-});
 
+  it('injects X-API-Key when API-key auth is configured without HMAC', async () => {
+    const client = new HttpClient({
+      baseURL: 'https://api.limitless.exchange',
+      apiKey: 'api-key-value',
+    });
+
+    let capturedConfig: any;
+    (client as any).client.defaults.adapter = async (config: any) => {
+      capturedConfig = config;
+      return {
+        data: { ok: true },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config,
+      };
+    };
+
+    await client.post('/orders', { foo: 'bar' });
+
+    const headers = typeof capturedConfig.headers?.toJSON === 'function'
+      ? capturedConfig.headers.toJSON()
+      : capturedConfig.headers;
+
+    expect(headers['X-API-Key']).toBe('api-key-value');
+    expect(headers['lmts-api-key']).toBeUndefined();
+    expect(headers['lmts-timestamp']).toBeUndefined();
+    expect(headers['lmts-signature']).toBeUndefined();
+  });
+
+  it('treats cookie auth in additional headers as authenticated transport', () => {
+    const client = new HttpClient({
+      baseURL: 'https://api.limitless.exchange',
+      additionalHeaders: {
+        Cookie: 'limitless_session=test-cookie',
+      },
+    });
+
+    expect(() => client.requireAuth('adminOperation')).not.toThrow();
+  });
+});

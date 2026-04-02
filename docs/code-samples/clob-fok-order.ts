@@ -19,15 +19,13 @@ import {
   Side,
   OrderType,
   ConsoleLogger,
-  getContractAddress,
 } from '@limitless-exchange/sdk';
 
 // Load environment variables
 config();
 
 // Configuration constants
-const API_URL = process.env.API_URL;
-const CHAIN_ID = parseInt(process.env.CHAIN_ID); // Base mainnet
+const API_URL = process.env.API_URL || 'https://api.limitless.exchange';
 
 async function main() {
   console.log('🚀 FOK (Fill-or-Kill) Order Placement Example\n');
@@ -35,7 +33,6 @@ async function main() {
   // Show configuration
   console.log('⚙️  Configuration:');
   console.log(`   API URL: ${API_URL}`);
-  console.log(`   Chain ID: ${CHAIN_ID}`);
 
   // Validate API key
   const apiKey = process.env.LIMITLESS_API_KEY;

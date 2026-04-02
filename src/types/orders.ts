@@ -315,8 +315,11 @@ export interface CreatedOrder {
 
   /**
    * Unique salt for order identification
+   *
+   * @remarks
+   * May be returned as a string when value exceeds JavaScript safe integer range.
    */
-  salt: number;
+  salt: number | string;
 
   /**
    * Maker address

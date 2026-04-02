@@ -5,6 +5,8 @@
 
 import { io, Socket } from 'socket.io-client';
 import { DEFAULT_WS_URL } from '../utils/constants';
+import { buildWebSocketTrackingHeaders } from '../utils/sdk-tracking';
+import { computeHMACSignature } from '../api/hmac';
 import {
   WebSocketState,
   type WebSocketConfig,
@@ -14,6 +16,16 @@ import {
 } from '../types/websocket';
 import type { ILogger } from '../types/logger';
 import { NoOpLogger } from '../types/logger';
+
+interface ResolvedWebSocketConfig {
+  url: string;
+  apiKey: string;
+  hmacCredentials?: WebSocketConfig['hmacCredentials'];
+  autoReconnect: boolean;
+  reconnectDelay: number;
+  maxReconnectAttempts: number;
+  timeout: number;
+}
 
 /**
  * WebSocket client for real-time data streaming from Limitless Exchange.
@@ -58,7 +70,7 @@ import { NoOpLogger } from '../types/logger';
  */
 export class WebSocketClient {
   private socket: Socket | null = null;
-  private config: Required<WebSocketConfig>;
+  private config: ResolvedWebSocketConfig;
   private logger: ILogger;
   private state: WebSocketState = WebSocketState.DISCONNECTED;
   private reconnectAttempts = 0;
@@ -75,6 +87,7 @@ export class WebSocketClient {
     this.config = {
       url: config.url || DEFAULT_WS_URL,
       apiKey: config.apiKey || process.env.LIMITLESS_API_KEY || '',
+      hmacCredentials: config.hmacCredentials,
       autoReconnect: config.autoReconnect ?? true,
       reconnectDelay: config.reconnectDelay || 1000,
       maxReconnectAttempts: config.maxReconnectAttempts || Infinity,
@@ -117,6 +130,36 @@ export class WebSocketClient {
     if (this.socket?.connected) {
       this.logger.info('API key updated, reconnecting...');
       // Schedule async reconnection without blocking
+      this.reconnectWithNewAuth();
+    }
+  }
+
+  /**
+   * Sets HMAC credentials for authenticated subscriptions.
+   *
+   * @remarks
+   * When configured alongside `apiKey`, this client uses HMAC headers for authenticated subscriptions.
+   */
+  setHMACCredentials(hmacCredentials: NonNullable<WebSocketConfig['hmacCredentials']>): void {
+    this.config.hmacCredentials = {
+      tokenId: hmacCredentials.tokenId,
+      secret: hmacCredentials.secret,
+    };
+
+    if (this.socket?.connected) {
+      this.logger.info('HMAC credentials updated, reconnecting...');
+      this.reconnectWithNewAuth();
+    }
+  }
+
+  /**
+   * Clears HMAC credentials.
+   */
+  clearHMACCredentials(): void {
+    this.config.hmacCredentials = undefined;
+
+    if (this.socket?.connected) {
+      this.logger.info('HMAC credentials cleared, reconnecting...');
       this.reconnectWithNewAuth();
     }
   }
@@ -171,13 +214,33 @@ export class WebSocketClient {
         randomizationFactor: 0.2, // Add jitter to prevent thundering herd
         timeout: this.config.timeout,
       };
+      const extraHeaders = buildWebSocketTrackingHeaders();
 
-      // Add API key to headers if provided
-      // Required for authenticated subscriptions (positions, transactions)
-      if (this.config.apiKey) {
+      if (this.config.hmacCredentials) {
+        const timestamp = new Date().toISOString();
+        const signature = computeHMACSignature(
+          this.config.hmacCredentials.secret,
+          timestamp,
+          'GET',
+          '/socket.io/?EIO=4&transport=websocket',
+          '',
+        );
+
         socketOptions.extraHeaders = {
+          ...extraHeaders,
+          'lmts-api-key': this.config.hmacCredentials.tokenId,
+          'lmts-timestamp': timestamp,
+          'lmts-signature': signature,
+        };
+      } else if (this.config.apiKey) {
+        // Add API key to headers if provided
+        // Required for authenticated subscriptions (positions, transactions)
+        socketOptions.extraHeaders = {
+          ...extraHeaders,
           'X-API-Key': this.config.apiKey,
         };
+      } else if (Object.keys(extraHeaders).length > 0) {
+        socketOptions.extraHeaders = extraHeaders;
       }
 
       // Connect to base URL with /markets namespace
@@ -264,11 +327,10 @@ export class WebSocketClient {
       'subscribe_positions',
       'subscribe_transactions',
     ];
-    if (authenticatedChannels.includes(channel) && !this.config.apiKey) {
+    if (authenticatedChannels.includes(channel) && !this.config.apiKey && !this.config.hmacCredentials) {
       throw new Error(
-        `API key is required for '${channel}' subscription. ` +
-          'Please provide an API key in the constructor or set LIMITLESS_API_KEY environment variable. ' +
-          'You can generate an API key at https://limitless.exchange'
+        `Authentication is required for '${channel}' subscription. ` +
+          'Please provide either apiKey or hmacCredentials when creating the WebSocket client.'
       );
     }
 

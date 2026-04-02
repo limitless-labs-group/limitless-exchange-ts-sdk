@@ -5,6 +5,58 @@ All notable changes to the Limitless Exchange TypeScript SDK will be documented 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [1.0.4]
+
+### Added
+
+- API key v3 / HMAC authentication support in the shared `HttpClient`.
+- New HMAC signing helper utilities for scoped API-token requests.
+- New root OOP `Client` entrypoint that composes:
+  - market fetching
+  - portfolio access
+  - market pages
+  - API-token services
+  - partner-account creation
+  - delegated-order operations
+- New partner self-service API-token services:
+  - `ApiTokenService`
+- New partner-account creation service:
+  - `PartnerAccountService`
+- New delegated-order service:
+  - `DelegatedOrderService`
+  - delegated create-order flow
+  - delegated cancel by order id
+  - delegated cancel all by market
+- New API-token, partner-account, and delegated-order type definitions.
+- WebSocket HMAC authentication support for authenticated subscriptions.
+- Dedicated unit coverage for:
+  - HMAC request signing
+  - HTTP auth-mode selection
+  - API-token services
+  - partner-account service
+  - delegated-order service
+  - root `Client` composition
+  - WebSocket HMAC propagation
+- Dedicated API key v3 docs samples under `docs/code-samples/api-key-v3/` covering:
+  - capabilities + derive token + HMAC portfolio flow
+  - partner child-account creation
+  - delegated order create/cancel flows
+  - HMAC-authenticated WebSocket subscriptions
+
+### Changed
+
+- API-key authentication via `X-API-Key` remains fully supported and is now documented as a first-class auth mode alongside HMAC.
+- Partner-account creation now targets `POST /profiles/partner-accounts` with optional public `displayName` instead of the older `label` payload field; omitted `displayName` defaults to the account address server-side.
+- Self-service token derivation continues to use token `label` as token metadata only; it does not set profile `displayName`.
+- `HttpClient.requireAuth()` now also accepts cookie/header-based authenticated transport for custom authenticated flows.
+- WebSocket auth documentation now reflects API key and HMAC as parallel supported auth modes instead of framing API-key auth as second-class.
+- README and api-token v3 docs now clarify that partner HMAC credentials are intended for backend/BFF usage; browser apps should keep public reads in the frontend and route partner-authenticated actions through their own backend.
+- Improved `OrderClient.createOrder()` response handling for IEEE 754-safe numeric parsing.
+- Added numeric coercion helpers so order payload numeric fields returned as strings are accepted.
+- Normalized create-order response fields focused on trading precision: `makerAmount`, `takerAmount`, `price`, and safe-integer `salt` handling.
+
 ## [1.0.3]
 
 ### Added

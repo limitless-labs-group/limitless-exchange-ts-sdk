@@ -1,10 +1,20 @@
-import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosResponseHeaders, RawAxiosResponseHeaders } from 'axios';
+import axios, {
+  AxiosInstance,
+  AxiosRequestConfig,
+  AxiosResponse,
+  AxiosResponseHeaders,
+  InternalAxiosRequestConfig,
+  RawAxiosResponseHeaders,
+} from 'axios';
 import http from 'http';
 import https from 'https';
 import { DEFAULT_API_URL } from '../utils/constants';
+import { buildSdkTrackingHeaders } from '../utils/sdk-tracking';
 import { APIError, RateLimitError, AuthenticationError, ValidationError } from './errors';
 import type { ILogger } from '../types/logger';
 import { NoOpLogger } from '../types/logger';
+import type { HMACCredentials } from '../types/api-tokens';
+import { computeHMACSignature } from './hmac';
 
 /**
  * Configuration options for the HTTP client.
@@ -30,6 +40,14 @@ export interface HttpClientConfig {
    * Required for authenticated endpoints (portfolio, orders, etc.)
    */
   apiKey?: string;
+
+  /**
+   * HMAC credentials for scoped API-token authentication.
+   *
+   * @remarks
+   * When configured alongside `apiKey`, this client uses HMAC headers for authenticated requests.
+   */
+  hmacCredentials?: HMACCredentials;
 
   /**
    * Optional logger for debugging
@@ -128,6 +146,7 @@ export interface HttpRawResponse<T = any> {
 export class HttpClient {
   private client: AxiosInstance;
   private apiKey?: string;
+  private hmacCredentials?: HMACCredentials;
   private logger: ILogger;
 
   /**
@@ -137,12 +156,18 @@ export class HttpClient {
    */
   constructor(config: HttpClientConfig = {}) {
     this.apiKey = config.apiKey || process.env.LIMITLESS_API_KEY;
+    this.hmacCredentials = config.hmacCredentials
+      ? {
+          tokenId: config.hmacCredentials.tokenId,
+          secret: config.hmacCredentials.secret,
+        }
+      : undefined;
     this.logger = config.logger || new NoOpLogger();
 
-    if (!this.apiKey) {
+    if (!this.apiKey && !this.hmacCredentials) {
       this.logger.warn(
-        'API key not set. Authenticated endpoints will fail. ' +
-        'Set LIMITLESS_API_KEY environment variable or pass apiKey parameter.'
+        'Authentication not set. Authenticated endpoints will fail. ' +
+        'Set LIMITLESS_API_KEY environment variable, pass apiKey, or configure hmacCredentials.'
       );
     }
 
@@ -176,6 +201,7 @@ export class HttpClient {
       headers: {
         'Content-Type': 'application/json',
         Accept: 'application/json',
+        ...buildSdkTrackingHeaders(),
         ...config.additionalHeaders,
       },
     });
@@ -196,27 +222,50 @@ export class HttpClient {
    */
   private setupInterceptors(): void {
     this.client.interceptors.request.use(
-      (config) => {
-        if (this.apiKey) {
-          config.headers['X-API-Key'] = this.apiKey;
+      (rawConfig: InternalAxiosRequestConfig & { identityToken?: string }) => {
+        const config = rawConfig as InternalAxiosRequestConfig & { identityToken?: string; headers: any };
+        const headers = (config.headers ||= {});
+        const identityToken = config.identityToken;
+
+        delete (headers as any)['X-API-Key'];
+        delete (headers as any)['lmts-api-key'];
+        delete (headers as any)['lmts-timestamp'];
+        delete (headers as any)['lmts-signature'];
+        delete (headers as any).identity;
+
+        if (identityToken) {
+          (headers as any).identity = `Bearer ${identityToken}`;
+        } else if (this.hmacCredentials) {
+          const requestPath = this.getRequestPath(config);
+          const requestBody = this.getRequestBodyForSignature(config.data);
+          const timestamp = new Date().toISOString();
+          const signature = computeHMACSignature(
+            this.hmacCredentials.secret,
+            timestamp,
+            config.method || 'GET',
+            requestPath,
+            requestBody,
+          );
+
+          (headers as any)['lmts-api-key'] = this.hmacCredentials.tokenId;
+          (headers as any)['lmts-timestamp'] = timestamp;
+          (headers as any)['lmts-signature'] = signature;
+        } else if (this.apiKey) {
+          (headers as any)['X-API-Key'] = this.apiKey;
         }
 
         // Log outgoing request - concise format
         const fullUrl = `${config.baseURL || ''}${config.url || ''}`;
         const method = config.method?.toUpperCase() || 'GET';
 
-        // Hide API key in logs for security
-        const logHeaders = { ...config.headers };
-        if (logHeaders['X-API-Key']) {
-          logHeaders['X-API-Key'] = '***';
-        }
+        const logHeaders = this.maskSensitiveHeaders(headers as Record<string, unknown>);
 
         this.logger.debug(`→ ${method} ${fullUrl}`, {
           headers: logHeaders,
           body: config.data,
         });
 
-        return config;
+        return rawConfig;
       },
       (error) => Promise.reject(error)
     );
@@ -357,10 +406,100 @@ export class HttpClient {
   }
 
   /**
+   * Returns the configured API key, if any.
+   */
+  getApiKey(): string | undefined {
+    return this.apiKey;
+  }
+
+  /**
    * Clears the API key.
    */
   clearApiKey(): void {
     this.apiKey = undefined;
+  }
+
+  /**
+   * Sets HMAC credentials for scoped API-token authentication.
+   */
+  setHMACCredentials(credentials: HMACCredentials): void {
+    this.hmacCredentials = {
+      tokenId: credentials.tokenId,
+      secret: credentials.secret,
+    };
+  }
+
+  /**
+   * Clears HMAC credentials.
+   */
+  clearHMACCredentials(): void {
+    this.hmacCredentials = undefined;
+  }
+
+  /**
+   * Returns a copy of the configured HMAC credentials, if any.
+   */
+  getHMACCredentials(): HMACCredentials | undefined {
+    if (!this.hmacCredentials) {
+      return undefined;
+    }
+
+    return {
+      tokenId: this.hmacCredentials.tokenId,
+      secret: this.hmacCredentials.secret,
+    };
+  }
+
+  /**
+   * Returns the logger attached to this HTTP client.
+   */
+  getLogger(): ILogger {
+    return this.logger;
+  }
+
+  /**
+   * Returns true when cookie/header-based auth is configured on the underlying client.
+   * This is primarily used for custom authenticated flows that don't use API keys or HMAC.
+   */
+  private hasConfiguredHeaderAuth(): boolean {
+    const defaultHeaders = this.client.defaults.headers as
+      | (Record<string, unknown> & { common?: Record<string, unknown> })
+      | undefined;
+
+    const candidates = [defaultHeaders?.common, defaultHeaders];
+
+    for (const headers of candidates) {
+      if (!headers) {
+        continue;
+      }
+
+      const authValues = [
+        headers.Cookie,
+        headers.cookie,
+        headers.Authorization,
+        headers.authorization,
+        headers.identity,
+      ];
+
+      if (authValues.some((value) => typeof value === 'string' && value.trim() !== '')) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Ensures the client has some authenticated transport configured.
+   */
+  requireAuth(operation: string): void {
+    if (this.apiKey || this.hmacCredentials || this.hasConfiguredHeaderAuth()) {
+      return;
+    }
+
+    throw new Error(
+      `Authentication is required for ${operation}; pass apiKey, hmacCredentials, cookie/auth headers, or set LIMITLESS_API_KEY.`,
+    );
   }
 
   /**
@@ -372,6 +511,17 @@ export class HttpClient {
    */
   async get<T = any>(url: string, config?: AxiosRequestConfig): Promise<T> {
     const response: AxiosResponse<T> = await this.client.get(url, config);
+    return response.data;
+  }
+
+  /**
+   * Performs a GET request with identity-token authentication.
+   */
+  async getWithIdentity<T = any>(url: string, identityToken: string, config?: AxiosRequestConfig): Promise<T> {
+    const response: AxiosResponse<T> = await this.client.get(url, {
+      ...config,
+      identityToken,
+    } as AxiosRequestConfig & { identityToken: string });
     return response.data;
   }
 
@@ -416,6 +566,49 @@ export class HttpClient {
   }
 
   /**
+   * Performs a POST request with identity-token authentication.
+   */
+  async postWithIdentity<T = any>(
+    url: string,
+    identityToken: string,
+    data?: any,
+    config?: AxiosRequestConfig,
+  ): Promise<T> {
+    const response: AxiosResponse<T> = await this.client.post(url, data, {
+      ...config,
+      identityToken,
+    } as AxiosRequestConfig & { identityToken: string });
+    return response.data;
+  }
+
+  /**
+   * Performs a POST request with additional per-request headers.
+   */
+  async postWithHeaders<T = any>(
+    url: string,
+    data?: any,
+    headers?: Record<string, string>,
+    config?: AxiosRequestConfig,
+  ): Promise<T> {
+    const response: AxiosResponse<T> = await this.client.post(url, data, {
+      ...config,
+      headers: {
+        ...(config?.headers || {}),
+        ...(headers || {}),
+      },
+    });
+    return response.data;
+  }
+
+  /**
+   * Performs a PATCH request.
+   */
+  async patch<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> {
+    const response: AxiosResponse<T> = await this.client.patch(url, data, config);
+    return response.data;
+  }
+
+  /**
    * Performs a DELETE request.
    *
    * @remarks
@@ -438,5 +631,32 @@ export class HttpClient {
 
     const response: AxiosResponse<T> = await this.client.delete(url, deleteConfig);
     return response.data;
+  }
+
+  private getRequestPath(config: AxiosRequestConfig): string {
+    const resolved = new URL(config.url || '', config.baseURL || this.client.defaults.baseURL || DEFAULT_API_URL);
+    return `${resolved.pathname}${resolved.search}`;
+  }
+
+  private getRequestBodyForSignature(data: unknown): string {
+    if (data === undefined || data === null || data === '') {
+      return '';
+    }
+
+    if (typeof data === 'string') {
+      return data;
+    }
+
+    return JSON.stringify(data);
+  }
+
+  private maskSensitiveHeaders(headers: Record<string, unknown>): Record<string, unknown> {
+    const masked = { ...headers };
+    for (const key of ['X-API-Key', 'lmts-api-key', 'lmts-timestamp', 'lmts-signature', 'identity']) {
+      if (masked[key] !== undefined) {
+        masked[key] = key === 'identity' ? 'Bearer ***' : '***';
+      }
+    }
+    return masked;
   }
 }

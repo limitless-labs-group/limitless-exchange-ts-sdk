@@ -11,15 +11,21 @@ cp .env.example .env
 
 2. Configure your `.env` file:
 ```env
-# Required for authenticated endpoints
+# Common example inputs
 LIMITLESS_API_KEY=your_api_key_here
 PRIVATE_KEY=your_private_key_here
-
-# Optional - customize market slug (works for both CLOB and NegRisk markets)
 MARKET_SLUG=bitcoin-2024
+```
 
-# Optional - for trading examples
-PLACE_ORDER=false  # Set to true to enable actual order placement
+Optional example-runner overrides:
+```env
+# Only needed when you want a non-default environment
+# API_URL=https://api.limitless.exchange
+# WS_URL=wss://ws.limitless.exchange
+# CHAIN_ID=8453
+
+# Script-only toggles used by specific examples
+# PLACE_ORDER=false
 ```
 
 3. Run examples:
@@ -95,6 +101,82 @@ Authentication with automatic retry on failures.
 **Run**:
 ```bash
 npx tsx docs/code-samples/auth-retry.ts
+```
+
+## API Key V3 / HMAC Examples
+
+Dedicated examples for partner self-service tokens, HMAC auth, and delegated trading live under [`api-key-v3/`](./api-key-v3/README.md).
+
+These values are used only by the example scripts. They are not required SDK globals. In normal SDK usage, you pass config directly to `HttpClient`, `WebSocketClient`, or the root `Client`.
+
+### Token Derivation + HMAC Portfolio
+**File**: `api-key-v3/api-tokens.ts`
+
+Derive a scoped token from a Privy identity token, use HMAC auth against portfolio endpoints, list active derived tokens, and optionally revoke the token.
+
+**Run**:
+```bash
+npx tsx docs/code-samples/api-key-v3/api-tokens.ts
+```
+
+### Partner Account Creation
+**File**: `api-key-v3/partner-account.ts`
+
+Create a partner-owned child account with `createServerWallet=true` using a scoped api-token.
+
+**Run**:
+```bash
+npx tsx docs/code-samples/api-key-v3/partner-account.ts
+```
+
+### Partner E2E Flow
+**File**: `api-key-v3/e2e-flow.ts`
+
+Walk through the partner sequence end-to-end: read capabilities, derive an HMAC token, create a server-wallet child account, remind the operator to fund it, then place and cancel a delegated order.
+
+**Run**:
+```bash
+npx tsx docs/code-samples/api-key-v3/e2e-flow.ts
+```
+
+### Partner E2E FOK Flow
+**File**: `api-key-v3/e2e-fok-flow.ts`
+
+Walk through the partner sequence end-to-end for delegated `FOK` trading: read capabilities, derive an HMAC token, create a server-wallet child account, remind the operator to fund it, then place a delegated `FOK` BUY order without a cleanup step.
+
+**Run**:
+```bash
+npx tsx docs/code-samples/api-key-v3/e2e-fok-flow.ts
+```
+
+### Delegated Order Flow
+**File**: `api-key-v3/delegated-order.ts`
+
+Create delegated orders with `onBehalfOf`, cancel by order id, and cancel all for the market.
+
+**Run**:
+```bash
+npx tsx docs/code-samples/api-key-v3/delegated-order.ts
+```
+
+### Delegated FOK Order Flow
+**File**: `api-key-v3/delegated-fok-order.ts`
+
+Create a delegated `FOK` BUY order with `onBehalfOf` and inspect whether it matched immediately or auto-cancelled.
+
+**Run**:
+```bash
+npx tsx docs/code-samples/api-key-v3/delegated-fok-order.ts
+```
+
+### WebSocket with HMAC
+**File**: `api-key-v3/websocket-hmac.ts`
+
+Connect to authenticated websocket channels using HMAC credentials instead of `X-API-Key`.
+
+**Run**:
+```bash
+npx tsx docs/code-samples/api-key-v3/websocket-hmac.ts
 ```
 
 ## Market Data Examples
@@ -346,9 +428,12 @@ const updatedOrders = await market.getUserOrders();
 |----------|-------------|----------|---------|
 | `LIMITLESS_API_KEY` | Your API key for authentication | For authenticated endpoints | - |
 | `PRIVATE_KEY` | Wallet private key for order signing | For trading | - |
-| `API_URL` | API base URL | No | `https://api.limitless.exchange` |
-| `CHAIN_ID` | Blockchain chain ID | No | `8453` (Base) |
 | `MARKET_SLUG` | Market slug for examples (works for both CLOB and NegRisk) | No | `bitcoin-2024` |
+| `LIMITLESS_IDENTITY_TOKEN` | Privy identity token for partner api-key-v3 examples | No | - |
+| `PARTNER_NAME` | Partner identifier used by api-key-v3 runtime files | No | `partner-a` |
+| `API_URL` | Example-only API base URL override | No | `https://api.limitless.exchange` |
+| `WS_URL` | Example-only websocket URL override | No | `wss://ws.limitless.exchange` |
+| `CHAIN_ID` | Example-only chain override for approval / NegRisk scripts | No | `8453` (Base) |
 | `PLACE_ORDER` | Enable actual order placement | No | `false` |
 
 **Note**: User ID and fee rate are automatically fetched from your profile API on first order creation.

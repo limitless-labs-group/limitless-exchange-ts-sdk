@@ -1,10 +1,10 @@
 # Limitless Exchange TypeScript SDK
 
-**v1.0.2 LTS (Long-Term Support)** | Production-Ready | Type-Safe | Fully Documented
+**v1.0.4** | Production-Ready | Type-Safe | Fully Documented
 
 A TypeScript SDK for interacting with the Limitless Exchange platform, providing type-safe access to CLOB and NegRisk prediction markets.
 
-> 🎉 **v1.0.2 LTS Release**: This is the first stable, production-ready release with long-term support. Recommended for all production deployments. See [Changelog](#changelog) for details.
+> 🎉 **v1.0.4 Release**: Adds IEEE-aware numeric parsing improvements for `createOrder()` response payload fields (`makerAmount`, `takerAmount`, `price`, `salt`) when API returns numeric strings. See [Changelog](#changelog) for details.
 
 ## ⚠️ Disclaimer
 
@@ -41,6 +41,7 @@ For production use, we strongly recommend:
 - ✅ **NegRisk Markets**: Full support for group markets with multiple outcomes
 - ✅ **Error Handling & Retry**: Automatic retry logic for rate limits and transient failures
 - ✅ **Type Safety**: Full TypeScript support with comprehensive type definitions
+- ✅ **IEEE-Safe Order Payload Parsing**: `createOrder()` handles `makerAmount`, `takerAmount`, `price`, and `salt` returned as JSON strings
 - ✅ **TSDoc Documentation**: Complete API documentation with examples
 - ✅ **WebSocket**: Real-time price and position updates with API key auth
 
@@ -89,7 +90,7 @@ const page2 = await marketFetcher.getActiveMarkets({
 });
 ```
 
-See [examples/project-integration/src/active-markets.ts](./examples/project-integration/src/active-markets.ts) for more examples.
+See [examples/project-integration/src/active-markets.ts](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/examples/project-integration/src/active-markets.ts) for more examples.
 
 ### Market Pages & Navigation (No Authentication Required)
 
@@ -120,7 +121,7 @@ if ('pagination' in markets) {
 }
 ```
 
-Detailed guide: [docs/market-pages/README.md](./docs/market-pages/README.md)
+Detailed guide: [docs/market-pages/README.md](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/limitless-exchange-sdk/docs/market-pages/README.md)
 
 ### Authentication
 
@@ -156,6 +157,21 @@ LIMITLESS_API_KEY=sk_live_your_api_key_here
 # REQUIRED: Private key for order signing (EIP-712)
 PRIVATE_KEY=0x...
 ```
+
+### Partner API Token v3 / HMAC Usage
+
+The SDK also supports partner-scoped HMAC credentials for api-token v3 workflows such as token self-service, partner-account creation, and delegated trading.
+
+Use HMAC credentials only in a backend or BFF service. Do not expose partner HMAC secrets in browser bundles, frontend environment variables, or client-side storage.
+
+Recommended setup:
+
+- Keep public market and market-page reads in the browser.
+- Store the real HMAC `tokenId` / `secret` on your backend.
+- Use this SDK server-side to sign partner-authenticated requests.
+- Expose only your own app-specific endpoints to the frontend.
+
+See [`docs/code-samples/api-key-v3/`](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/tree/main/limitless-exchange-sdk/docs/code-samples/api-key-v3) for the partner HMAC examples.
 
 ### Token Approvals
 
@@ -220,7 +236,7 @@ if (market.negRiskRequestId) {
 }
 ```
 
-For complete examples, see [docs/code-samples/setup-approvals.ts](./docs/code-samples/setup-approvals.ts).
+For complete examples, see [docs/code-samples/setup-approvals.ts](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/limitless-exchange-sdk/docs/code-samples/setup-approvals.ts).
 
 ### Trading on NegRisk Markets
 
@@ -256,7 +272,7 @@ const order = await orderClient.createOrder({
 
 **Important**: Always use the **submarket slug** for NegRisk orders, not the group market slug!
 
-For more details, see the [NegRisk Trading Guide](./docs/orders/README.md#negrisk-markets).
+For more details, see the [NegRisk Trading Guide](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/limitless-exchange-sdk/docs/orders/README.md#negrisk-markets).
 
 ### FOK Orders (Fill-or-Kill Market Orders)
 
@@ -303,7 +319,7 @@ if (buyOrder.makerMatches && buyOrder.makerMatches.length > 0) {
 - All-or-nothing execution (no partial fills)
 - Best for immediate execution at market price
 
-For complete examples, see [docs/code-samples/clob-fok-order.ts](./docs/code-samples/clob-fok-order.ts).
+For complete examples, see [docs/code-samples/clob-fok-order.ts](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/limitless-exchange-sdk/docs/code-samples/clob-fok-order.ts).
 
 ### Error Handling & Retry
 
@@ -343,7 +359,7 @@ class TradingService {
 - Callback hooks for monitoring retry attempts
 - Three approaches: decorator, wrapper function, or global client wrapper
 
-For detailed documentation, see the [Error Handling & Retry Guide](./docs/api/README.md).
+For detailed documentation, see the [Error Handling & Retry Guide](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/limitless-exchange-sdk/docs/api/README.md).
 
 ## API Documentation
 
@@ -370,20 +386,20 @@ await httpClient.post('/endpoint', { data });
 
 ## Documentation
 
-For detailed documentation, see the [docs](./docs) directory:
+For detailed documentation, see the [docs](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/tree/main/limitless-exchange-sdk/docs) directory:
 
-- **[Complete Documentation](./docs/README.md)** - Full SDK documentation
-- **[Authentication Guide](./docs/api/README.md)** - API key authentication and HTTP client
-- **[Trading & Orders](./docs/orders/README.md)** - Order creation, management, and NegRisk markets
-- **[Market Data](./docs/markets/README.md)** - Market discovery and orderbook access
-- **[Portfolio & Positions](./docs/portfolio/README.md)** - Position tracking and user history
-- **[WebSocket Streaming](./docs/websocket/README.md)** - Real-time data updates
-- **[Error Handling & Retry](./docs/api/README.md)** - API error handling and retry mechanisms
-- **[Logging](./docs/logging/LOGGING.md)** - Logging configuration
+- **[Complete Documentation](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/limitless-exchange-sdk/docs/README.md)** - Full SDK documentation
+- **[Authentication Guide](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/limitless-exchange-sdk/docs/api/README.md)** - API key authentication and HTTP client
+- **[Trading & Orders](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/limitless-exchange-sdk/docs/orders/README.md)** - Order creation, management, and NegRisk markets
+- **[Market Data](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/limitless-exchange-sdk/docs/markets/README.md)** - Market discovery and orderbook access
+- **[Portfolio & Positions](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/limitless-exchange-sdk/docs/portfolio/README.md)** - Position tracking and user history
+- **[WebSocket Streaming](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/limitless-exchange-sdk/docs/websocket/README.md)** - Real-time data updates
+- **[Error Handling & Retry](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/limitless-exchange-sdk/docs/api/README.md)** - API error handling and retry mechanisms
+- **[Logging](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/limitless-exchange-sdk/docs/logging/LOGGING.md)** - Logging configuration
 
 ## Code Examples
 
-Production-ready code samples are available in [docs/code-samples](./docs/code-samples):
+Production-ready code samples are available in [docs/code-samples](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/tree/main/limitless-exchange-sdk/docs/code-samples):
 
 ### Authentication Examples
 
@@ -482,11 +498,11 @@ docs/
 
 ## Changelog
 
-### v1.0.2 (LTS - Long-Term Support Release)
+### v1.0.4
 
-**Release Date**: January 2026
+**Release Date**: March 2026
 
-This is the first stable, production-ready release of the Limitless Exchange TypeScript SDK, designated as a Long-Term Support (LTS) version.
+Latest release with IEEE-safe numeric parsing improvements focused on `createOrder()` response payload fields.
 
 #### Highlights
 
@@ -497,25 +513,30 @@ This is the first stable, production-ready release of the Limitless Exchange Typ
 - 🔄 **Robust Error Handling**: Automatic retry logic with multiple strategies
 - 🌐 **Real-Time Updates**: WebSocket support for orderbook and position streaming
 - 🎯 **NegRisk Support**: Full support for group markets with multiple outcomes
+- 🧭 **Market Pages API**: Navigation tree, by-path resolver with 301 handling, page-scoped markets, property keys
+- 🔢 **IEEE-Aware CreateOrder Parsing**: Normalizes `makerAmount`, `takerAmount`, `price`, and `salt` when returned as JSON strings
 
 #### Core Features
 
 - **Authentication**: API key authentication, EIP-712 signing, EOA support
 - **Market Data**: Active markets with sorting, orderbook access, venue caching
-- **Order Management**: GTC and FOK orders, tick alignment, automatic signing
+- **Market Pages & Navigation**: `/navigation`, `/market-pages/by-path`, `/market-pages/:id/markets`, `/property-keys`
+- **Order Management**: GTC and FOK orders, tick alignment, automatic signing, IEEE-safe create-order payload parsing
 - **Portfolio**: Position tracking, user history
 - **WebSocket**: Real-time orderbook, price updates, event streaming
 - **Error Handling**: Decorator and wrapper retry patterns, configurable strategies
 - **Token Approvals**: Complete setup script, CLOB and NegRisk workflows
 
-#### Documentation Enhancements (v1.0.2)
+#### Documentation Enhancements (v1.0.4)
 
+- Added release notes for IEEE-safe numeric parsing adjustments
 - Added FOK order examples to README with clear `makerAmount` semantics
 - Created comprehensive CHANGELOG.md following Keep a Changelog format
 - All 17 code samples include step-by-step comments and error handling
 - Detailed guides for authentication, trading, markets, portfolio, and WebSocket
+- Added market-pages guide and README quick-start for navigation-driven discovery
 
-For complete release notes, see [CHANGELOG.md](./CHANGELOG.md).
+For complete release notes, see [CHANGELOG.md](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/limitless-exchange-sdk/CHANGELOG.md).
 
 ---
 
@@ -527,18 +548,6 @@ For complete release notes, see [CHANGELOG.md](./CHANGELOG.md).
 
 ---
 
-## LTS Support Policy
-
-**v1.0.2 LTS** will receive:
-
-- Security updates and critical bug fixes
-- Compatibility maintenance with Limitless Exchange API
-- Community support and issue resolution
-- Documentation updates and improvements
-- Long-term stability for production deployments
-
-**Recommended for production use.** We commit to maintaining backward compatibility and providing timely security updates for this LTS release.
-
 ## License
 
-MIT - See [LICENSE](./LICENSE) file for details
+MIT - See [LICENSE](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/limitless-exchange-sdk/LICENSE) file for details
