@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.4]
+
 ### Added
 
 - API key v3 / HMAC authentication support in the shared `HttpClient`.
@@ -51,11 +53,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `HttpClient.requireAuth()` now also accepts cookie/header-based authenticated transport for custom authenticated flows.
 - WebSocket auth documentation now reflects API key and HMAC as parallel supported auth modes instead of framing API-key auth as second-class.
 - README and api-token v3 docs now clarify that partner HMAC credentials are intended for backend/BFF usage; browser apps should keep public reads in the frontend and route partner-authenticated actions through their own backend.
-
-## [1.0.4]
-
-### Changed
-
 - Improved `OrderClient.createOrder()` response handling for IEEE 754-safe numeric parsing.
 - Added numeric coercion helpers so order payload numeric fields returned as strings are accepted.
 - Normalized create-order response fields focused on trading precision: `makerAmount`, `takerAmount`, `price`, and safe-integer `salt` handling.
