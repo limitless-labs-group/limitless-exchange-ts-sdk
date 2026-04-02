@@ -5,6 +5,7 @@
 
 import { io, Socket } from 'socket.io-client';
 import { DEFAULT_WS_URL } from '../utils/constants';
+import { buildWebSocketTrackingHeaders } from '../utils/sdk-tracking';
 import { computeHMACSignature } from '../api/hmac';
 import {
   WebSocketState,
@@ -213,6 +214,7 @@ export class WebSocketClient {
         randomizationFactor: 0.2, // Add jitter to prevent thundering herd
         timeout: this.config.timeout,
       };
+      const extraHeaders = buildWebSocketTrackingHeaders();
 
       if (this.config.hmacCredentials) {
         const timestamp = new Date().toISOString();
@@ -225,6 +227,7 @@ export class WebSocketClient {
         );
 
         socketOptions.extraHeaders = {
+          ...extraHeaders,
           'lmts-api-key': this.config.hmacCredentials.tokenId,
           'lmts-timestamp': timestamp,
           'lmts-signature': signature,
@@ -233,8 +236,11 @@ export class WebSocketClient {
         // Add API key to headers if provided
         // Required for authenticated subscriptions (positions, transactions)
         socketOptions.extraHeaders = {
+          ...extraHeaders,
           'X-API-Key': this.config.apiKey,
         };
+      } else if (Object.keys(extraHeaders).length > 0) {
+        socketOptions.extraHeaders = extraHeaders;
       }
 
       // Connect to base URL with /markets namespace

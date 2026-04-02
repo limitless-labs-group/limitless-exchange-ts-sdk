@@ -9,42 +9,12 @@ import axios, {
 import http from 'http';
 import https from 'https';
 import { DEFAULT_API_URL } from '../utils/constants';
+import { buildSdkTrackingHeaders } from '../utils/sdk-tracking';
 import { APIError, RateLimitError, AuthenticationError, ValidationError } from './errors';
 import type { ILogger } from '../types/logger';
 import { NoOpLogger } from '../types/logger';
 import type { HMACCredentials } from '../types/api-tokens';
 import { computeHMACSignature } from './hmac';
-
-const SDK_ID = 'lmts-sdk-ts';
-
-function resolveSdkVersion(): string {
-  if (typeof __LMTS_SDK_VERSION__ !== 'undefined' && __LMTS_SDK_VERSION__) {
-    return __LMTS_SDK_VERSION__;
-  }
-
-  return '0.0.0';
-}
-
-function resolveRuntimeToken(): string {
-  if (typeof process !== 'undefined' && process.versions?.node) {
-    return `node/${process.versions.node}`;
-  }
-
-  return 'runtime/unknown';
-}
-
-function buildSdkTrackingHeaders(): Record<string, string> {
-  const sdkVersion = resolveSdkVersion();
-  const headers: Record<string, string> = {
-    'x-sdk-version': `${SDK_ID}/${sdkVersion}`,
-  };
-
-  if (typeof process !== 'undefined' && process.versions?.node) {
-    headers['user-agent'] = `${SDK_ID}/${sdkVersion} (${resolveRuntimeToken()})`;
-  }
-
-  return headers;
-}
 
 /**
  * Configuration options for the HTTP client.

@@ -58,6 +58,9 @@ describe('WebSocketClient HMAC auth', () => {
     expect(ioMock).toHaveBeenCalledTimes(1);
     const [url, options] = ioMock.mock.calls[0];
     expect(url).toBe('wss://ws.limitless.exchange/markets');
+    expect(options.extraHeaders['x-sdk-version']).toMatch(/^lmts-sdk-ts\//);
+    expect(options.extraHeaders['user-agent']).toContain('lmts-sdk-ts/');
+    expect(options.extraHeaders['user-agent']).toContain('(node/');
     expect(options.extraHeaders['lmts-api-key']).toBe('token-1');
     expect(options.extraHeaders['lmts-signature']).toBe(
       computeHMACSignature(
@@ -68,6 +71,48 @@ describe('WebSocketClient HMAC auth', () => {
         '',
       ),
     );
+
+    connectHandler?.();
+    await connectPromise;
+  });
+
+  it('passes sdk tracking headers during websocket connect without auth', async () => {
+    vi.useFakeTimers();
+
+    const socketStub: any = {
+      connected: false,
+      once: vi.fn((event: string, handler: (...args: any[]) => void) => {
+        if (event === 'connect') {
+          connectHandler = handler as () => void;
+        }
+      }),
+      on: vi.fn(),
+      off: vi.fn(),
+      emit: vi.fn(),
+      disconnect: vi.fn(),
+      removeAllListeners: vi.fn(),
+      timeout: vi.fn(() => ({ emitWithAck: vi.fn() })),
+      io: {
+        on: vi.fn(),
+      },
+    };
+
+    ioMock.mockReturnValue(socketStub);
+
+    const { WebSocketClient } = await import('../../src/websocket/client');
+    const client = new WebSocketClient({
+      url: 'wss://ws.limitless.exchange',
+      autoReconnect: false,
+    });
+
+    const connectPromise = client.connect();
+
+    expect(ioMock).toHaveBeenCalledTimes(1);
+    const [url, options] = ioMock.mock.calls[0];
+    expect(url).toBe('wss://ws.limitless.exchange/markets');
+    expect(options.extraHeaders['x-sdk-version']).toMatch(/^lmts-sdk-ts\//);
+    expect(options.extraHeaders['user-agent']).toContain('lmts-sdk-ts/');
+    expect(options.extraHeaders['user-agent']).toContain('(node/');
 
     connectHandler?.();
     await connectPromise;
