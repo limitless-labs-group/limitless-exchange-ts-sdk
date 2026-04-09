@@ -7,7 +7,7 @@ import {
   type CreateDelegatedOrderRequest,
   type DelegatedOrderResponse,
 } from '../types/delegated-orders';
-import { SignatureType } from '../types/orders';
+import { OrderType, SignatureType } from '../types/orders';
 import type { ILogger } from '../types/logger';
 import { NoOpLogger } from '../types/logger';
 
@@ -41,7 +41,9 @@ export class DelegatedOrderService {
     const unsignedOrder = builder.buildOrder(params.args);
 
     const postOnly =
-      'postOnly' in params.args && params.args.postOnly !== undefined
+      params.orderType === OrderType.GTC &&
+      'postOnly' in params.args &&
+      params.args.postOnly !== undefined
         ? params.args.postOnly
         : undefined;
 
@@ -113,4 +115,3 @@ export class DelegatedOrderService {
     return response.message;
   }
 }
-
