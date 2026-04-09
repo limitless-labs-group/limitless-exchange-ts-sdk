@@ -23,7 +23,7 @@ These samples cover the new partner self-service token flow in the TypeScript SD
   Simple narrated end-to-end partner flow for delegated `FOK` trading: capabilities, derive HMAC token, create child account, funding reminder, delegated `FOK` BUY order, no cleanup
 
 - `delegated-order.ts`
-  Reuse or create delegated account, create delegated order, cancel by id, cancel all
+  Reuse or create delegated account, create delegated `GTC` order with `postOnly`, cancel by id, cancel all
 
 - `delegated-fok-order.ts`
   Reuse or create delegated account, submit a delegated FOK BUY order, and inspect whether it matched or auto-cancelled

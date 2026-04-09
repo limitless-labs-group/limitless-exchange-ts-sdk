@@ -4,8 +4,9 @@
  * This example demonstrates how to:
  * 1. Initialize SDK with API key authentication
  * 2. Build a GTC order (stays on orderbook until filled or cancelled)
- * 3. Submit the order
- * 4. Query the orderbook to see the order
+ * 3. Enable `postOnly` so the order is rejected if it would cross immediately
+ * 4. Submit the order
+ * 5. Query the orderbook to see the order
  *
  * IMPORTANT - Tick Alignment Requirements:
  * - Prices must have max 3 decimal places (e.g., 0.380, 0.001)
@@ -110,12 +111,14 @@ async function main() {
       price: 0.123, // 12.3% probability - lower than market to stay on orderbook
       size: 100, // 100 shares
       side: Side.BUY, // BUY order
+      postOnly: true, // GTC only: reject if this would immediately match
     };
 
     console.log(`   Side: ${orderParams.side === Side.BUY ? 'BUY' : 'SELL'}`);
     console.log(`   Price: ${orderParams.price}`);
     console.log(`   Size: ${orderParams.size} shares`);
     console.log(`   Type: GTC (order will remain on orderbook)\n`);
+    console.log(`   PostOnly: ${orderParams.postOnly ? 'enabled' : 'disabled'}\n`);
 
     // ===========================================
     // STEP 4: Create Order Client

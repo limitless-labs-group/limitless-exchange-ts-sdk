@@ -229,6 +229,7 @@ export function createDefaultDelegatedOrder(
       side: Side.BUY,
       price: 0.05,
       size: 1,
+      postOnly: true,
     },
   };
 }

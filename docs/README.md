@@ -103,7 +103,8 @@ const orders = await market.getUserOrders();  // ✨ Clean!
 
 ### 📊 Trading
 - Market orders (FOK)
-- Limit orders (GTC)
+- Limit orders (GTC, FAK)
+- `postOnly` support for GTC orders
 - Order cancellation
 - Order status tracking
 - [Full Documentation](./orders/README.md)
@@ -195,14 +196,14 @@ import type {
 
 ## Examples
 
-See the [examples directory](../../examples/project-integration) for complete working examples:
+See the [code samples directory](./code-samples/README.md) for complete working examples:
 
 - `basic-auth.ts` - Authentication basics
-- `trading.ts` - Complete trading workflow
+- `fluent-api-trading-workflow.ts` - Complete trading workflow
 - `orderbook.ts` - Fetching orderbook data
 - `positions.ts` - Portfolio and positions
-- `websocket-trading.ts` - Real-time trading
-- `websocket-orderbook.ts` - Live orderbook monitoring
+- `websocket-events.ts` - Real-time trading
+- `clob-fak-order.ts` - Fill-and-kill limit orders
 
 ## Support
 
