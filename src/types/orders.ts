@@ -157,6 +157,13 @@ export interface GTCOrderArgs extends BaseOrderArgs {
    * Number of shares to trade
    */
   size: number;
+
+  /**
+   * When true, rejects the order if it would immediately match.
+   * Supported only for GTC orders.
+   * @defaultValue false
+   */
+  postOnly?: boolean;
 }
 
 /**
@@ -271,6 +278,12 @@ export interface NewOrderPayload {
    * Owner ID from user profile
    */
   ownerId: number;
+
+  /**
+   * When true, rejects the order if it would immediately match.
+   * Supported only for GTC orders.
+   */
+  postOnly?: boolean;
 }
 
 /**

@@ -40,6 +40,11 @@ export class DelegatedOrderService {
     const builder = new OrderBuilder(ZERO_ADDRESS, feeRateBps);
     const unsignedOrder = builder.buildOrder(params.args);
 
+    const postOnly =
+      'postOnly' in params.args && params.args.postOnly !== undefined
+        ? params.args.postOnly
+        : undefined;
+
     const payload: CreateDelegatedOrderRequest = {
       order: {
         salt: unsignedOrder.salt,
@@ -60,6 +65,7 @@ export class DelegatedOrderService {
       marketSlug: params.marketSlug,
       ownerId: params.onBehalfOf,
       onBehalfOf: params.onBehalfOf,
+      ...(postOnly !== undefined ? { postOnly } : {}),
     };
 
     this.logger.debug('Creating delegated order', {

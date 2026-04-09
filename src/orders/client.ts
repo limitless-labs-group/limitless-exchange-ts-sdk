@@ -318,6 +318,9 @@ export class OrderClient {
       orderType: params.orderType,
       marketSlug: params.marketSlug,
       ownerId: userData.userId,
+      ...('postOnly' in params && params.postOnly !== undefined
+        ? { postOnly: params.postOnly }
+        : {}),
     };
 
     // Step 4: Submit to API
