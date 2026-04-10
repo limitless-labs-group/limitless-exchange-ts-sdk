@@ -310,6 +310,13 @@ export class OrderClient {
     const signature = await this.orderSigner.signOrder(unsignedOrder, dynamicSigningConfig);
 
     // Step 3: Prepare payload for API
+    const postOnly =
+      params.orderType === OrderType.GTC &&
+      'postOnly' in params &&
+      params.postOnly !== undefined
+        ? params.postOnly
+        : undefined;
+
     const payload: NewOrderPayload = {
       order: {
         ...unsignedOrder,
@@ -318,6 +325,7 @@ export class OrderClient {
       orderType: params.orderType,
       marketSlug: params.marketSlug,
       ownerId: userData.userId,
+      ...(postOnly !== undefined ? { postOnly } : {}),
     };
 
     // Step 4: Submit to API

@@ -152,7 +152,7 @@ npx tsx docs/code-samples/api-key-v3/e2e-fok-flow.ts
 ### Delegated Order Flow
 **File**: `api-key-v3/delegated-order.ts`
 
-Create delegated orders with `onBehalfOf`, cancel by order id, and cancel all for the market.
+Create delegated `GTC` orders with `onBehalfOf`, including `postOnly`, then cancel by order id and cancel all for the market.
 
 **Run**:
 ```bash
@@ -218,11 +218,21 @@ npx tsx docs/code-samples/clob-fok-order.ts
 #### GTC Orders (Limit Orders)
 **File**: `clob-gtc-order.ts`
 
-Place Good-Til-Cancelled (limit) orders on CLOB markets.
+Place Good-Til-Cancelled (limit) orders on CLOB markets, including `postOnly`.
 
 **Run**:
 ```bash
 npx tsx docs/code-samples/clob-gtc-order.ts
+```
+
+#### FAK Orders (Fill-And-Kill Limit Orders)
+**File**: `clob-fak-order.ts`
+
+Place Fill-And-Kill limit orders on CLOB markets.
+
+**Run**:
+```bash
+npx tsx docs/code-samples/clob-fak-order.ts
 ```
 
 ### NegRisk Markets
@@ -260,16 +270,6 @@ npx tsx docs/code-samples/positions.ts
 ```
 
 ## WebSocket Examples
-
-### Orderbook Monitoring
-**File**: `websocket-orderbook.ts`
-
-Real-time orderbook updates via WebSocket.
-
-**Run**:
-```bash
-npx tsx docs/code-samples/websocket-orderbook.ts
-```
 
 ### WebSocket Events
 **File**: `websocket-events.ts`

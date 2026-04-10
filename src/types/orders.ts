@@ -19,6 +19,8 @@ export enum Side {
 export enum OrderType {
   /** Fill-or-Kill: Execute immediately or cancel */
   FOK = 'FOK',
+  /** Fill-And-Kill: Limit-like order that fills what it can and kills the remainder */
+  FAK = 'FAK',
   /** Good-Til-Cancelled: Remain on orderbook until filled or cancelled */
   GTC = 'GTC',
 }
@@ -157,13 +159,53 @@ export interface GTCOrderArgs extends BaseOrderArgs {
    * Number of shares to trade
    */
   size: number;
+
+  /**
+   * When true, rejects the order if it would immediately match.
+   * Supported only for GTC orders.
+   * @defaultValue false
+   */
+  postOnly?: boolean;
+}
+
+/**
+ * Arguments for FAK (Fill-And-Kill) limit orders.
+ *
+ * @remarks
+ * FAK orders use the same price/size construction as GTC, but the unmatched
+ * remainder is killed instead of resting on the orderbook. PostOnly is not
+ * supported for FAK and is rejected by the API.
+ *
+ * @example
+ * ```typescript
+ * // BUY: Fill up to 10 shares at 0.55 price, kill remainder
+ * {
+ *   tokenId: '123...',
+ *   price: 0.55,
+ *   size: 10,
+ *   side: Side.BUY
+ * }
+ * ```
+ *
+ * @public
+ */
+export interface FAKOrderArgs extends BaseOrderArgs {
+  /**
+   * Price per share (0.0 to 1.0)
+   */
+  price: number;
+
+  /**
+   * Number of shares to trade
+   */
+  size: number;
 }
 
 /**
  * Union type for all order arguments.
  * @public
  */
-export type OrderArgs = FOKOrderArgs | GTCOrderArgs;
+export type OrderArgs = FOKOrderArgs | GTCOrderArgs | FAKOrderArgs;
 
 /**
  * Unsigned order payload.
@@ -271,6 +313,12 @@ export interface NewOrderPayload {
    * Owner ID from user profile
    */
   ownerId: number;
+
+  /**
+   * When true, rejects the order if it would immediately match.
+   * Supported only for GTC orders.
+   */
+  postOnly?: boolean;
 }
 
 /**

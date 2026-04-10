@@ -1,10 +1,10 @@
 # Limitless Exchange TypeScript SDK
 
-**v1.0.4** | Production-Ready | Type-Safe | Fully Documented
+**v1.0.5** | Production-Ready | Type-Safe | Fully Documented
 
 A TypeScript SDK for interacting with the Limitless Exchange platform, providing type-safe access to CLOB and NegRisk prediction markets.
 
-> 🎉 **v1.0.4 Release**: Adds IEEE-aware numeric parsing improvements for `createOrder()` response payload fields (`makerAmount`, `takerAmount`, `price`, `salt`) when API returns numeric strings. See [Changelog](#changelog) for details.
+> 🎉 **v1.0.5 Release**: Adds `FAK` limit-order support and `postOnly` for `GTC` orders, with updated docs and examples. See [Changelog](#changelog) for details.
 
 ## ⚠️ Disclaimer
 
@@ -274,6 +274,60 @@ const order = await orderClient.createOrder({
 
 For more details, see the [NegRisk Trading Guide](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/limitless-exchange-sdk/docs/orders/README.md#negrisk-markets).
 
+### GTC Orders (Limit Orders)
+
+GTC orders use `price` + `size` and can optionally set `postOnly` to reject an order that would immediately match.
+
+```typescript
+import { OrderClient, Side, OrderType } from '@limitless-exchange/sdk';
+
+const gtcOrder = await orderClient.createOrder({
+  tokenId: marketDetails.tokens.yes,
+  price: 0.42,
+  size: 10,
+  side: Side.BUY,
+  orderType: OrderType.GTC,
+  marketSlug: 'market-slug',
+  postOnly: true, // Supported only for GTC
+});
+
+console.log(gtcOrder.order.id);
+```
+
+For complete examples, see [docs/code-samples/clob-gtc-order.ts](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/limitless-exchange-sdk/docs/code-samples/clob-gtc-order.ts).
+
+### FAK Orders (Fill-and-Kill Limit Orders)
+
+FAK orders use the same `price` + `size` construction as `GTC`, but they only consume immediately available liquidity and cancel any remainder.
+
+```typescript
+import { OrderClient, Side, OrderType } from '@limitless-exchange/sdk';
+
+const fakOrder = await orderClient.createOrder({
+  tokenId: marketDetails.tokens.yes,
+  price: 0.45,
+  size: 10,
+  side: Side.BUY,
+  orderType: OrderType.FAK,
+  marketSlug: 'market-slug',
+});
+
+if (fakOrder.makerMatches && fakOrder.makerMatches.length > 0) {
+  console.log(`FAK matched immediately with ${fakOrder.makerMatches.length} fill(s)`);
+} else {
+  console.log('FAK remainder was cancelled.');
+}
+```
+
+**Key Differences from GTC**:
+
+- FAK uses `price` + `size` like GTC
+- Executes immediately up to the available size
+- Any unfilled remainder is cancelled
+- `postOnly` is not supported for FAK
+
+For complete examples, see [docs/code-samples/clob-fak-order.ts](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/limitless-exchange-sdk/docs/code-samples/clob-fak-order.ts).
+
 ### FOK Orders (Fill-or-Kill Market Orders)
 
 FOK orders execute immediately at the best available price or cancel entirely. Unlike GTC orders that use `price` + `size`, FOK orders use `makerAmount`.
@@ -413,24 +467,24 @@ Production-ready code samples are available in [docs/code-samples](https://githu
 **CLOB Markets:**
 
 - `clob-fok-order.ts` - Fill-or-Kill market orders
-- `clob-gtc-order.ts` - Good-Til-Cancelled limit orders
+- `clob-gtc-order.ts` - Good-Til-Cancelled limit orders with `postOnly`
+- `clob-fak-order.ts` - Fill-And-Kill limit orders
 
 **NegRisk Markets:**
 
 - `negrisk-fok-order.ts` - FOK orders on group markets
-- `negrisk-gtc-trading-example.ts` - Complete NegRisk trading workflow
+- `negrisk-gtc-order.ts` - GTC orders on NegRisk submarkets
 
 ### Market Data Examples
 
 - `get-active-markets.ts` - Fetching active markets with sorting and pagination
 - `orderbook.ts` - Fetching and analyzing orderbooks
 - `positions.ts` - Portfolio and position tracking
-- `trading.ts` - Complete trading workflow
+- `fluent-api-trading-workflow.ts` - Complete trading workflow
 
 ### Real-Time Examples
 
-- `websocket-trading.ts` - Real-time order monitoring
-- `websocket-orderbook.ts` - Live orderbook streaming
+- `websocket-events.ts` - Real-time trading events and subscriptions
 
 ## Development
 
@@ -498,41 +552,41 @@ docs/
 
 ## Changelog
 
-### v1.0.4
+### v1.0.5
 
-**Release Date**: March 2026
+**Release Date**: April 2026
 
-Latest release with IEEE-safe numeric parsing improvements focused on `createOrder()` response payload fields.
+Latest release with `FAK` limit-order support and `postOnly` for `GTC` orders.
 
 #### Highlights
 
 - ✅ **Production-Ready**: Thoroughly tested and validated against Base mainnet
 - 🔒 **Type-Safe**: Full TypeScript support with comprehensive type definitions
-- 📚 **Well-Documented**: 17 production-ready code samples + comprehensive guides
+- 📚 **Well-Documented**: 18 production-ready code samples + comprehensive guides
 - ⚡ **Performance Optimized**: Venue caching system and connection pooling
 - 🔄 **Robust Error Handling**: Automatic retry logic with multiple strategies
 - 🌐 **Real-Time Updates**: WebSocket support for orderbook and position streaming
 - 🎯 **NegRisk Support**: Full support for group markets with multiple outcomes
 - 🧭 **Market Pages API**: Navigation tree, by-path resolver with 301 handling, page-scoped markets, property keys
-- 🔢 **IEEE-Aware CreateOrder Parsing**: Normalizes `makerAmount`, `takerAmount`, `price`, and `salt` when returned as JSON strings
+- 🧾 **More Trading Semantics**: `FAK` limit orders plus `postOnly` on `GTC`
 
 #### Core Features
 
 - **Authentication**: API key authentication, EIP-712 signing, EOA support
 - **Market Data**: Active markets with sorting, orderbook access, venue caching
 - **Market Pages & Navigation**: `/navigation`, `/market-pages/by-path`, `/market-pages/:id/markets`, `/property-keys`
-- **Order Management**: GTC and FOK orders, tick alignment, automatic signing, IEEE-safe create-order payload parsing
+- **Order Management**: GTC, FAK, and FOK orders, GTC `postOnly`, tick alignment, automatic signing, IEEE-safe create-order payload parsing
 - **Portfolio**: Position tracking, user history
 - **WebSocket**: Real-time orderbook, price updates, event streaming
 - **Error Handling**: Decorator and wrapper retry patterns, configurable strategies
 - **Token Approvals**: Complete setup script, CLOB and NegRisk workflows
 
-#### Documentation Enhancements (v1.0.4)
+#### Documentation Enhancements (v1.0.5)
 
-- Added release notes for IEEE-safe numeric parsing adjustments
-- Added FOK order examples to README with clear `makerAmount` semantics
+- Added `FAK` order examples to README and code samples
+- Added `postOnly` usage to `GTC` examples and delegated-order samples
 - Created comprehensive CHANGELOG.md following Keep a Changelog format
-- All 17 code samples include step-by-step comments and error handling
+- All 18 code samples include step-by-step comments and error handling
 - Detailed guides for authentication, trading, markets, portfolio, and WebSocket
 - Added market-pages guide and README quick-start for navigation-driven discovery
 

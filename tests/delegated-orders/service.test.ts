@@ -47,5 +47,30 @@ describe('DelegatedOrderService', () => {
     expect(message).toBe('Orders canceled successfully');
     expect((httpClient as any).delete).toHaveBeenCalledWith('/orders/all/market-slug?onBehalfOf=326');
   });
-});
 
+  it('omits postOnly for FAK delegated orders before submitting to the API', async () => {
+    const httpClient = {
+      requireAuth: vi.fn(),
+      post: vi.fn().mockResolvedValue({ order: { id: 'delegated-fak' } }),
+    } as unknown as HttpClient;
+
+    const service = new DelegatedOrderService(httpClient);
+
+    await service.createOrder({
+      marketSlug: 'test-market',
+      orderType: OrderType.FAK,
+      onBehalfOf: 326,
+      args: {
+        tokenId: '123',
+        side: Side.BUY,
+        price: 0.55,
+        size: 10,
+        postOnly: true,
+      } as any,
+    });
+
+    const [, payload] = (httpClient as any).post.mock.calls[0];
+    expect(payload.orderType).toBe(OrderType.FAK);
+    expect(payload.postOnly).toBeUndefined();
+  });
+});

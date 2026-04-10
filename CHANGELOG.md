@@ -5,6 +5,23 @@ All notable changes to the Limitless Exchange TypeScript SDK will be documented 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.5]
+
+### Added
+
+- `FAK` (Fill-And-Kill) limit-order support alongside existing `GTC` and `FOK` flows:
+  - `OrderType.FAK`
+  - `FAKOrderArgs`
+  - `OrderArgs` union support for `FAK`
+- `postOnly` support for `GTC` orders in the create-order payload surface.
+- New public docs samples and README coverage for:
+  - `FAK` limit-order placement
+  - `GTC` `postOnly` usage
+
+### Changed
+
+- `postOnly` handling is now documented as `GTC`-only; `FAK` and `FOK` examples omit it.
+- README/package metadata now target `v1.0.5`.
 
 ## [1.0.4]
 

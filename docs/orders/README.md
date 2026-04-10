@@ -14,10 +14,11 @@ Complete guide to creating and managing orders on the Limitless Exchange.
 
 ## Overview
 
-The Limitless Exchange supports two order types for both CLOB and NegRisk markets:
+The Limitless Exchange supports three order types for both CLOB and NegRisk markets:
 
 - **FOK (Fill or Kill)**: Market orders that execute immediately at the best available price or cancel entirely
 - **GTC (Good Til Cancelled)**: Limit orders that remain on the orderbook until filled or manually cancelled
+- **FAK (Fill and Kill)**: Limit orders that fill what they can immediately and cancel any remainder
 
 ## Market Types
 
@@ -122,12 +123,31 @@ Best for price-specific execution when you can wait for your target price.
 - Remains on orderbook until filled or cancelled
 - Allows partial fills
 - Full price control
+- Optional `postOnly` flag rejects the order if it would immediately match
 
 **Use Cases**:
 
 - Price targeting
 - Patient position building
 - Avoiding slippage
+
+### FAK - Fill and Kill (Limit Orders)
+
+Best for price-constrained execution when you want immediate matching only and do not want the remainder to rest on the book.
+
+**Characteristics**:
+
+- Uses the same `price` + `size` inputs as `GTC`
+- Attempts to match immediately at the specified price or better
+- Cancels any unmatched remainder right away
+- Does not rest on the orderbook
+- Does not support `postOnly`
+
+**Use Cases**:
+
+- Immediate execution with price protection
+- Sweeping available liquidity up to a capped price
+- Avoiding resting exposure on the orderbook
 
 ## Token Approvals Setup
 
@@ -362,6 +382,7 @@ const limitBuy = await orderClient.createOrder({
   side: Side.BUY,
   orderType: OrderType.GTC,
   marketSlug: 'market-slug',
+  postOnly: true, // Optional. Supported only for GTC orders
 });
 
 console.log('Limit buy placed:', limitBuy.id);
@@ -377,6 +398,23 @@ const limitSell = await orderClient.createOrder({
 });
 
 console.log('Limit sell placed:', limitSell.id);
+```
+
+### FAK Orders (Fill-And-Kill Limit Orders)
+
+```typescript
+// Fill up to 20 shares at the specified price, then cancel the remainder
+const fakBuy = await orderClient.createOrder({
+  tokenId: 'YOUR_TOKEN_ID',
+  price: 0.6,
+  size: 20,
+  side: Side.BUY,
+  orderType: OrderType.FAK,
+  marketSlug: 'market-slug',
+});
+
+console.log('FAK buy submitted:', fakBuy.id);
+console.log('Immediate matches:', fakBuy.makerMatches ?? []);
 ```
 
 ## NegRisk Markets
@@ -449,6 +487,7 @@ const order = await orderClient.createOrder({
   side: Side.BUY,
   orderType: OrderType.GTC,
   marketSlug: submarket.slug, // ← Use SUBMARKET slug (e.g., "apple-1746118069293")
+  postOnly: true,
 });
 
 // ❌ WRONG: Don't use group slug
@@ -503,6 +542,21 @@ const limitSell = await orderClient.createOrder({
   orderType: OrderType.GTC,
   marketSlug: submarket.slug, // ← Submarket slug
 });
+```
+
+### NegRisk FAK Orders
+
+```typescript
+const fakBuy = await orderClient.createOrder({
+  tokenId: detailedInfo.tokens.yes,
+  price: 0.3,
+  size: 20,
+  side: Side.BUY,
+  orderType: OrderType.FAK,
+  marketSlug: submarket.slug,
+});
+
+console.log('NegRisk FAK order:', fakBuy.id);
 ```
 
 ### Key Differences: NegRisk vs CLOB
@@ -824,15 +878,16 @@ await orderQueue.add(() => orderClient.createOrder(params3));
 
 ### CLOB Market Examples
 
-- [FOK Order Creation](../../examples/project-integration/src/fok-order.ts) - Market orders on CLOB markets
-- [GTC Order Creation](../../examples/project-integration/src/gtc-order.ts) - Limit orders on CLOB markets
-- [Complete Trading Workflow](../../examples/project-integration/src/trading.ts) - Full trading example
-- [WebSocket Order Monitoring](../../examples/project-integration/src/websocket-trading.ts) - Real-time order updates
+- [FOK Order Creation](../code-samples/clob-fok-order.ts) - Market orders on CLOB markets
+- [GTC Order Creation](../code-samples/clob-gtc-order.ts) - Limit orders on CLOB markets with `postOnly`
+- [FAK Order Creation](../code-samples/clob-fak-order.ts) - Fill-and-kill limit orders on CLOB markets
+- [Complete Trading Workflow](../code-samples/fluent-api-trading-workflow.ts) - Full trading example
+- [WebSocket Events](../code-samples/websocket-events.ts) - Real-time order updates
 
 ### NegRisk Market Examples
 
-- [NegRisk GTC Trading](../../examples/project-integration/src/negrisk-gtc-trading-example.ts) - Complete GTC order workflow for NegRisk markets
-- [NegRisk FOK Orders](../../examples/project-integration/src/negrisk-fok-order.ts) - Market orders on NegRisk submarkets
+- [NegRisk GTC Trading](../code-samples/negrisk-gtc-order.ts) - Complete GTC order workflow for NegRisk markets
+- [NegRisk FOK Orders](../code-samples/negrisk-fok-order.ts) - Market orders on NegRisk submarkets
 
 **Run the examples:**
 

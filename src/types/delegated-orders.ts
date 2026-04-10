@@ -43,6 +43,7 @@ export interface CreateDelegatedOrderRequest {
   marketSlug: string;
   ownerId: number;
   onBehalfOf?: number;
+  postOnly?: boolean;
 }
 
 /**
