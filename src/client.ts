@@ -6,6 +6,7 @@ import { MarketPageFetcher } from './market-pages/fetcher';
 import { ApiTokenService } from './api-tokens/service';
 import { PartnerAccountService } from './partner-accounts/service';
 import { DelegatedOrderService } from './delegated-orders/service';
+import { ServerWalletService } from './server-wallets/service';
 import { OrderClient, type OrderClientConfig } from './orders/client';
 import { WebSocketClient } from './websocket/client';
 import type { WebSocketConfig } from './types/websocket';
@@ -27,6 +28,7 @@ export class Client {
   apiTokens: ApiTokenService;
   partnerAccounts: PartnerAccountService;
   delegatedOrders: DelegatedOrderService;
+  serverWallets: ServerWalletService;
 
   constructor(config: HttpClientConfig = {}) {
     this.http = new HttpClient(config);
@@ -38,6 +40,7 @@ export class Client {
     this.apiTokens = new ApiTokenService(this.http, logger);
     this.partnerAccounts = new PartnerAccountService(this.http, logger);
     this.delegatedOrders = new DelegatedOrderService(this.http, logger);
+    this.serverWallets = new ServerWalletService(this.http, logger);
   }
 
   /**
@@ -54,6 +57,7 @@ export class Client {
     client.apiTokens = new ApiTokenService(httpClient, logger);
     client.partnerAccounts = new PartnerAccountService(httpClient, logger);
     client.delegatedOrders = new DelegatedOrderService(httpClient, logger);
+    client.serverWallets = new ServerWalletService(httpClient, logger);
 
     return client;
   }

@@ -5,6 +5,20 @@ All notable changes to the Limitless Exchange TypeScript SDK will be documented 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Server-managed wallet support for delegated-signing partner flows:
+  - new `ServerWalletService`
+  - new `client.serverWallets` root entrypoint
+  - `redeemPositions()` for `POST /portfolio/redeem`
+  - `withdraw()` for `POST /portfolio/withdraw`
+- New public server-wallet request/response types for redeem and withdraw operations.
+- New `ScopeWithdrawal` API-token scope constant.
+- New unit coverage for server-wallet validation, HMAC-only auth enforcement, and client composition.
+- New API key v3 example covering server-wallet redeem and optional withdraw flows for `createServerWallet: true` partner accounts.
+
 ## [1.0.5]
 
 ### Added

@@ -98,6 +98,7 @@ const orders = await market.getUserOrders();  // ✨ Clean!
 
 ### 🔐 Authentication
 - API key authentication (via environment variable or direct parameter)
+- Partner HMAC-scoped API-token authentication
 - EIP-712 wallet signing for order creation
 - [Full Documentation](./api/README.md)
 
@@ -120,6 +121,12 @@ const orders = await market.getUserOrders();  // ✨ Clean!
 - Position tracking (CLOB and AMM)
 - User history
 - [Full Documentation](./portfolio/README.md)
+
+### 🤝 Partner Server Wallets
+- Partner child-account creation with `createServerWallet=true`
+- Delegated order placement with `onBehalfOf`
+- Server-wallet redeem and withdraw flows via `client.serverWallets`
+- [Code Samples](./code-samples/api-key-v3/README.md)
 
 ### 🔌 WebSocket
 - Real-time orderbook updates
@@ -204,6 +211,7 @@ See the [code samples directory](./code-samples/README.md) for complete working 
 - `positions.ts` - Portfolio and positions
 - `websocket-events.ts` - Real-time trading
 - `clob-fak-order.ts` - Fill-and-kill limit orders
+- `api-key-v3/server-wallet-redeem-withdraw.ts` - HMAC server-wallet redeem and optional withdraw
 
 ## Support
 

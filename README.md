@@ -35,8 +35,9 @@ For production use, we strongly recommend:
 
 ## Features
 
-- ✅ **Authentication**: API key authentication with X-API-Key header
+- ✅ **Authentication**: API key auth and partner HMAC-scoped API-token auth
 - ✅ **Order Management**: Create, cancel, and manage orders on CLOB and NegRisk markets
+- ✅ **Partner Server Wallets**: Delegated child-account flows, server-wallet redeem, and HMAC-only withdraw
 - ✅ **Market Data**: Access real-time market data and orderbooks
 - ✅ **NegRisk Markets**: Full support for group markets with multiple outcomes
 - ✅ **Error Handling & Retry**: Automatic retry logic for rate limits and transient failures
@@ -160,7 +161,7 @@ PRIVATE_KEY=0x...
 
 ### Partner API Token v3 / HMAC Usage
 
-The SDK also supports partner-scoped HMAC credentials for api-token v3 workflows such as token self-service, partner-account creation, and delegated trading.
+The SDK also supports partner-scoped HMAC credentials for api-token v3 workflows such as token self-service, partner-account creation, delegated trading, and server-wallet redeem/withdraw.
 
 Use HMAC credentials only in a backend or BFF service. Do not expose partner HMAC secrets in browser bundles, frontend environment variables, or client-side storage.
 
@@ -172,6 +173,43 @@ Recommended setup:
 - Expose only your own app-specific endpoints to the frontend.
 
 See [`docs/code-samples/api-key-v3/`](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/tree/main/limitless-exchange-sdk/docs/code-samples/api-key-v3) for the partner HMAC examples.
+
+#### Server Wallet Redeem & Withdraw
+
+Use `client.serverWallets` only for server-managed wallets created in delegated-signing partner flows with `createServerWallet: true`.
+
+- `redeemPositions()` calls `POST /portfolio/redeem`
+- `withdraw()` calls `POST /portfolio/withdraw`
+- both operations require HMAC-scoped API-token auth
+- `withdraw()` also requires the `withdrawal` scope
+- `onBehalfOf` should be the delegated child-profile id
+- `amount` for withdraw must be provided in the token smallest unit
+
+```typescript
+import { Client } from '@limitless-exchange/sdk';
+
+const client = new Client({
+  baseURL: 'https://api.limitless.exchange',
+  hmacCredentials: {
+    tokenId: process.env.LIMITLESS_API_TOKEN_ID!,
+    secret: process.env.LIMITLESS_API_TOKEN_SECRET!,
+  },
+});
+
+const redeem = await client.serverWallets.redeemPositions({
+  conditionId: '0x...',
+  onBehalfOf: 352,
+});
+
+const withdraw = await client.serverWallets.withdraw({
+  amount: '5000000',
+  onBehalfOf: 352,
+});
+```
+
+`redeem.hash` or `withdraw.hash` may be an empty string for user-operation submissions. Track those calls using `userOperationHash` or `transactionId`.
+
+For a complete runnable flow, see [`docs/code-samples/api-key-v3/server-wallet-redeem-withdraw.ts`](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/limitless-exchange-sdk/docs/code-samples/api-key-v3/server-wallet-redeem-withdraw.ts).
 
 ### Token Approvals
 
