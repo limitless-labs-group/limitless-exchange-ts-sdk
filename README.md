@@ -1,10 +1,10 @@
 # Limitless Exchange TypeScript SDK
 
-**v1.0.5** | Production-Ready | Type-Safe | Fully Documented
+**v1.0.6** | Production-Ready | Type-Safe | Fully Documented
 
 A TypeScript SDK for interacting with the Limitless Exchange platform, providing type-safe access to CLOB and NegRisk prediction markets.
 
-> 🎉 **v1.0.5 Release**: Adds `FAK` limit-order support and `postOnly` for `GTC` orders, with updated docs and examples. See [Changelog](#changelog) for details.
+> 🎉 **v1.0.6 Release**: Adds server-managed wallet support for delegated-signing partner flows, including redeem and withdraw helpers. See [Changelog](#changelog) for details.
 
 ## ⚠️ Disclaimer
 
@@ -590,11 +590,11 @@ docs/
 
 ## Changelog
 
-### v1.0.5
+### v1.0.6
 
-**Release Date**: April 2026
+**Release Date**: April 14, 2026
 
-Latest release with `FAK` limit-order support and `postOnly` for `GTC` orders.
+Latest release with server-managed wallet support for delegated-signing partner flows, including redeem and withdraw helpers.
 
 #### Highlights
 
@@ -607,10 +607,12 @@ Latest release with `FAK` limit-order support and `postOnly` for `GTC` orders.
 - 🎯 **NegRisk Support**: Full support for group markets with multiple outcomes
 - 🧭 **Market Pages API**: Navigation tree, by-path resolver with 301 handling, page-scoped markets, property keys
 - 🧾 **More Trading Semantics**: `FAK` limit orders plus `postOnly` on `GTC`
+- 🏦 **Partner Server Wallets**: Delegated child-account redeem and HMAC-only withdraw flows
 
 #### Core Features
 
 - **Authentication**: API key authentication, EIP-712 signing, EOA support
+- **Partner Flows**: API-token v3 services, delegated orders, and server-wallet redeem/withdraw
 - **Market Data**: Active markets with sorting, orderbook access, venue caching
 - **Market Pages & Navigation**: `/navigation`, `/market-pages/by-path`, `/market-pages/:id/markets`, `/property-keys`
 - **Order Management**: GTC, FAK, and FOK orders, GTC `postOnly`, tick alignment, automatic signing, IEEE-safe create-order payload parsing
@@ -619,10 +621,11 @@ Latest release with `FAK` limit-order support and `postOnly` for `GTC` orders.
 - **Error Handling**: Decorator and wrapper retry patterns, configurable strategies
 - **Token Approvals**: Complete setup script, CLOB and NegRisk workflows
 
-#### Documentation Enhancements (v1.0.5)
+#### Documentation Enhancements (v1.0.6)
 
 - Added `FAK` order examples to README and code samples
 - Added `postOnly` usage to `GTC` examples and delegated-order samples
+- Added server-wallet redeem/withdraw docs and API key v3 examples for delegated child accounts
 - Created comprehensive CHANGELOG.md following Keep a Changelog format
 - All 18 code samples include step-by-step comments and error handling
 - Detailed guides for authentication, trading, markets, portfolio, and WebSocket
