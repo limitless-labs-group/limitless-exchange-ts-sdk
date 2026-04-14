@@ -15,6 +15,7 @@ describe('Client', () => {
     expect(client.apiTokens).toBeDefined();
     expect(client.partnerAccounts).toBeDefined();
     expect(client.delegatedOrders).toBeDefined();
+    expect(client.serverWallets).toBeDefined();
   });
 
   it('reuses shared services in the derived order client and websocket client', () => {

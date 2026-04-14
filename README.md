@@ -1,10 +1,10 @@
 # Limitless Exchange TypeScript SDK
 
-**v1.0.5** | Production-Ready | Type-Safe | Fully Documented
+**v1.0.6** | Production-Ready | Type-Safe | Fully Documented
 
 A TypeScript SDK for interacting with the Limitless Exchange platform, providing type-safe access to CLOB and NegRisk prediction markets.
 
-> 🎉 **v1.0.5 Release**: Adds `FAK` limit-order support and `postOnly` for `GTC` orders, with updated docs and examples. See [Changelog](#changelog) for details.
+> 🎉 **v1.0.6 Release**: Adds server-managed wallet support for delegated-signing partner flows, including redeem and withdraw helpers. See [Changelog](#changelog) for details.
 
 ## ⚠️ Disclaimer
 
@@ -35,8 +35,9 @@ For production use, we strongly recommend:
 
 ## Features
 
-- ✅ **Authentication**: API key authentication with X-API-Key header
+- ✅ **Authentication**: API key auth and partner HMAC-scoped API-token auth
 - ✅ **Order Management**: Create, cancel, and manage orders on CLOB and NegRisk markets
+- ✅ **Partner Server Wallets**: Delegated child-account flows, server-wallet redeem, and HMAC-only withdraw
 - ✅ **Market Data**: Access real-time market data and orderbooks
 - ✅ **NegRisk Markets**: Full support for group markets with multiple outcomes
 - ✅ **Error Handling & Retry**: Automatic retry logic for rate limits and transient failures
@@ -160,7 +161,7 @@ PRIVATE_KEY=0x...
 
 ### Partner API Token v3 / HMAC Usage
 
-The SDK also supports partner-scoped HMAC credentials for api-token v3 workflows such as token self-service, partner-account creation, and delegated trading.
+The SDK also supports partner-scoped HMAC credentials for api-token v3 workflows such as token self-service, partner-account creation, delegated trading, and server-wallet redeem/withdraw.
 
 Use HMAC credentials only in a backend or BFF service. Do not expose partner HMAC secrets in browser bundles, frontend environment variables, or client-side storage.
 
@@ -172,6 +173,43 @@ Recommended setup:
 - Expose only your own app-specific endpoints to the frontend.
 
 See [`docs/code-samples/api-key-v3/`](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/tree/main/limitless-exchange-sdk/docs/code-samples/api-key-v3) for the partner HMAC examples.
+
+#### Server Wallet Redeem & Withdraw
+
+Use `client.serverWallets` only for server-managed wallets created in delegated-signing partner flows with `createServerWallet: true`.
+
+- `redeemPositions()` calls `POST /portfolio/redeem`
+- `withdraw()` calls `POST /portfolio/withdraw`
+- both operations require HMAC-scoped API-token auth
+- `withdraw()` also requires the `withdrawal` scope
+- `onBehalfOf` should be the delegated child-profile id
+- `amount` for withdraw must be provided in the token smallest unit
+
+```typescript
+import { Client } from '@limitless-exchange/sdk';
+
+const client = new Client({
+  baseURL: 'https://api.limitless.exchange',
+  hmacCredentials: {
+    tokenId: process.env.LIMITLESS_API_TOKEN_ID!,
+    secret: process.env.LIMITLESS_API_TOKEN_SECRET!,
+  },
+});
+
+const redeem = await client.serverWallets.redeemPositions({
+  conditionId: '0x...',
+  onBehalfOf: 352,
+});
+
+const withdraw = await client.serverWallets.withdraw({
+  amount: '5000000',
+  onBehalfOf: 352,
+});
+```
+
+`redeem.hash` or `withdraw.hash` may be an empty string for user-operation submissions. Track those calls using `userOperationHash` or `transactionId`.
+
+For a complete runnable flow, see [`docs/code-samples/api-key-v3/server-wallet-redeem-withdraw.ts`](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/limitless-exchange-sdk/docs/code-samples/api-key-v3/server-wallet-redeem-withdraw.ts).
 
 ### Token Approvals
 
@@ -552,11 +590,11 @@ docs/
 
 ## Changelog
 
-### v1.0.5
+### v1.0.6
 
-**Release Date**: April 2026
+**Release Date**: April 14, 2026
 
-Latest release with `FAK` limit-order support and `postOnly` for `GTC` orders.
+Latest release with server-managed wallet support for delegated-signing partner flows, including redeem and withdraw helpers.
 
 #### Highlights
 
@@ -569,10 +607,12 @@ Latest release with `FAK` limit-order support and `postOnly` for `GTC` orders.
 - 🎯 **NegRisk Support**: Full support for group markets with multiple outcomes
 - 🧭 **Market Pages API**: Navigation tree, by-path resolver with 301 handling, page-scoped markets, property keys
 - 🧾 **More Trading Semantics**: `FAK` limit orders plus `postOnly` on `GTC`
+- 🏦 **Partner Server Wallets**: Delegated child-account redeem and HMAC-only withdraw flows
 
 #### Core Features
 
 - **Authentication**: API key authentication, EIP-712 signing, EOA support
+- **Partner Flows**: API-token v3 services, delegated orders, and server-wallet redeem/withdraw
 - **Market Data**: Active markets with sorting, orderbook access, venue caching
 - **Market Pages & Navigation**: `/navigation`, `/market-pages/by-path`, `/market-pages/:id/markets`, `/property-keys`
 - **Order Management**: GTC, FAK, and FOK orders, GTC `postOnly`, tick alignment, automatic signing, IEEE-safe create-order payload parsing
@@ -581,10 +621,11 @@ Latest release with `FAK` limit-order support and `postOnly` for `GTC` orders.
 - **Error Handling**: Decorator and wrapper retry patterns, configurable strategies
 - **Token Approvals**: Complete setup script, CLOB and NegRisk workflows
 
-#### Documentation Enhancements (v1.0.5)
+#### Documentation Enhancements (v1.0.6)
 
 - Added `FAK` order examples to README and code samples
 - Added `postOnly` usage to `GTC` examples and delegated-order samples
+- Added server-wallet redeem/withdraw docs and API key v3 examples for delegated child accounts
 - Created comprehensive CHANGELOG.md following Keep a Changelog format
 - All 18 code samples include step-by-step comments and error handling
 - Detailed guides for authentication, trading, markets, portfolio, and WebSocket

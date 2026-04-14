@@ -2,6 +2,7 @@ export * from './auth';
 export * from './api-tokens';
 export * from './partner-accounts';
 export * from './delegated-orders';
+export * from './server-wallets';
 export * from './logger';
 export * from './orders';
 export * from './portfolio';

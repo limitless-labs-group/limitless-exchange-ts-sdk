@@ -105,7 +105,7 @@ npx tsx docs/code-samples/auth-retry.ts
 
 ## API Key V3 / HMAC Examples
 
-Dedicated examples for partner self-service tokens, HMAC auth, and delegated trading live under [`api-key-v3/`](./api-key-v3/README.md).
+Dedicated examples for partner self-service tokens, HMAC auth, delegated trading, and server-wallet redeem/withdraw live under [`api-key-v3/`](./api-key-v3/README.md).
 
 These values are used only by the example scripts. They are not required SDK globals. In normal SDK usage, you pass config directly to `HttpClient`, `WebSocketClient`, or the root `Client`.
 
@@ -167,6 +167,16 @@ Create a delegated `FOK` BUY order with `onBehalfOf` and inspect whether it matc
 **Run**:
 ```bash
 npx tsx docs/code-samples/api-key-v3/delegated-fok-order.ts
+```
+
+### Server Wallet Redeem + Optional Withdraw
+**File**: `api-key-v3/server-wallet-redeem-withdraw.ts`
+
+Redeem a resolved market position back to collateral in a server-managed wallet, then optionally withdraw those funds using the partner's HMAC token and `onBehalfOf`.
+
+**Run**:
+```bash
+npx tsx docs/code-samples/api-key-v3/server-wallet-redeem-withdraw.ts
 ```
 
 ### WebSocket with HMAC
@@ -431,6 +441,10 @@ const updatedOrders = await market.getUserOrders();
 | `MARKET_SLUG` | Market slug for examples (works for both CLOB and NegRisk) | No | `bitcoin-2024` |
 | `LIMITLESS_IDENTITY_TOKEN` | Privy identity token for partner api-key-v3 examples | No | - |
 | `PARTNER_NAME` | Partner identifier used by api-key-v3 runtime files | No | `partner-a` |
+| `LIMITLESS_SKIP_WITHDRAW` | Skip the withdraw step in server-wallet examples | No | `true` |
+| `LIMITLESS_WITHDRAW_AMOUNT` | Withdraw amount in token smallest unit | No | - |
+| `LIMITLESS_WITHDRAW_DESTINATION` | Optional withdraw destination override | No | backend default |
+| `LIMITLESS_WITHDRAW_TOKEN` | Optional token address override | No | backend default |
 | `API_URL` | Example-only API base URL override | No | `https://api.limitless.exchange` |
 | `WS_URL` | Example-only websocket URL override | No | `wss://ws.limitless.exchange` |
 | `CHAIN_ID` | Example-only chain override for approval / NegRisk scripts | No | `8453` (Base) |

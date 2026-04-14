@@ -13,6 +13,7 @@ export * from './api';
 export * from './api-tokens';
 export * from './partner-accounts';
 export * from './delegated-orders';
+export * from './server-wallets';
 export * from './utils';
 export * from './orders';
 export * from './markets';

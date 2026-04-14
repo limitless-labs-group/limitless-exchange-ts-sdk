@@ -7,6 +7,8 @@ These samples cover the new partner self-service token flow in the TypeScript SD
 - create partner-owned child accounts
 - place delegated orders with `onBehalfOf`
 - cancel delegated orders by id and by market
+- redeem resolved positions from server-managed wallets
+- optionally withdraw server-wallet funds with explicit `withdrawal` scope
 
 ## Files
 
@@ -27,6 +29,9 @@ These samples cover the new partner self-service token flow in the TypeScript SD
 
 - `delegated-fok-order.ts`
   Reuse or create delegated account, submit a delegated FOK BUY order, and inspect whether it matched or auto-cancelled
+
+- `server-wallet-redeem-withdraw.ts`
+  Reuse or create a server-wallet child account, redeem by `conditionId`, and optionally withdraw funds with `onBehalfOf`
 
 - `websocket-hmac.ts`
   HMAC-authenticated websocket positions and transactions
@@ -50,6 +55,10 @@ Optional example-only overrides:
 # WS_URL=wss://dev4.ws.limitless.exchange
 # LIMITLESS_KEEP_DERIVED_TOKENS=1
 # LIMITLESS_EXAMPLE_TRACE=1
+# LIMITLESS_SKIP_WITHDRAW=1
+# LIMITLESS_WITHDRAW_AMOUNT=
+# LIMITLESS_WITHDRAW_DESTINATION=
+# LIMITLESS_WITHDRAW_TOKEN=
 ```
 
 These variables are used by the sample runners only. In real SDK usage, base URLs and auth config are passed directly to the SDK client objects.
@@ -65,5 +74,12 @@ npx tsx docs/code-samples/api-key-v3/e2e-flow.ts
 npx tsx docs/code-samples/api-key-v3/e2e-fok-flow.ts
 npx tsx docs/code-samples/api-key-v3/delegated-order.ts
 npx tsx docs/code-samples/api-key-v3/delegated-fok-order.ts
+npx tsx docs/code-samples/api-key-v3/server-wallet-redeem-withdraw.ts
 npx tsx docs/code-samples/api-key-v3/websocket-hmac.ts
 ```
+
+## Notes
+
+- The server-wallet redeem/withdraw sample is only for child accounts created with `createServerWallet=true`.
+- `LIMITLESS_SKIP_WITHDRAW=1` is the safe default; set it to `0` only when you intend to move funds.
+- `LIMITLESS_WITHDRAW_AMOUNT` is required when the withdraw step is enabled and must be provided in the token smallest unit.
