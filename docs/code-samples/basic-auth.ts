@@ -50,8 +50,8 @@ async function main() {
 
     // Step 3: Fetch transaction history
     console.log('📜 Step 3: Fetching transaction history...');
-    const history = await portfolio.getUserHistory(1, 5);
-    console.log(`   ✅ Retrieved ${history.data?.length || 0} of ${history.totalCount} entries\n`);
+    const history = await portfolio.getUserHistory('', 5);
+    console.log(`   ✅ Retrieved ${history.data?.length || 0} entries\n`);
 
     console.log('🎉 All steps completed successfully!');
     console.log('\n📚 Next steps:');

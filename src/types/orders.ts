@@ -337,9 +337,9 @@ export interface CreatedOrder {
   id: string;
 
   /**
-   * Creation timestamp (ISO 8601)
+   * Creation timestamp (ISO 8601), or null when the API omits the match timestamp
    */
-  createdAt: string;
+  createdAt: string | null;
 
   /**
    * Maker amount (USDC units with 6 decimals)
@@ -441,9 +441,9 @@ export interface OrderMatch {
   id: string;
 
   /**
-   * Creation timestamp (ISO 8601)
+   * Creation timestamp (ISO 8601), or null when the API omits the match timestamp
    */
-  createdAt: string;
+  createdAt: string | null;
 
   /**
    * Matched size (USDC units with 6 decimals)

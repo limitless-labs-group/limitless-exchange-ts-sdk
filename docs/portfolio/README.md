@@ -139,13 +139,13 @@ const history = await portfolioFetcher.getUserHistory();
 
 console.log(JSON.stringify(history, null, 2));
 
-console.log(`Total entries: ${history.totalCount}`);
 console.log(`History items: ${history.data.length}`);
+console.log(`Next cursor: ${history.nextCursor}`);
 
 history.data.forEach(entry => {
-  console.log('ID:', entry.id);
-  console.log('Type:', entry.type);
-  console.log('Created:', entry.createdAt);
+  console.log('Strategy:', entry.strategy);
+  console.log('Market:', entry.market?.slug);
+  console.log('Timestamp:', entry.blockTimestamp);
   console.log('---');
 });
 ```
@@ -153,16 +153,18 @@ history.data.forEach(entry => {
 ### With Pagination
 
 ```typescript
-// Get paginated history (page 1, 10 items per page)
-const page1 = await portfolioFetcher.getUserHistory(1, 10);
+// Get the first page with a custom limit.
+// The SDK sends cursor= on the wire for the first request.
+const page1 = await portfolioFetcher.getUserHistory('', 10);
 
 console.log(`Page 1: ${page1.data.length} items`);
-console.log(`Total: ${page1.totalCount} items`);
 
-// Get page 2
-const page2 = await portfolioFetcher.getUserHistory(2, 10);
+// Get page 2 using the returned cursor
+if (page1.nextCursor) {
+  const page2 = await portfolioFetcher.getUserHistory(page1.nextCursor, 10);
 
-console.log(`Page 2: ${page2.data.length} items`);
+  console.log(`Page 2: ${page2.data.length} items`);
+}
 ```
 
 ### History Response Structure
@@ -170,16 +172,25 @@ console.log(`Page 2: ${page2.data.length} items`);
 ```typescript
 interface HistoryResponse {
   data: HistoryEntry[];
-  totalCount: number;
+  nextCursor: string | null;
 }
 
 interface HistoryEntry {
-  id: string;
-  type: string;
-  createdAt: string;
-  marketSlug?: string;
-  amount?: string;
-  details?: Record<string, any>;
+  blockTimestamp: number;
+  collateralAmount?: string;
+  market?: {
+    id: string;
+    slug: string;
+    title: string;
+    conditionId?: string;
+    expirationDate?: string;
+  };
+  outcomeIndex?: number;
+  outcomeTokenAmount?: string;
+  outcomeTokenAmounts?: string[];
+  outcomeTokenPrice?: number | string;
+  strategy?: string;
+  transactionHash?: string;
 }
 ```
 
@@ -275,7 +286,7 @@ async function main() {
   console.log(JSON.stringify(positions, null, 2));
 
   // Get user history
-  const history = await portfolioFetcher.getUserHistory(1, 10);
+  const history = await portfolioFetcher.getUserHistory('', 10);
 
   console.log('\nUser History:');
   console.log(JSON.stringify(history, null, 2));
