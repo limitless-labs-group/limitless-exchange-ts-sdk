@@ -1,10 +1,10 @@
 # Limitless Exchange TypeScript SDK
 
-**v1.0.6** | Production-Ready | Type-Safe | Fully Documented
+**v1.0.7** | Production-Ready | Type-Safe | Fully Documented
 
 A TypeScript SDK for interacting with the Limitless Exchange platform, providing type-safe access to CLOB and NegRisk prediction markets.
 
-> 🎉 **v1.0.6 Release**: Adds server-managed wallet support for delegated-signing partner flows, including redeem and withdraw helpers. See [Changelog](#changelog) for details.
+> 🎉 **v1.0.7 Release**: Adds cursor-based portfolio history support and aligns the SDK with the current history response shape. See [Changelog](#changelog) for details.
 
 ## ⚠️ Disclaimer
 
@@ -149,15 +149,18 @@ const httpClient = new HttpClient({
 
 **Environment Variables:**
 
-Create a `.env` file:
+Create a local `.env` file that is not committed to source control:
 
 ```bash
 # Required for authenticated endpoints
 LIMITLESS_API_KEY=sk_live_your_api_key_here
 
-# REQUIRED: Private key for order signing (EIP-712)
-PRIVATE_KEY=0x...
+# REQUIRED for server-side or local scripts that sign orders (EIP-712)
+# Never commit a real private key to the repository.
+PRIVATE_KEY=your_private_key_here
 ```
+
+Do not ship a raw `PRIVATE_KEY` in browser bundles, checked-in `.env` files, or frontend environment variables. For browser apps, use an injected wallet or move signing behind your own backend/BFF.
 
 ### Partner API Token v3 / HMAC Usage
 
@@ -169,6 +172,7 @@ Recommended setup:
 
 - Keep public market and market-page reads in the browser.
 - Store the real HMAC `tokenId` / `secret` on your backend.
+- Keep any raw order-signing `PRIVATE_KEY` on your backend or in local development only.
 - Use this SDK server-side to sign partner-authenticated requests.
 - Expose only your own app-specific endpoints to the frontend.
 
@@ -464,7 +468,7 @@ HTTP client with API key authentication.
 ```typescript
 const httpClient = new HttpClient({
   baseURL: 'https://api.limitless.exchange',
-  apiKey: process.env.LIMITLESS_API_KEY, // you are allowed to pass it that way, otherwise will be loaded from .env
+  apiKey: process.env.LIMITLESS_API_KEY, // optional: can also be auto-loaded from LIMITLESS_API_KEY
   timeout: 30000,
 });
 
