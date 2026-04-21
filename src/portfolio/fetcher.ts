@@ -155,37 +155,40 @@ export class PortfolioFetcher {
   }
 
   /**
-   * Gets paginated history of user actions.
+   * Gets cursor-paginated history of user actions.
    *
-   *  Includes AMM trades, CLOB trades, Negrisk trades & conversions.
+   * Includes AMM trades, CLOB trades, NegRisk trades & conversions.
    *
-   * @param page - Page number (starts at 1)
+   * @param cursor - Opaque cursor for pagination. Omit it or pass an empty string for the first page.
    * @param limit - Number of items per page
-   * @returns Promise resolving to paginated history response
+   * @returns Promise resolving to cursor-paginated history response
    * @throws Error if API request fails or user is not authenticated
    *
    * @example
    * ```typescript
    * // Get first page
-   * const response = await portfolioFetcher.getUserHistory(1, 20);
-   * console.log(`Found ${response.data.length} of ${response.totalCount} entries`);
+   * const response = await portfolioFetcher.getUserHistory();
+   * console.log(`Found ${response.data.length} entries`);
    *
    * // Process history entries
    * for (const entry of response.data) {
-   *   console.log(`Type: ${entry.type}`);
-   *   console.log(`Market: ${entry.marketSlug}`);
+   *   console.log(`Strategy: ${entry.strategy}`);
+   *   console.log(`Market: ${entry.market?.slug}`);
    * }
    *
-   * // Get next page
-   * const page2 = await portfolioFetcher.getUserHistory(2, 20);
+   * // Get next page using cursor
+   * if (response.nextCursor) {
+   *   const page2 = await portfolioFetcher.getUserHistory(response.nextCursor, 20);
+   * }
    * ```
    */
-  async getUserHistory(page: number = 1, limit: number = 10): Promise<HistoryResponse> {
-    this.logger.debug('Fetching user history', { page, limit });
+  async getUserHistory(cursor?: string, limit: number = 20): Promise<HistoryResponse> {
+    this.logger.debug('Fetching user history', { cursor, limit });
 
     try {
+      // Always send cursor=, using an empty value on the first page.
       const params = new URLSearchParams({
-        page: page.toString(),
+        cursor: cursor ?? '',
         limit: limit.toString(),
       });
 
@@ -197,7 +200,7 @@ export class PortfolioFetcher {
 
       return response;
     } catch (error) {
-      this.logger.error('Failed to fetch user history', error as Error, { page, limit });
+      this.logger.error('Failed to fetch user history', error as Error, { cursor, limit });
       throw error;
     }
   }

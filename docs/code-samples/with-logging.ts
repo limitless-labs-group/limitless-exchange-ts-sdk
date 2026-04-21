@@ -55,7 +55,7 @@ async function main() {
 
     // Another request - more SDK logs
     console.log('--- SDK Logs (fetching history) ---\n');
-    const history = await portfolio.getUserHistory(1, 5);
+    const history = await portfolio.getUserHistory('', 5);
     console.log('\n--- End SDK Logs ---\n');
 
     console.log(`✅ Retrieved ${history.data?.length || 0} transaction(s)\n`);

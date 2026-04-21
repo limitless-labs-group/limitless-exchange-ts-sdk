@@ -324,16 +324,18 @@ async function main() {
     // 8d. Get User History
     console.log('\n📜 Fetching user transaction history...');
     const portfolioFetcher = new PortfolioFetcher(httpClient);
-    const history = await portfolioFetcher.getUserHistory(1, 5);
-    console.log(`History resp: ${history}`);
-    console.log(`   ✅ Found ${history.data.length} of ${history.totalCount} total entries`);
+    const history = await portfolioFetcher.getUserHistory('', 5);
+    console.log(`   ✅ Found ${history.data.length} entries`);
     if (history.data.length > 0) {
       console.log('\n   Recent transactions:');
       history.data.slice(0, 3).forEach((entry: any, i: number) => {
-        console.log(`\n   ${i + 1}. ${entry.type}`);
-        console.log(`      Market: ${entry.marketSlug || 'N/A'}`);
-        console.log(`      Created: ${entry.createdAt}`);
+        console.log(`\n   ${i + 1}. ${entry.strategy}`);
+        console.log(`      Market: ${entry.market?.slug || 'N/A'}`);
+        console.log(`      Timestamp: ${entry.blockTimestamp}`);
       });
+    }
+    if (history.nextCursor) {
+      console.log(`   Next cursor: ${history.nextCursor}`);
     }
 
     // ===========================================

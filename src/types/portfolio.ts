@@ -403,61 +403,83 @@ export interface PortfolioSummary {
 }
 
 /**
+ * Collateral token info inside a history market.
+ *
+ * @public
+ */
+export interface HistoryMarketCollateral {
+  symbol: string;
+  id: string;
+  decimals: number;
+}
+
+/**
+ * Market snapshot embedded in a history entry.
+ *
+ * @public
+ */
+export interface HistoryMarket {
+  closed: boolean;
+  collateral?: HistoryMarketCollateral;
+  group?: Record<string, any> | null;
+  conditionId?: string;
+  funding?: string;
+  id: string;
+  slug: string;
+  title: string;
+  expirationDate?: string;
+}
+
+/**
  * User history entry.
  *
  * Represents various types of user actions:
  * - AMM trades
- * - CLOB trades
+ * - CLOB trades (Buy, Sell, Limit Buy, Limit Sell, Market Buy, Market Sell)
  * - Token splits/merges
  * - NegRisk conversions
+ * - Claims
  *
  * @public
  */
 export interface HistoryEntry {
-  /**
-   * Entry ID
-   */
-  id: string;
+  /** Block timestamp (unix seconds) */
+  blockTimestamp: number;
 
-  /**
-   * Entry type (trade, split, merge, conversion, etc.)
-   */
-  type: string;
+  /** Collateral amount (e.g. USDC spent/received) */
+  collateralAmount?: string;
 
-  /**
-   * Entry creation timestamp
-   */
-  createdAt: string;
+  /** Market snapshot */
+  market?: HistoryMarket;
 
-  /**
-   * Associated market slug
-   */
-  marketSlug?: string;
+  /** Outcome index (0 = YES, 1 = NO for binary) */
+  outcomeIndex?: number;
 
-  /**
-   * Transaction amount
-   */
-  amount?: string;
+  /** Outcome token amount */
+  outcomeTokenAmount?: string;
 
-  /**
-   * Additional entry details
-   */
-  details?: Record<string, any>;
+  /** Outcome token amounts per outcome */
+  outcomeTokenAmounts?: string[];
+
+  /** Outcome token price at time of trade */
+  outcomeTokenPrice?: number | string;
+
+  /** Trade strategy (Buy, Sell, Limit Buy, Limit Sell, Split, Merge, Convert, Claim) */
+  strategy?: string;
+
+  /** On-chain transaction hash */
+  transactionHash?: string;
 }
 
 /**
- * Paginated user history response from /portfolio/history endpoint.
+ * Cursor-based user history response from /portfolio/history endpoint.
  *
  * @public
  */
 export interface HistoryResponse {
-  /**
-   * List of history entries
-   */
+  /** List of history entries */
   data: HistoryEntry[];
 
-  /**
-   * Total number of entries
-   */
-  totalCount: number;
+  /** Opaque cursor for the next page, or null if this is the last page */
+  nextCursor: string | null;
 }
