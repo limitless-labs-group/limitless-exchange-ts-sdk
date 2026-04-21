@@ -77,6 +77,55 @@ describe('OrderClient', () => {
     expect(transformed.order.salt).toBe('9007199254740993');
   });
 
+  it('preserves null createdAt on makerMatches', () => {
+    const client = new OrderClient({
+      httpClient: {} as any,
+      wallet: {
+        address: '0x0000000000000000000000000000000000000001',
+      } as any,
+    });
+
+    const transformed = (client as any).transformOrderResponse({
+      order: {
+        id: 'order-3',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        makerAmount: '50',
+        takerAmount: '100',
+        expiration: '0',
+        signatureType: '0',
+        salt: '1742000000000000',
+        maker: '0x0000000000000000000000000000000000000001',
+        signer: '0x0000000000000000000000000000000000000001',
+        taker: '0x0000000000000000000000000000000000000000',
+        tokenId: '123',
+        side: '0',
+        feeRateBps: '300',
+        nonce: '0',
+        signature: '0xabc',
+        orderType: 'FOK',
+        price: null,
+        marketId: '42',
+      },
+      makerMatches: [
+        {
+          id: 'match-1',
+          createdAt: null,
+          matchedSize: '1000000',
+          orderId: '2c92ce01-e59b-4966-9d3f-a03bdb85e3eb',
+        },
+      ],
+    });
+
+    expect(transformed.makerMatches).toEqual([
+      {
+        id: 'match-1',
+        createdAt: null,
+        matchedSize: '1000000',
+        orderId: '2c92ce01-e59b-4966-9d3f-a03bdb85e3eb',
+      },
+    ]);
+  });
+
   it('omits postOnly for FAK orders before submitting to the API', async () => {
     const walletAddress = '0x0000000000000000000000000000000000000001';
     const signature = `0x${'a'.repeat(130)}`;
