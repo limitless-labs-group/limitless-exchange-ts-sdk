@@ -5,11 +5,13 @@ Comprehensive code samples demonstrating the Limitless Exchange TypeScript SDK f
 ## Setup
 
 1. Copy the environment template:
+
 ```bash
 cp .env.example .env
 ```
 
 2. Configure your `.env` file:
+
 ```env
 # Common example inputs
 LIMITLESS_API_KEY=your_api_key_here
@@ -18,6 +20,7 @@ MARKET_SLUG=bitcoin-2024
 ```
 
 Optional example-runner overrides:
+
 ```env
 # Only needed when you want a non-default environment
 # API_URL=https://api.limitless.exchange
@@ -29,6 +32,7 @@ Optional example-runner overrides:
 ```
 
 3. Run examples:
+
 ```bash
 # From the root of limitless-exchange-sdk directory
 npx tsx docs/code-samples/<example-file>.ts
@@ -37,6 +41,7 @@ npx tsx docs/code-samples/<example-file>.ts
 ## Clean Fluent API Examples
 
 ### Basic Fluent API
+
 **File**: `fluent-api-example.ts`
 
 Demonstrates the new clean fluent API for fetching user orders:
@@ -48,17 +53,20 @@ const orders = await market.getUserOrders();
 ```
 
 **Features**:
+
 - Fetch market details
 - Get user orders with fluent API
 - Analyze order status distribution
 - Compare old vs new API patterns
 
 **Run**:
+
 ```bash
 npx tsx docs/code-samples/fluent-api-example.ts
 ```
 
 ### Trading Workflow with Fluent API
+
 **File**: `fluent-api-trading-workflow.ts`
 
 Complete trading workflow using the fluent API:
@@ -71,12 +79,14 @@ const updatedOrders = await market.getUserOrders();
 ```
 
 **Features**:
+
 - Fetch market and check existing orders
 - Place new orders (optional)
 - Monitor order updates
 - Analyze order distribution
 
 **Run**:
+
 ```bash
 npx tsx docs/code-samples/fluent-api-trading-workflow.ts
 ```
@@ -84,21 +94,25 @@ npx tsx docs/code-samples/fluent-api-trading-workflow.ts
 ## Authentication Examples
 
 ### Basic Authentication
+
 **File**: `basic-auth.ts`
 
 Simple authentication example using API key.
 
 **Run**:
+
 ```bash
 npx tsx docs/code-samples/basic-auth.ts
 ```
 
 ### Authentication with Retry
+
 **File**: `auth-retry.ts`
 
 Authentication with automatic retry on failures.
 
 **Run**:
+
 ```bash
 npx tsx docs/code-samples/auth-retry.ts
 ```
@@ -110,81 +124,109 @@ Dedicated examples for partner self-service tokens, HMAC auth, delegated trading
 These values are used only by the example scripts. They are not required SDK globals. In normal SDK usage, you pass config directly to `HttpClient`, `WebSocketClient`, or the root `Client`.
 
 ### Token Derivation + HMAC Portfolio
+
 **File**: `api-key-v3/api-tokens.ts`
 
 Derive a scoped token from a Privy identity token, use HMAC auth against portfolio endpoints, list active derived tokens, and optionally revoke the token.
 
 **Run**:
+
 ```bash
 npx tsx docs/code-samples/api-key-v3/api-tokens.ts
 ```
 
 ### Partner Account Creation
+
 **File**: `api-key-v3/partner-account.ts`
 
 Create a partner-owned child account with `createServerWallet=true` using a scoped api-token.
 
 **Run**:
+
 ```bash
 npx tsx docs/code-samples/api-key-v3/partner-account.ts
 ```
 
+### Partner Allowance Recovery
+
+**File**: `api-key-v3/partner-account-allowances.ts`
+
+Check live server-wallet allowance state and retry missing or failed retryable targets with partner HMAC auth only.
+
+**Run**:
+
+```bash
+npx tsx docs/code-samples/api-key-v3/partner-account-allowances.ts
+```
+
 ### Partner E2E Flow
+
 **File**: `api-key-v3/e2e-flow.ts`
 
 Walk through the partner sequence end-to-end: read capabilities, derive an HMAC token, create a server-wallet child account, remind the operator to fund it, then place and cancel a delegated order.
 
 **Run**:
+
 ```bash
 npx tsx docs/code-samples/api-key-v3/e2e-flow.ts
 ```
 
 ### Partner E2E FOK Flow
+
 **File**: `api-key-v3/e2e-fok-flow.ts`
 
 Walk through the partner sequence end-to-end for delegated `FOK` trading: read capabilities, derive an HMAC token, create a server-wallet child account, remind the operator to fund it, then place a delegated `FOK` BUY order without a cleanup step.
 
 **Run**:
+
 ```bash
 npx tsx docs/code-samples/api-key-v3/e2e-fok-flow.ts
 ```
 
 ### Delegated Order Flow
+
 **File**: `api-key-v3/delegated-order.ts`
 
 Create delegated `GTC` orders with `onBehalfOf`, including `postOnly`, then cancel by order id and cancel all for the market.
 
 **Run**:
+
 ```bash
 npx tsx docs/code-samples/api-key-v3/delegated-order.ts
 ```
 
 ### Delegated FOK Order Flow
+
 **File**: `api-key-v3/delegated-fok-order.ts`
 
 Create a delegated `FOK` BUY order with `onBehalfOf` and inspect whether it matched immediately or auto-cancelled.
 
 **Run**:
+
 ```bash
 npx tsx docs/code-samples/api-key-v3/delegated-fok-order.ts
 ```
 
 ### Server Wallet Redeem + Optional Withdraw
+
 **File**: `api-key-v3/server-wallet-redeem-withdraw.ts`
 
 Redeem a resolved market position back to collateral in a server-managed wallet, then optionally withdraw those funds using the partner's HMAC token and `onBehalfOf`.
 
 **Run**:
+
 ```bash
 npx tsx docs/code-samples/api-key-v3/server-wallet-redeem-withdraw.ts
 ```
 
 ### WebSocket with HMAC
+
 **File**: `api-key-v3/websocket-hmac.ts`
 
 Connect to authenticated websocket channels using HMAC credentials instead of `X-API-Key`.
 
 **Run**:
+
 ```bash
 npx tsx docs/code-samples/api-key-v3/websocket-hmac.ts
 ```
@@ -192,21 +234,25 @@ npx tsx docs/code-samples/api-key-v3/websocket-hmac.ts
 ## Market Data Examples
 
 ### Active Markets
+
 **File**: `get-active-markets.ts`
 
 Fetch and display active prediction markets with sorting and pagination.
 
 **Run**:
+
 ```bash
 npx tsx docs/code-samples/get-active-markets.ts
 ```
 
 ### Orderbook Data
+
 **File**: `orderbook.ts`
 
 Fetch and analyze market orderbook data.
 
 **Run**:
+
 ```bash
 npx tsx docs/code-samples/orderbook.ts
 ```
@@ -216,31 +262,37 @@ npx tsx docs/code-samples/orderbook.ts
 ### CLOB Markets
 
 #### FOK Orders (Market Orders)
+
 **File**: `clob-fok-order.ts`
 
 Place Fill-or-Kill (market) orders on CLOB markets.
 
 **Run**:
+
 ```bash
 npx tsx docs/code-samples/clob-fok-order.ts
 ```
 
 #### GTC Orders (Limit Orders)
+
 **File**: `clob-gtc-order.ts`
 
 Place Good-Til-Cancelled (limit) orders on CLOB markets, including `postOnly`.
 
 **Run**:
+
 ```bash
 npx tsx docs/code-samples/clob-gtc-order.ts
 ```
 
 #### FAK Orders (Fill-And-Kill Limit Orders)
+
 **File**: `clob-fak-order.ts`
 
 Place Fill-And-Kill limit orders on CLOB markets.
 
 **Run**:
+
 ```bash
 npx tsx docs/code-samples/clob-fak-order.ts
 ```
@@ -248,21 +300,25 @@ npx tsx docs/code-samples/clob-fak-order.ts
 ### NegRisk Markets
 
 #### FOK Orders
+
 **File**: `negrisk-fok-order.ts`
 
 Place FOK orders on NegRisk submarkets.
 
 **Run**:
+
 ```bash
 npx tsx docs/code-samples/negrisk-fok-order.ts
 ```
 
 #### GTC Orders
+
 **File**: `negrisk-gtc-order.ts`
 
 Place GTC orders on NegRisk submarkets.
 
 **Run**:
+
 ```bash
 npx tsx docs/code-samples/negrisk-gtc-order.ts
 ```
@@ -270,11 +326,13 @@ npx tsx docs/code-samples/negrisk-gtc-order.ts
 ## Portfolio Examples
 
 ### Positions
+
 **File**: `positions.ts`
 
 Fetch and display portfolio positions.
 
 **Run**:
+
 ```bash
 npx tsx docs/code-samples/positions.ts
 ```
@@ -282,11 +340,13 @@ npx tsx docs/code-samples/positions.ts
 ## WebSocket Examples
 
 ### WebSocket Events
+
 **File**: `websocket-events.ts`
 
 Complete WebSocket event handling example.
 
 **Run**:
+
 ```bash
 npx tsx docs/code-samples/websocket-events.ts
 ```
@@ -294,11 +354,13 @@ npx tsx docs/code-samples/websocket-events.ts
 ## Utility Examples
 
 ### Error Handling
+
 **File**: `error-handling.ts`
 
 Comprehensive error handling patterns.
 
 **Run**:
+
 ```bash
 npx tsx docs/code-samples/error-handling.ts
 ```
@@ -306,41 +368,49 @@ npx tsx docs/code-samples/error-handling.ts
 ### Retry Patterns
 
 #### Retry Wrapper
+
 **File**: `retry-wrapper.ts`
 
 Function wrapper for automatic retries.
 
 **Run**:
+
 ```bash
 npx tsx docs/code-samples/retry-wrapper.ts
 ```
 
 #### Retry Decorator
+
 **File**: `retry-decorator.ts`
 
 Decorator pattern for retry logic.
 
 **Run**:
+
 ```bash
 npx tsx docs/code-samples/retry-decorator.ts
 ```
 
 ### Logging
+
 **File**: `with-logging.ts`
 
 HTTP client with custom logging.
 
 **Run**:
+
 ```bash
 npx tsx docs/code-samples/with-logging.ts
 ```
 
 ### Token Approvals
+
 **File**: `setup-approvals.ts`
 
 Setup token approvals for trading (USDC and Conditional Tokens).
 
 **Run**:
+
 ```bash
 npx tsx docs/code-samples/setup-approvals.ts
 ```
@@ -352,18 +422,21 @@ npx tsx docs/code-samples/setup-approvals.ts
 The new Market class provides a clean fluent API:
 
 **Before** (old approach):
+
 ```typescript
 const marketFetcher = new MarketFetcher(httpClient);
 const orders = await marketFetcher.getUserOrders('market-slug');
 ```
 
 **After** (new fluent API):
+
 ```typescript
 const market = await marketFetcher.getMarket('market-slug');
-const orders = await market.getUserOrders();  // ✨ Clean!
+const orders = await market.getUserOrders(); // ✨ Clean!
 ```
 
 **Benefits**:
+
 - ✅ No repetitive parameter passing
 - ✅ Type-safe market context
 - ✅ Intuitive object-oriented API
@@ -399,7 +472,7 @@ console.log(market.tokens?.yes);
 console.log(market.venue.exchange);
 
 // Analyze orders
-const openOrders = orders.filter(o => o.status === 'OPEN');
+const openOrders = orders.filter((o) => o.status === 'OPEN');
 ```
 
 ### Complete Trading Flow
@@ -415,7 +488,7 @@ const existingOrders = await market.getUserOrders();
 const orderClient = new OrderClient({
   httpClient,
   wallet,
-  marketFetcher,  // Share instance for venue caching
+  marketFetcher, // Share instance for venue caching
 });
 
 // 4. Place order
@@ -434,21 +507,25 @@ const updatedOrders = await market.getUserOrders();
 
 ## Environment Variables Reference
 
-| Variable | Description | Required | Default |
-|----------|-------------|----------|---------|
-| `LIMITLESS_API_KEY` | Your API key for authentication | For authenticated endpoints | - |
-| `PRIVATE_KEY` | Wallet private key for order signing | For trading | - |
-| `MARKET_SLUG` | Market slug for examples (works for both CLOB and NegRisk) | No | `bitcoin-2024` |
-| `LIMITLESS_IDENTITY_TOKEN` | Privy identity token for partner api-key-v3 examples | No | - |
-| `PARTNER_NAME` | Partner identifier used by api-key-v3 runtime files | No | `partner-a` |
-| `LIMITLESS_SKIP_WITHDRAW` | Skip the withdraw step in server-wallet examples | No | `true` |
-| `LIMITLESS_WITHDRAW_AMOUNT` | Withdraw amount in token smallest unit | No | - |
-| `LIMITLESS_WITHDRAW_DESTINATION` | Optional withdraw destination override | No | backend default |
-| `LIMITLESS_WITHDRAW_TOKEN` | Optional token address override | No | backend default |
-| `API_URL` | Example-only API base URL override | No | `https://api.limitless.exchange` |
-| `WS_URL` | Example-only websocket URL override | No | `wss://ws.limitless.exchange` |
-| `CHAIN_ID` | Example-only chain override for approval / NegRisk scripts | No | `8453` (Base) |
-| `PLACE_ORDER` | Enable actual order placement | No | `false` |
+| Variable                               | Description                                                | Required                    | Default                          |
+| -------------------------------------- | ---------------------------------------------------------- | --------------------------- | -------------------------------- |
+| `LIMITLESS_API_KEY`                    | Your API key for authentication                            | For authenticated endpoints | -                                |
+| `PRIVATE_KEY`                          | Wallet private key for order signing                       | For trading                 | -                                |
+| `MARKET_SLUG`                          | Market slug for examples (works for both CLOB and NegRisk) | No                          | `bitcoin-2024`                   |
+| `LIMITLESS_IDENTITY_TOKEN`             | Privy identity token for partner api-key-v3 examples       | No                          | -                                |
+| `LIMITLESS_API_TOKEN_ID`               | Scoped HMAC token id for partner api-key-v3 examples       | For partner HMAC examples   | -                                |
+| `LIMITLESS_API_TOKEN_SECRET`           | Scoped HMAC token secret for partner api-key-v3 examples   | For partner HMAC examples   | -                                |
+| `LIMITLESS_PARTNER_ACCOUNT_PROFILE_ID` | Server-wallet child profile id for allowance checks        | For allowance example       | -                                |
+| `PARTNER_NAME`                         | Partner identifier used by api-key-v3 runtime files        | No                          | `partner-a`                      |
+| `LIMITLESS_SKIP_ALLOWANCE_RETRY`       | Skip the allowance retry POST step                         | No                          | `false`                          |
+| `LIMITLESS_SKIP_WITHDRAW`              | Skip the withdraw step in server-wallet examples           | No                          | `true`                           |
+| `LIMITLESS_WITHDRAW_AMOUNT`            | Withdraw amount in token smallest unit                     | No                          | -                                |
+| `LIMITLESS_WITHDRAW_DESTINATION`       | Optional withdraw destination override                     | No                          | backend default                  |
+| `LIMITLESS_WITHDRAW_TOKEN`             | Optional token address override                            | No                          | backend default                  |
+| `API_URL`                              | Example-only API base URL override                         | No                          | `https://api.limitless.exchange` |
+| `WS_URL`                               | Example-only websocket URL override                        | No                          | `wss://ws.limitless.exchange`    |
+| `CHAIN_ID`                             | Example-only chain override for approval / NegRisk scripts | No                          | `8453` (Base)                    |
+| `PLACE_ORDER`                          | Enable actual order placement                              | No                          | `false`                          |
 
 **Note**: User ID and fee rate are automatically fetched from your profile API on first order creation.
 

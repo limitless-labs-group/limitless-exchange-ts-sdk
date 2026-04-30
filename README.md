@@ -1,10 +1,10 @@
 # Limitless Exchange TypeScript SDK
 
-**v1.0.7** | Production-Ready | Type-Safe | Fully Documented
+**v1.0.8** | Production-Ready | Type-Safe | Fully Documented
 
 A TypeScript SDK for interacting with the Limitless Exchange platform, providing type-safe access to CLOB and NegRisk prediction markets.
 
-> 🎉 **v1.0.7 Release**: Adds cursor-based portfolio history support and aligns the SDK with the current history response shape. See [Changelog](#changelog) for details.
+> **v1.0.8 Release**: Adds partner server-wallet allowance recovery helpers, live-chain retry semantics, and a runnable partner allowance example. See [Changelog](#changelog) for details.
 
 ## ⚠️ Disclaimer
 
@@ -177,6 +177,38 @@ Recommended setup:
 - Expose only your own app-specific endpoints to the frontend.
 
 See [`docs/code-samples/api-key-v3/`](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/tree/main/limitless-exchange-sdk/docs/code-samples/api-key-v3) for the partner HMAC examples.
+
+#### Partner Server-Wallet Allowances
+
+Use `client.partnerAccounts.checkAllowances(profileId)` and `client.partnerAccounts.retryAllowances(profileId)` only for partner child profiles created with `createServerWallet: true`.
+
+- `checkAllowances()` calls `GET /profiles/partner-accounts/:profileId/allowances`
+- `retryAllowances()` calls `POST /profiles/partner-accounts/:profileId/allowances/retry`
+- both operations require HMAC-scoped API-token auth with `account_creation` and `delegated_signing` scopes
+- `profileId` should be the delegated child-profile id
+
+```typescript
+import { Client } from '@limitless-exchange/sdk';
+
+const client = new Client({
+  baseURL: 'https://api.limitless.exchange',
+  hmacCredentials: {
+    tokenId: process.env.LIMITLESS_API_TOKEN_ID!,
+    secret: process.env.LIMITLESS_API_TOKEN_SECRET!,
+  },
+});
+
+let allowances = await client.partnerAccounts.checkAllowances(352);
+if (!allowances.ready) {
+  // Retry re-checks live chain state and submits only targets still missing.
+  // A returned "submitted" status means this request submitted a sponsored tx/user operation.
+  allowances = await client.partnerAccounts.retryAllowances(352);
+}
+```
+
+Poll `checkAllowances()` first. If `ready` is false and one or more targets are `missing` or `failed` with `retryable: true`, call `retryAllowances()`, then poll `checkAllowances()` again after a short delay. Retry `429` responses throw `RateLimitError` and include `retryAfterSeconds` in `error.data`; retry `409` responses throw `APIError` with `status === 409`, which means another retry is already running.
+
+For a complete runnable flow, see [`docs/code-samples/api-key-v3/partner-account-allowances.ts`](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/limitless-exchange-sdk/docs/code-samples/api-key-v3/partner-account-allowances.ts).
 
 #### Server Wallet Redeem & Withdraw
 
@@ -528,6 +560,11 @@ Production-ready code samples are available in [docs/code-samples](https://githu
 
 - `websocket-events.ts` - Real-time trading events and subscriptions
 
+### Partner HMAC Examples
+
+- `api-key-v3/partner-account-allowances.ts` - Check and retry server-wallet allowance recovery with partner HMAC auth only
+- `api-key-v3/server-wallet-redeem-withdraw.ts` - Redeem resolved positions and optionally withdraw from a server wallet
+
 ## Development
 
 ### Build
@@ -594,11 +631,11 @@ docs/
 
 ## Changelog
 
-### v1.0.6
+### v1.0.8
 
-**Release Date**: April 14, 2026
+**Release Date**: April 30, 2026
 
-Latest release with server-managed wallet support for delegated-signing partner flows, including redeem and withdraw helpers.
+Latest release with partner server-wallet allowance recovery helpers and live-chain retry semantics.
 
 #### Highlights
 
@@ -612,11 +649,12 @@ Latest release with server-managed wallet support for delegated-signing partner 
 - 🧭 **Market Pages API**: Navigation tree, by-path resolver with 301 handling, page-scoped markets, property keys
 - 🧾 **More Trading Semantics**: `FAK` limit orders plus `postOnly` on `GTC`
 - 🏦 **Partner Server Wallets**: Delegated child-account redeem and HMAC-only withdraw flows
+- 🔁 **Partner Allowance Recovery**: Check and retry delegated allowance targets for server-wallet child profiles
 
 #### Core Features
 
 - **Authentication**: API key authentication, EIP-712 signing, EOA support
-- **Partner Flows**: API-token v3 services, delegated orders, and server-wallet redeem/withdraw
+- **Partner Flows**: API-token v3 services, delegated orders, server-wallet redeem/withdraw, and allowance recovery
 - **Market Data**: Active markets with sorting, orderbook access, venue caching
 - **Market Pages & Navigation**: `/navigation`, `/market-pages/by-path`, `/market-pages/:id/markets`, `/property-keys`
 - **Order Management**: GTC, FAK, and FOK orders, GTC `postOnly`, tick alignment, automatic signing, IEEE-safe create-order payload parsing
@@ -625,13 +663,12 @@ Latest release with server-managed wallet support for delegated-signing partner 
 - **Error Handling**: Decorator and wrapper retry patterns, configurable strategies
 - **Token Approvals**: Complete setup script, CLOB and NegRisk workflows
 
-#### Documentation Enhancements (v1.0.6)
+#### Documentation Enhancements (v1.0.8)
 
-- Added `FAK` order examples to README and code samples
-- Added `postOnly` usage to `GTC` examples and delegated-order samples
-- Added server-wallet redeem/withdraw docs and API key v3 examples for delegated child accounts
+- Added partner allowance check/retry docs and API key v3 example for delegated server-wallet child accounts
+- Updated allowance retry guidance for live chain reads, submitted-target semantics, `429`, and `409`
 - Created comprehensive CHANGELOG.md following Keep a Changelog format
-- All 18 code samples include step-by-step comments and error handling
+- All production code samples include step-by-step comments and error handling
 - Detailed guides for authentication, trading, markets, portfolio, and WebSocket
 - Added market-pages guide and README quick-start for navigation-driven discovery
 
