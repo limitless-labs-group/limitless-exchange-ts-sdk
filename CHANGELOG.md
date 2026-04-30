@@ -7,7 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.8] - 2026-04-30
+
+### Added
+
+- Partner server-wallet allowance recovery endpoints:
+  - `PartnerAccountService.checkAllowances()`
+  - `PartnerAccountService.retryAllowances()`
+- Public allowance recovery response types, status constants, and target-level error-code constants.
+- New runnable `docs/code-samples/api-key-v3/partner-account-allowances.ts` flow for partner HMAC allowance check and retry operations without admin APIs.
+
+### Changed
+
+- Updated partner allowance recovery models and docs for live-chain retry behavior:
+  - target `submitted` status now means the current retry request submitted a sponsored transaction or user operation
+  - target-level `IN_FLIGHT_ELSEWHERE`, `RATE_LIMITED`, and `nextRetryAt` modeling was removed
+  - success response `retryAfterSeconds` / `nextRetryAt` modeling was removed; `429` retry timing remains available from the raw API error body
+  - retry `429` responses throw `RateLimitError`; retry `409` responses throw `APIError` with `status === 409`
+- README, API-key v3 docs, and package metadata now target `v1.0.8`.
+
 ## [1.0.7]
+
 ### Changed
 
 - Migrated portfolio history endpoint from legacy page/limit pagination to cursor-based pagination.
@@ -19,6 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `HistoryMarket` and `HistoryMarketCollateral` types.
 
 ## [1.0.6]
+
 ### Added
 
 - Server-managed wallet support for delegated-signing partner flows:

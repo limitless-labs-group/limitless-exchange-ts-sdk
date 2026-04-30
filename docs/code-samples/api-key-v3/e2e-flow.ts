@@ -65,7 +65,7 @@ async function main() {
       `   Fund ${partnerAccount.account} with ${market.collateralToken.symbol} on ${market.collateralToken.address}.`
     );
     console.log(
-      '   The backend also provisions delegated allowances asynchronously for new server wallets, so a short wait is usually needed before the first trade.'
+      '   Check delegated allowances with partnerAccounts.checkAllowances(); if retryable targets are missing or failed, call partnerAccounts.retryAllowances() and poll again.'
     );
 
     const readyDelayMs = optionalPositiveInt('LIMITLESS_DELEGATED_ACCOUNT_READY_DELAY_MS', 10_000);
