@@ -1,7 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import { PartnerAccountService } from '../../src/partner-accounts/service';
 import type { HttpClient } from '../../src/api/http';
-import type { PartnerAccountAllowanceResponse } from '../../src/types/partner-accounts';
+import type {
+  PartnerAccountAllowanceResponse,
+  PartnerWithdrawalAddressResponse,
+} from '../../src/types/partner-accounts';
 import { APIError, RateLimitError } from '../../src/api/errors';
 
 const ALLOWANCE_RESPONSE: PartnerAccountAllowanceResponse = {
@@ -32,6 +35,15 @@ const ALLOWANCE_RESPONSE: PartnerAccountAllowanceResponse = {
       retryable: false,
     },
   ],
+};
+
+const WITHDRAWAL_ADDRESS_RESPONSE: PartnerWithdrawalAddressResponse = {
+  id: '11111111-1111-4111-8111-111111111111',
+  profileId: 1292711,
+  destinationAddress: '0x0F3262730c909408042F9Da345a916dc0e1F9787',
+  label: 'treasury',
+  createdAt: '2026-04-30T12:00:00.000Z',
+  deletedAt: null,
 };
 
 describe('PartnerAccountService', () => {
@@ -164,6 +176,46 @@ describe('PartnerAccountService', () => {
     );
   });
 
+  it('adds a partner withdrawal address with identity auth', async () => {
+    const httpClient = {
+      postWithIdentity: vi.fn().mockResolvedValue(WITHDRAWAL_ADDRESS_RESPONSE),
+    } as unknown as HttpClient;
+
+    const service = new PartnerAccountService(httpClient);
+    const response = await service.addWithdrawalAddress('identity-token', {
+      address: '0x0F3262730c909408042F9Da345a916dc0e1F9787',
+      label: 'treasury',
+    });
+
+    expect(response).toEqual(WITHDRAWAL_ADDRESS_RESPONSE);
+    expect((httpClient as any).postWithIdentity).toHaveBeenCalledWith(
+      '/portfolio/withdrawal-addresses',
+      'identity-token',
+      {
+        address: '0x0F3262730c909408042F9Da345a916dc0e1F9787',
+        label: 'treasury',
+      }
+    );
+  });
+
+  it('deletes a partner withdrawal address with identity auth', async () => {
+    const httpClient = {
+      deleteWithIdentity: vi.fn().mockResolvedValue(undefined),
+    } as unknown as HttpClient;
+
+    const service = new PartnerAccountService(httpClient);
+
+    await service.deleteWithdrawalAddress(
+      'identity-token',
+      '0x0F3262730c909408042F9Da345a916dc0e1F9787'
+    );
+
+    expect((httpClient as any).deleteWithIdentity).toHaveBeenCalledWith(
+      '/portfolio/withdrawal-addresses/0x0F3262730c909408042F9Da345a916dc0e1F9787',
+      'identity-token'
+    );
+  });
+
   it('propagates retry rate-limit and conflict errors', async () => {
     const rateLimitError = new RateLimitError(
       'rate limited',
@@ -223,6 +275,35 @@ describe('PartnerAccountService', () => {
 
     expect((httpClient as any).get).not.toHaveBeenCalled();
     expect((httpClient as any).post).not.toHaveBeenCalled();
+  });
+
+  it('rejects invalid withdrawal-address inputs before network', async () => {
+    const httpClient = {
+      postWithIdentity: vi.fn(),
+      deleteWithIdentity: vi.fn(),
+    } as unknown as HttpClient;
+
+    const service = new PartnerAccountService(httpClient);
+
+    await expect(
+      service.addWithdrawalAddress('', {
+        address: '0x0F3262730c909408042F9Da345a916dc0e1F9787',
+      })
+    ).rejects.toThrow('identity token is required for addWithdrawalAddress');
+    await expect(
+      service.addWithdrawalAddress('identity-token', {
+        address: '',
+      })
+    ).rejects.toThrow('address is required for addWithdrawalAddress');
+    await expect(
+      service.deleteWithdrawalAddress('', '0x0F3262730c909408042F9Da345a916dc0e1F9787')
+    ).rejects.toThrow('identity token is required for deleteWithdrawalAddress');
+    await expect(service.deleteWithdrawalAddress('identity-token', '')).rejects.toThrow(
+      'address is required for deleteWithdrawalAddress'
+    );
+
+    expect((httpClient as any).postWithIdentity).not.toHaveBeenCalled();
+    expect((httpClient as any).deleteWithIdentity).not.toHaveBeenCalled();
   });
 
   it('rejects legacy apiKey-only auth for allowance recovery before hitting the API', async () => {

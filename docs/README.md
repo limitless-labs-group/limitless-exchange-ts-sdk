@@ -126,6 +126,7 @@ const orders = await market.getUserOrders();  // ✨ Clean!
 - Partner child-account creation with `createServerWallet=true`
 - Delegated order placement with `onBehalfOf`
 - Server-wallet redeem and withdraw flows via `client.serverWallets`
+- Withdrawal destination allowlist management via `client.partnerAccounts`
 - [Code Samples](./code-samples/api-key-v3/README.md)
 
 ### 🔌 WebSocket

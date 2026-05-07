@@ -4,6 +4,7 @@ import type { HttpClient } from '../../src/api/http';
 
 const VALID_CONDITION_ID = `0x${'ab'.repeat(32)}`;
 const VALID_ADDRESS = '0x1234567890123456789012345678901234567890';
+const VALID_DESTINATION = '0x0F3262730c909408042F9Da345a916dc0e1F9787';
 
 describe('ServerWalletService', () => {
   it('redeems positions for a delegated server wallet', async () => {
@@ -69,6 +70,73 @@ describe('ServerWalletService', () => {
     });
   });
 
+  it('withdraws funds to an explicit destination', async () => {
+    const httpClient = {
+      requireAuth: vi.fn(),
+      getHMACCredentials: vi.fn().mockReturnValue({
+        tokenId: 'token-1',
+        secret: 'secret-1',
+      }),
+      post: vi.fn().mockResolvedValue({
+        hash: '',
+        userOperationHash: '0xuserop',
+        transactionId: 'tx-3',
+        walletAddress: VALID_ADDRESS,
+        token: VALID_ADDRESS,
+        destination: VALID_DESTINATION,
+        amount: '5000000',
+      }),
+    } as unknown as HttpClient;
+
+    const service = new ServerWalletService(httpClient);
+    const response = await service.withdraw({
+      amount: '5000000',
+      onBehalfOf: 326,
+      token: VALID_ADDRESS,
+      destination: VALID_DESTINATION,
+    });
+
+    expect(response.destination).toBe(VALID_DESTINATION);
+    expect((httpClient as any).requireAuth).toHaveBeenCalledWith('withdrawServerWalletFunds');
+    expect((httpClient as any).post).toHaveBeenCalledWith('/portfolio/withdraw', {
+      amount: '5000000',
+      onBehalfOf: 326,
+      token: VALID_ADDRESS,
+      destination: VALID_DESTINATION,
+    });
+  });
+
+  it('withdraws caller wallet funds to an explicit destination without onBehalfOf', async () => {
+    const httpClient = {
+      requireAuth: vi.fn(),
+      getHMACCredentials: vi.fn().mockReturnValue({
+        tokenId: 'token-1',
+        secret: 'secret-1',
+      }),
+      post: vi.fn().mockResolvedValue({
+        hash: '',
+        userOperationHash: '0xuserop',
+        transactionId: 'tx-4',
+        walletAddress: VALID_ADDRESS,
+        token: VALID_ADDRESS,
+        destination: VALID_DESTINATION,
+        amount: '5000000',
+      }),
+    } as unknown as HttpClient;
+
+    const service = new ServerWalletService(httpClient);
+    const response = await service.withdraw({
+      amount: '5000000',
+      destination: VALID_DESTINATION,
+    });
+
+    expect(response.destination).toBe(VALID_DESTINATION);
+    expect((httpClient as any).post).toHaveBeenCalledWith('/portfolio/withdraw', {
+      amount: '5000000',
+      destination: VALID_DESTINATION,
+    });
+  });
+
   it('rejects invalid conditionId before network', async () => {
     const httpClient = {
       requireAuth: vi.fn(),
@@ -85,7 +153,7 @@ describe('ServerWalletService', () => {
       service.redeemPositions({
         conditionId: '0x1234',
         onBehalfOf: 326,
-      }),
+      })
     ).rejects.toThrow('conditionId must be a 0x-prefixed 32-byte hex string');
 
     expect((httpClient as any).post).not.toHaveBeenCalled();
@@ -107,7 +175,7 @@ describe('ServerWalletService', () => {
       service.withdraw({
         amount: '0',
         onBehalfOf: 326,
-      }),
+      })
     ).rejects.toThrow('amount must be a positive integer string in the token smallest unit');
 
     expect((httpClient as any).post).not.toHaveBeenCalled();
@@ -130,7 +198,7 @@ describe('ServerWalletService', () => {
         amount: '1000000',
         onBehalfOf: 326,
         token: 'not-an-address',
-      }),
+      })
     ).rejects.toThrow('token must be a valid EVM address');
 
     await expect(
@@ -138,7 +206,7 @@ describe('ServerWalletService', () => {
         amount: '1000000',
         onBehalfOf: 326,
         destination: 'not-an-address',
-      }),
+      })
     ).rejects.toThrow('destination must be a valid EVM address');
 
     expect((httpClient as any).post).not.toHaveBeenCalled();
@@ -160,8 +228,21 @@ describe('ServerWalletService', () => {
       service.redeemPositions({
         conditionId: VALID_CONDITION_ID,
         onBehalfOf: 0,
-      }),
+      })
     ).rejects.toThrow('onBehalfOf must be a positive integer');
+
+    await expect(
+      service.withdraw({
+        amount: '1000000',
+        onBehalfOf: 0,
+      })
+    ).rejects.toThrow('onBehalfOf must be a positive integer');
+
+    await expect(
+      service.withdraw({
+        amount: '1000000',
+      })
+    ).rejects.toThrow('onBehalfOf or destination is required for withdraw');
 
     expect((httpClient as any).post).not.toHaveBeenCalled();
   });
@@ -179,9 +260,9 @@ describe('ServerWalletService', () => {
       service.redeemPositions({
         conditionId: VALID_CONDITION_ID,
         onBehalfOf: 326,
-      }),
+      })
     ).rejects.toThrow(
-      'Server wallet redeem/withdraw require HMAC-scoped API token auth; legacy API keys are not supported.',
+      'Server wallet redeem/withdraw require HMAC-scoped API token auth; legacy API keys are not supported.'
     );
 
     expect((httpClient as any).post).not.toHaveBeenCalled();

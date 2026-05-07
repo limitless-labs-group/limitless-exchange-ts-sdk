@@ -9,7 +9,7 @@ These samples cover the new partner self-service token flow in the TypeScript SD
 - place delegated orders with `onBehalfOf`
 - cancel delegated orders by id and by market
 - redeem resolved positions from server-managed wallets
-- optionally withdraw server-wallet funds with explicit `withdrawal` scope
+- optionally withdraw server-wallet funds with explicit `withdrawal` scope, including whitelisted treasury destinations
 
 ## Files
 
@@ -35,7 +35,7 @@ These samples cover the new partner self-service token flow in the TypeScript SD
   Reuse or create delegated account, submit a delegated FOK BUY order, and inspect whether it matched or auto-cancelled
 
 - `server-wallet-redeem-withdraw.ts`
-  Reuse or create a server-wallet child account, redeem by `conditionId`, and optionally withdraw funds with `onBehalfOf`
+  Reuse or create a server-wallet child account, redeem by `conditionId`, optionally allowlist a treasury destination, and optionally withdraw funds with `onBehalfOf`
 
 - `websocket-hmac.ts`
   HMAC-authenticated websocket positions and transactions
@@ -67,6 +67,8 @@ Optional example-only overrides:
 # LIMITLESS_ON_BEHALF_OF=
 # LIMITLESS_WITHDRAW_AMOUNT=
 # LIMITLESS_WITHDRAW_DESTINATION=
+# LIMITLESS_ALLOWLIST_WITHDRAW_DESTINATION=0
+# LIMITLESS_WITHDRAW_DESTINATION_LABEL=treasury
 # LIMITLESS_WITHDRAW_TOKEN=
 ```
 
@@ -95,3 +97,6 @@ npx tsx docs/code-samples/api-key-v3/websocket-hmac.ts
 - Retry `429` responses throw `RateLimitError` and include `retryAfterSeconds` in `error.data`; retry `409` responses throw `APIError` with `status === 409`.
 - `LIMITLESS_SKIP_WITHDRAW=1` is the safe default; set it to `0` only when you intend to move funds.
 - `LIMITLESS_WITHDRAW_AMOUNT` is required when the withdraw step is enabled and must be provided in the token smallest unit.
+- If `LIMITLESS_WITHDRAW_DESTINATION` is omitted for a child server-wallet withdraw, the API withdraws to the authenticated partner smart wallet when present, otherwise the authenticated partner account.
+- If `LIMITLESS_WITHDRAW_DESTINATION` is set, the address must be the authenticated partner account, authenticated partner smart wallet, or an active withdrawal address allowlisted on the authenticated partner profile.
+- Set `LIMITLESS_ALLOWLIST_WITHDRAW_DESTINATION=1` to add or reuse `LIMITLESS_WITHDRAW_DESTINATION` with Privy identity auth before the HMAC withdraw request. The identity token must belong to the same partner profile as the HMAC token.

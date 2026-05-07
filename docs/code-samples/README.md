@@ -211,7 +211,7 @@ npx tsx docs/code-samples/api-key-v3/delegated-fok-order.ts
 
 **File**: `api-key-v3/server-wallet-redeem-withdraw.ts`
 
-Redeem a resolved market position back to collateral in a server-managed wallet, then optionally withdraw those funds using the partner's HMAC token and `onBehalfOf`.
+Redeem a resolved market position back to collateral in a server-managed wallet, then optionally withdraw those funds using the partner's HMAC token and `onBehalfOf`. The withdraw step can use the API default destination or an explicit partner allowlisted treasury address.
 
 **Run**:
 
@@ -507,25 +507,27 @@ const updatedOrders = await market.getUserOrders();
 
 ## Environment Variables Reference
 
-| Variable                               | Description                                                | Required                    | Default                          |
-| -------------------------------------- | ---------------------------------------------------------- | --------------------------- | -------------------------------- |
-| `LIMITLESS_API_KEY`                    | Your API key for authentication                            | For authenticated endpoints | -                                |
-| `PRIVATE_KEY`                          | Wallet private key for order signing                       | For trading                 | -                                |
-| `MARKET_SLUG`                          | Market slug for examples (works for both CLOB and NegRisk) | No                          | `bitcoin-2024`                   |
-| `LIMITLESS_IDENTITY_TOKEN`             | Privy identity token for partner api-key-v3 examples       | No                          | -                                |
-| `LIMITLESS_API_TOKEN_ID`               | Scoped HMAC token id for partner api-key-v3 examples       | For partner HMAC examples   | -                                |
-| `LIMITLESS_API_TOKEN_SECRET`           | Scoped HMAC token secret for partner api-key-v3 examples   | For partner HMAC examples   | -                                |
-| `LIMITLESS_PARTNER_ACCOUNT_PROFILE_ID` | Server-wallet child profile id for allowance checks        | For allowance example       | -                                |
-| `PARTNER_NAME`                         | Partner identifier used by api-key-v3 runtime files        | No                          | `partner-a`                      |
-| `LIMITLESS_SKIP_ALLOWANCE_RETRY`       | Skip the allowance retry POST step                         | No                          | `false`                          |
-| `LIMITLESS_SKIP_WITHDRAW`              | Skip the withdraw step in server-wallet examples           | No                          | `true`                           |
-| `LIMITLESS_WITHDRAW_AMOUNT`            | Withdraw amount in token smallest unit                     | No                          | -                                |
-| `LIMITLESS_WITHDRAW_DESTINATION`       | Optional withdraw destination override                     | No                          | backend default                  |
-| `LIMITLESS_WITHDRAW_TOKEN`             | Optional token address override                            | No                          | backend default                  |
-| `API_URL`                              | Example-only API base URL override                         | No                          | `https://api.limitless.exchange` |
-| `WS_URL`                               | Example-only websocket URL override                        | No                          | `wss://ws.limitless.exchange`    |
-| `CHAIN_ID`                             | Example-only chain override for approval / NegRisk scripts | No                          | `8453` (Base)                    |
-| `PLACE_ORDER`                          | Enable actual order placement                              | No                          | `false`                          |
+| Variable                                   | Description                                                  | Required                    | Default                          |
+| ------------------------------------------ | ------------------------------------------------------------ | --------------------------- | -------------------------------- |
+| `LIMITLESS_API_KEY`                        | Your API key for authentication                              | For authenticated endpoints | -                                |
+| `PRIVATE_KEY`                              | Wallet private key for order signing                         | For trading                 | -                                |
+| `MARKET_SLUG`                              | Market slug for examples (works for both CLOB and NegRisk)   | No                          | `bitcoin-2024`                   |
+| `LIMITLESS_IDENTITY_TOKEN`                 | Privy identity token for partner api-key-v3 examples         | No                          | -                                |
+| `LIMITLESS_API_TOKEN_ID`                   | Scoped HMAC token id for partner api-key-v3 examples         | For partner HMAC examples   | -                                |
+| `LIMITLESS_API_TOKEN_SECRET`               | Scoped HMAC token secret for partner api-key-v3 examples     | For partner HMAC examples   | -                                |
+| `LIMITLESS_PARTNER_ACCOUNT_PROFILE_ID`     | Server-wallet child profile id for allowance checks          | For allowance example       | -                                |
+| `PARTNER_NAME`                             | Partner identifier used by api-key-v3 runtime files          | No                          | `partner-a`                      |
+| `LIMITLESS_SKIP_ALLOWANCE_RETRY`           | Skip the allowance retry POST step                           | No                          | `false`                          |
+| `LIMITLESS_SKIP_WITHDRAW`                  | Skip the withdraw step in server-wallet examples             | No                          | `true`                           |
+| `LIMITLESS_WITHDRAW_AMOUNT`                | Withdraw amount in token smallest unit                       | No                          | -                                |
+| `LIMITLESS_WITHDRAW_DESTINATION`           | Optional withdraw destination override                       | No                          | smart wallet/account default     |
+| `LIMITLESS_ALLOWLIST_WITHDRAW_DESTINATION` | Add/reuse withdraw destination before server-wallet withdraw | No                          | `false`                          |
+| `LIMITLESS_WITHDRAW_DESTINATION_LABEL`     | Label used when allowlisting withdraw destination            | No                          | `treasury`                       |
+| `LIMITLESS_WITHDRAW_TOKEN`                 | Optional token address override                              | No                          | backend default                  |
+| `API_URL`                                  | Example-only API base URL override                           | No                          | `https://api.limitless.exchange` |
+| `WS_URL`                                   | Example-only websocket URL override                          | No                          | `wss://ws.limitless.exchange`    |
+| `CHAIN_ID`                                 | Example-only chain override for approval / NegRisk scripts   | No                          | `8453` (Base)                    |
+| `PLACE_ORDER`                              | Enable actual order placement                                | No                          | `false`                          |
 
 **Note**: User ID and fee rate are automatically fetched from your profile API on first order creation.
 

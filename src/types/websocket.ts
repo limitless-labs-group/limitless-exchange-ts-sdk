@@ -85,7 +85,12 @@ export type SubscriptionChannel =
   | 'prices'
   | 'subscribe_market_prices'
   | 'subscribe_positions'
-  | 'subscribe_transactions';
+  | 'subscribe_transactions'
+  | 'subscribe_order_events'
+  | 'subscribe_live_sports'
+  | 'subscribe_live_esports'
+  | 'subscribe_market_lifecycle'
+  | 'unsubscribe_market_lifecycle';
 
 /**
  * Orderbook data structure (nested object in OrderbookUpdate).
@@ -219,6 +224,129 @@ export interface NewPriceData {
 }
 
 /**
+ * Oracle price update event.
+ * @public
+ */
+export interface OraclePriceData {
+  /** Market contract address when available */
+  marketAddress: string | null;
+  /** Market slug identifier */
+  marketSlug: string;
+  /** Unix timestamp in milliseconds */
+  timestamp: number;
+  /** Oracle price value */
+  value: number;
+}
+
+/**
+ * OME order lifecycle event.
+ * @public
+ */
+export interface OmeOrderEvent {
+  clientOrderId?: string;
+  eventId: number;
+  marketId: string;
+  orderId: string;
+  price: string;
+  remainingSize: string;
+  side: string;
+  source: 'OME';
+  timestamp: string;
+  token: string;
+  type: 'PLACEMENT' | 'UPDATE' | 'CANCELLATION';
+  userId: number;
+}
+
+/**
+ * Maker match included in settlement order events.
+ * @public
+ */
+export interface SettlementMakerMatch {
+  account: string;
+  matchedSize: string;
+  orderId: string;
+  price: string;
+}
+
+/**
+ * Settlement order lifecycle event.
+ * @public
+ */
+export interface SettlementOrderEvent {
+  amountCollateral?: string;
+  amountContracts?: string;
+  clientOrderId?: string;
+  configuredFeeRateBps?: number;
+  effectiveFeeBps?: number;
+  eventId: string;
+  feeAmountCollateral?: string;
+  feeAmountContracts?: string;
+  makerMatches?: SettlementMakerMatch[];
+  marketSlug?: string;
+  orderId?: string;
+  price?: string;
+  side?: string;
+  source: 'SETTLEMENT';
+  takerAccount?: string;
+  takerOrderId?: string;
+  timestamp: Date | number | string;
+  tokenId?: string;
+  tradeEventId?: string;
+  txHash?: string;
+  type: 'MINED' | 'FAILED';
+}
+
+/**
+ * Order lifecycle event emitted by subscribe_order_events.
+ * @public
+ */
+export type OrderEvent = OmeOrderEvent | SettlementOrderEvent;
+
+/**
+ * Live sports match data.
+ * @public
+ */
+export interface LiveSportsMatchData {
+  awayScore: number | null;
+  elapsedMinutes: number | null;
+  extraMinutes: number | null;
+  fixtureId: number;
+  homeScore: number | null;
+  isFinished: boolean;
+  statusShort: string;
+}
+
+/**
+ * Live sports snapshot keyed by market/group identifier.
+ * @public
+ */
+export type LiveSportsUpdate = Record<string, LiveSportsMatchData>;
+
+/**
+ * Live esports match data.
+ * @public
+ */
+export interface LiveEsportsMatchData {
+  gameScores?: Array<{ away: number; home: number }>;
+  isFinished: boolean;
+  matchId: number;
+  matchScore: { away: number; home: number };
+  status: string;
+}
+
+/**
+ * Live esports snapshot keyed by market/group identifier.
+ * @public
+ */
+export type LiveEsportsUpdate = Record<string, LiveEsportsMatchData>;
+
+/**
+ * WebSocket system message.
+ * @public
+ */
+export type SystemEvent = string | { message: string; [key: string]: unknown };
+
+/**
  * Transaction event (blockchain transaction status).
  * @public
  */
@@ -325,6 +453,11 @@ export interface WebSocketEvents {
   newPriceData: (data: NewPriceData) => void;
 
   /**
+   * Oracle price updates - API event name: oraclePriceData
+   */
+  oraclePriceData: (data: OraclePriceData) => void;
+
+  /**
    * Trade events
    */
   trade: (data: TradeEvent) => void;
@@ -333,6 +466,11 @@ export interface WebSocketEvents {
    * Order updates
    */
   order: (data: OrderUpdate) => void;
+
+  /**
+   * Order lifecycle events - API event name: orderEvent
+   */
+  orderEvent: (data: OrderEvent) => void;
 
   /**
    * Order fill events
@@ -353,6 +491,21 @@ export interface WebSocketEvents {
    * Market-resolved lifecycle events.
    */
   marketResolved: (data: MarketResolvedEvent) => void;
+
+  /**
+   * Live sports updates.
+   */
+  live_sports_update: (data: LiveSportsUpdate) => void;
+
+  /**
+   * Live esports updates.
+   */
+  live_esports_update: (data: LiveEsportsUpdate) => void;
+
+  /**
+   * WebSocket system messages.
+   */
+  system: (data: SystemEvent) => void;
 
   /**
    * Position updates

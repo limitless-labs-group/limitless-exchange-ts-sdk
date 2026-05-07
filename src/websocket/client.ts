@@ -223,7 +223,7 @@ export class WebSocketClient {
           timestamp,
           'GET',
           '/socket.io/?EIO=4&transport=websocket',
-          '',
+          ''
         );
 
         socketOptions.extraHeaders = {
@@ -326,8 +326,13 @@ export class WebSocketClient {
     const authenticatedChannels: SubscriptionChannel[] = [
       'subscribe_positions',
       'subscribe_transactions',
+      'subscribe_order_events',
     ];
-    if (authenticatedChannels.includes(channel) && !this.config.apiKey && !this.config.hmacCredentials) {
+    if (
+      authenticatedChannels.includes(channel) &&
+      !this.config.apiKey &&
+      !this.config.hmacCredentials
+    ) {
       throw new Error(
         `Authentication is required for '${channel}' subscription. ` +
           'Please provide either apiKey or hmacCredentials when creating the WebSocket client.'

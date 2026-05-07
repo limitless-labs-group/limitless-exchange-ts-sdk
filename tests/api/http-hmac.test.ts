@@ -41,7 +41,13 @@ describe('HttpClient HMAC auth', () => {
     expect(headers['lmts-api-key']).toBe('token-1');
     expect(headers['lmts-timestamp']).toBeTruthy();
     expect(headers['lmts-signature']).toBe(
-      computeHMACSignature(secret, headers['lmts-timestamp'], 'PATCH', '/orders?market=btc', '{"foo":"bar"}'),
+      computeHMACSignature(
+        secret,
+        headers['lmts-timestamp'],
+        'PATCH',
+        '/orders?market=btc',
+        '{"foo":"bar"}'
+      )
     );
   });
 
@@ -68,9 +74,48 @@ describe('HttpClient HMAC auth', () => {
       };
     };
 
-    await client.postWithIdentity('/auth/api-tokens/derive', 'identity-token', { scopes: ['trading'] });
+    await client.postWithIdentity('/auth/api-tokens/derive', 'identity-token', {
+      scopes: ['trading'],
+    });
 
     const headers = normalizeHeaders(capturedConfig.headers);
+    expect(headers.identity).toBe('Bearer identity-token');
+    expect(headers['X-API-Key']).toBeUndefined();
+    expect(headers['lmts-api-key']).toBeUndefined();
+    expect(headers['lmts-timestamp']).toBeUndefined();
+    expect(headers['lmts-signature']).toBeUndefined();
+  });
+
+  it('uses identity auth for DELETE requests', async () => {
+    const secret = Buffer.from('test-secret').toString('base64');
+    const client = new HttpClient({
+      baseURL: 'https://api.limitless.exchange',
+      apiKey: 'api-key-value',
+      hmacCredentials: {
+        tokenId: 'token-1',
+        secret,
+      },
+    });
+
+    let capturedConfig: any;
+    (client as any).client.defaults.adapter = async (config: any) => {
+      capturedConfig = config;
+      return {
+        data: undefined,
+        status: 204,
+        statusText: 'No Content',
+        headers: {},
+        config,
+      };
+    };
+
+    await client.deleteWithIdentity(
+      '/portfolio/withdrawal-addresses/0x0F3262730c909408042F9Da345a916dc0e1F9787',
+      'identity-token'
+    );
+
+    const headers = normalizeHeaders(capturedConfig.headers);
+    expect(capturedConfig.method).toBe('delete');
     expect(headers.identity).toBe('Bearer identity-token');
     expect(headers['X-API-Key']).toBeUndefined();
     expect(headers['lmts-api-key']).toBeUndefined();

@@ -1,10 +1,10 @@
 # Limitless Exchange TypeScript SDK
 
-**v1.0.8** | Production-Ready | Type-Safe | Fully Documented
+**v1.0.9** | Production-Ready | Type-Safe | Fully Documented
 
 A TypeScript SDK for interacting with the Limitless Exchange platform, providing type-safe access to CLOB and NegRisk prediction markets.
 
-> **v1.0.8 Release**: Adds partner server-wallet allowance recovery helpers, live-chain retry semantics, and a runnable partner allowance example. See [Changelog](#changelog) for details.
+> **v1.0.9 Release**: Adds partner withdrawal-address allowlist helpers and documents server-wallet withdrawals to explicit treasury destinations. See [Changelog](#changelog) for details.
 
 ## ⚠️ Disclaimer
 
@@ -37,7 +37,7 @@ For production use, we strongly recommend:
 
 - ✅ **Authentication**: API key auth and partner HMAC-scoped API-token auth
 - ✅ **Order Management**: Create, cancel, and manage orders on CLOB and NegRisk markets
-- ✅ **Partner Server Wallets**: Delegated child-account flows, server-wallet redeem, and HMAC-only withdraw
+- ✅ **Partner Server Wallets**: Delegated child-account flows, server-wallet redeem, and HMAC-only withdraw to account, smart wallet, or whitelisted treasury destinations
 - ✅ **Market Data**: Access real-time market data and orderbooks
 - ✅ **NegRisk Markets**: Full support for group markets with multiple outcomes
 - ✅ **Error Handling & Retry**: Automatic retry logic for rate limits and transient failures
@@ -218,8 +218,12 @@ Use `client.serverWallets` only for server-managed wallets created in delegated-
 - `withdraw()` calls `POST /portfolio/withdraw`
 - both operations require HMAC-scoped API-token auth
 - `withdraw()` also requires the `withdrawal` scope
-- `onBehalfOf` should be the delegated child-profile id
+- set `onBehalfOf` to the delegated child-profile id when withdrawing child server-wallet funds
+- omit `onBehalfOf` only when withdrawing the authenticated caller's own server wallet to an explicit `destination`
 - `amount` for withdraw must be provided in the token smallest unit
+- omit `destination` to use the API default: authenticated partner smart wallet when present, otherwise authenticated partner account
+- pass `destination` to withdraw directly to the authenticated partner account, authenticated partner smart wallet, or an active withdrawal address allowlisted on the authenticated partner profile
+- `partnerAccounts.addWithdrawalAddress()` and `partnerAccounts.deleteWithdrawalAddress()` manage the allowlist with Privy identity-token auth; API-token auth is not used for those allowlist endpoints
 
 ```typescript
 import { Client } from '@limitless-exchange/sdk';
@@ -241,6 +245,32 @@ const withdraw = await client.serverWallets.withdraw({
   amount: '5000000',
   onBehalfOf: 352,
 });
+```
+
+To withdraw a partner child server wallet directly to a treasury address, allowlist the destination on the authenticated partner profile first. Use the same partner identity for the allowlist call and the same partner HMAC token for the withdraw call.
+
+```typescript
+const identityToken = process.env.LIMITLESS_IDENTITY_TOKEN!;
+const treasuryAddress = '0x...';
+
+await client.partnerAccounts.addWithdrawalAddress(identityToken, {
+  address: treasuryAddress,
+  label: 'treasury',
+});
+
+const treasuryWithdraw = await client.serverWallets.withdraw({
+  amount: '5000000',
+  onBehalfOf: 352,
+  destination: treasuryAddress,
+});
+
+const ownWalletTreasuryWithdraw = await client.serverWallets.withdraw({
+  amount: '5000000',
+  destination: treasuryAddress,
+});
+
+// Optional cleanup when the destination should no longer be active.
+await client.partnerAccounts.deleteWithdrawalAddress(identityToken, treasuryAddress);
 ```
 
 `redeem.hash` or `withdraw.hash` may be an empty string for user-operation submissions. Track those calls using `userOperationHash` or `transactionId`.
@@ -631,11 +661,11 @@ docs/
 
 ## Changelog
 
-### v1.0.8
+### v1.0.9
 
-**Release Date**: April 30, 2026
+**Release Date**: May 4, 2026
 
-Latest release with partner server-wallet allowance recovery helpers and live-chain retry semantics.
+Latest release with partner withdrawal-address allowlist helpers and server-wallet withdrawals to explicit whitelisted treasury destinations.
 
 #### Highlights
 
@@ -649,12 +679,13 @@ Latest release with partner server-wallet allowance recovery helpers and live-ch
 - 🧭 **Market Pages API**: Navigation tree, by-path resolver with 301 handling, page-scoped markets, property keys
 - 🧾 **More Trading Semantics**: `FAK` limit orders plus `postOnly` on `GTC`
 - 🏦 **Partner Server Wallets**: Delegated child-account redeem and HMAC-only withdraw flows
+- 🏛️ **Treasury Withdrawals**: Allowlist external withdrawal destinations and withdraw child server-wallet funds directly to them
 - 🔁 **Partner Allowance Recovery**: Check and retry delegated allowance targets for server-wallet child profiles
 
 #### Core Features
 
 - **Authentication**: API key authentication, EIP-712 signing, EOA support
-- **Partner Flows**: API-token v3 services, delegated orders, server-wallet redeem/withdraw, and allowance recovery
+- **Partner Flows**: API-token v3 services, delegated orders, server-wallet redeem/withdraw, withdrawal-address allowlists, and allowance recovery
 - **Market Data**: Active markets with sorting, orderbook access, venue caching
 - **Market Pages & Navigation**: `/navigation`, `/market-pages/by-path`, `/market-pages/:id/markets`, `/property-keys`
 - **Order Management**: GTC, FAK, and FOK orders, GTC `postOnly`, tick alignment, automatic signing, IEEE-safe create-order payload parsing
@@ -663,8 +694,10 @@ Latest release with partner server-wallet allowance recovery helpers and live-ch
 - **Error Handling**: Decorator and wrapper retry patterns, configurable strategies
 - **Token Approvals**: Complete setup script, CLOB and NegRisk workflows
 
-#### Documentation Enhancements (v1.0.8)
+#### Documentation Enhancements (v1.0.9)
 
+- Added partner withdrawal-address allowlist docs for server-wallet treasury withdrawals
+- Updated server-wallet withdraw docs for omitted-destination smart-wallet fallback and explicit whitelisted destinations
 - Added partner allowance check/retry docs and API key v3 example for delegated server-wallet child accounts
 - Updated allowance retry guidance for live chain reads, submitted-target semantics, `429`, and `409`
 - Created comprehensive CHANGELOG.md following Keep a Changelog format

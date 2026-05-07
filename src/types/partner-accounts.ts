@@ -155,3 +155,25 @@ export interface PartnerAccountAllowanceResponse {
   summary: PartnerAccountAllowanceSummary;
   targets: PartnerAccountAllowanceTarget[];
 }
+
+/**
+ * Request payload for adding a partner withdrawal destination allowlist entry.
+ * @public
+ */
+export interface PartnerWithdrawalAddressInput {
+  address: string;
+  label?: string;
+}
+
+/**
+ * Response returned after adding a partner withdrawal destination allowlist entry.
+ * @public
+ */
+export interface PartnerWithdrawalAddressResponse {
+  id: string;
+  profileId: number;
+  destinationAddress: string;
+  label: string;
+  createdAt: string;
+  deletedAt: string | null;
+}

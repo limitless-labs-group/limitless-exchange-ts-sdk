@@ -582,6 +582,25 @@ export class HttpClient {
   }
 
   /**
+   * Performs a DELETE request with identity-token authentication.
+   */
+  async deleteWithIdentity<T = any>(
+    url: string,
+    identityToken: string,
+    config?: AxiosRequestConfig,
+  ): Promise<T> {
+    const response: AxiosResponse<T> = await this.client.delete(url, {
+      ...config,
+      identityToken,
+      headers: {
+        ...config?.headers,
+        'Content-Type': undefined,
+      },
+    } as AxiosRequestConfig & { identityToken: string });
+    return response.data;
+  }
+
+  /**
    * Performs a POST request with additional per-request headers.
    */
   async postWithHeaders<T = any>(

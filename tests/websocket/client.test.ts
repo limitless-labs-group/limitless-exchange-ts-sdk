@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { computeHMACSignature } from '../../src/api/hmac';
+import type { SubscriptionChannel } from '../../src/types/websocket';
 
 const ioMock = vi.fn();
 
@@ -68,8 +69,8 @@ describe('WebSocketClient HMAC auth', () => {
         options.extraHeaders['lmts-timestamp'],
         'GET',
         '/socket.io/?EIO=4&transport=websocket',
-        '',
-      ),
+        ''
+      )
     );
 
     connectHandler?.();
@@ -118,7 +119,7 @@ describe('WebSocketClient HMAC auth', () => {
     await connectPromise;
   });
 
-  it('accepts market lifecycle event names on the typed websocket client', async () => {
+  it('accepts server websocket event names on the typed websocket client', async () => {
     vi.useFakeTimers();
 
     const socketStub: any = {
@@ -149,8 +150,29 @@ describe('WebSocketClient HMAC auth', () => {
 
     const createdHandler = vi.fn();
     const resolvedHandler = vi.fn();
+    const orderEventHandler = vi.fn();
+    const oraclePriceHandler = vi.fn();
+    const liveSportsHandler = vi.fn();
+    const liveEsportsHandler = vi.fn();
+    const systemHandler = vi.fn();
+    const serverChannels: SubscriptionChannel[] = [
+      'subscribe_order_events',
+      'subscribe_live_sports',
+      'subscribe_live_esports',
+      'subscribe_market_lifecycle',
+      'unsubscribe_market_lifecycle',
+    ];
 
-    client.on('marketCreated', createdHandler).on('marketResolved', resolvedHandler);
+    client
+      .on('marketCreated', createdHandler)
+      .on('marketResolved', resolvedHandler)
+      .on('orderEvent', orderEventHandler)
+      .on('oraclePriceData', oraclePriceHandler)
+      .on('live_sports_update', liveSportsHandler)
+      .on('live_esports_update', liveEsportsHandler)
+      .on('system', systemHandler);
+
+    expect(serverChannels).toHaveLength(5);
 
     const connectPromise = client.connect();
     connectHandler?.();
@@ -158,5 +180,10 @@ describe('WebSocketClient HMAC auth', () => {
 
     expect(socketStub.on).toHaveBeenCalledWith('marketCreated', createdHandler);
     expect(socketStub.on).toHaveBeenCalledWith('marketResolved', resolvedHandler);
+    expect(socketStub.on).toHaveBeenCalledWith('orderEvent', orderEventHandler);
+    expect(socketStub.on).toHaveBeenCalledWith('oraclePriceData', oraclePriceHandler);
+    expect(socketStub.on).toHaveBeenCalledWith('live_sports_update', liveSportsHandler);
+    expect(socketStub.on).toHaveBeenCalledWith('live_esports_update', liveEsportsHandler);
+    expect(socketStub.on).toHaveBeenCalledWith('system', systemHandler);
   });
 });
