@@ -15,11 +15,23 @@ export interface RedeemServerWalletParams {
 /**
  * Withdraw request parameters for a server-managed wallet.
  * Amount must be provided in the token's smallest unit.
+ *
+ * @remarks
+ * `destination` is optional. When omitted, the API defaults to the authenticated
+ * partner's smart wallet when present, otherwise the authenticated partner account.
+ * Explicit destinations must be the authenticated partner account, authenticated
+ * partner smart wallet, or an active withdrawal address allowlisted on the
+ * authenticated partner profile.
+ *
+ * Set `onBehalfOf` to withdraw from a partner child profile's server wallet.
+ * Omit `onBehalfOf` only for authenticated caller wallet withdrawals to an
+ * explicit `destination`.
+ *
  * @public
  */
 export interface WithdrawServerWalletParams {
   amount: string;
-  onBehalfOf: number;
+  onBehalfOf?: number;
   token?: string;
   destination?: string;
 }

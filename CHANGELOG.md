@@ -5,7 +5,27 @@ All notable changes to the Limitless Exchange TypeScript SDK will be documented 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.0.9]
+
+### Added
+
+- Partner withdrawal-address allowlist helpers:
+  - `PartnerAccountService.addWithdrawalAddress()`
+  - `PartnerAccountService.deleteWithdrawalAddress()`
+- Public withdrawal-address request/response types:
+  - `PartnerWithdrawalAddressInput`
+  - `PartnerWithdrawalAddressResponse`
+- `HttpClient.deleteWithIdentity()` for identity-token authenticated DELETE requests.
+- Unit coverage for identity-auth withdrawal-address allowlist calls and explicit server-wallet withdrawal destinations.
+- WebSocket subscription/event surface for order events, live sports/esports, market lifecycle, oracle price data, and system messages.
+
+### Changed
+
+- Server-wallet withdraw docs now describe explicit whitelisted treasury destinations.
+- `WithdrawServerWalletParams.destination` docs now describe omitted-destination fallback to the authenticated partner smart wallet when present, otherwise the authenticated partner account.
+- `WithdrawServerWalletParams.onBehalfOf` is now optional so callers can submit authenticated caller wallet withdrawals to explicit allowed destinations.
+- API-key v3 server-wallet redeem/withdraw example can optionally allowlist a withdraw destination before submitting the HMAC withdraw request.
+- README, API-key v3 docs, and package metadata now target `v1.0.9`.
 
 ## [1.0.8] - 2026-04-30
 

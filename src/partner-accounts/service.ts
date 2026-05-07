@@ -4,6 +4,8 @@ import type {
   CreatePartnerAccountInput,
   PartnerAccountAllowanceResponse,
   PartnerAccountResponse,
+  PartnerWithdrawalAddressInput,
+  PartnerWithdrawalAddressResponse,
 } from '../types/partner-accounts';
 import type { ILogger } from '../types/logger';
 import { NoOpLogger } from '../types/logger';
@@ -95,6 +97,50 @@ export class PartnerAccountService {
     this.logger.debug('Retrying partner-account allowances', { profileId });
 
     return this.httpClient.post<PartnerAccountAllowanceResponse>(`${path}/retry`, {});
+  }
+
+  /**
+   * Adds an active partner withdrawal destination allowlist entry using a Privy identity token.
+   * API-token auth is not used for this endpoint.
+   */
+  async addWithdrawalAddress(
+    identityToken: string,
+    input: PartnerWithdrawalAddressInput
+  ): Promise<PartnerWithdrawalAddressResponse> {
+    if (!identityToken) {
+      throw new Error('identity token is required for addWithdrawalAddress');
+    }
+    if (!input?.address) {
+      throw new Error('address is required for addWithdrawalAddress');
+    }
+
+    this.logger.debug('Adding partner withdrawal address', { address: input.address });
+
+    return this.httpClient.postWithIdentity<PartnerWithdrawalAddressResponse>(
+      '/portfolio/withdrawal-addresses',
+      identityToken,
+      input
+    );
+  }
+
+  /**
+   * Removes a partner withdrawal destination allowlist entry using a Privy identity token.
+   * API-token auth is not used for this endpoint.
+   */
+  async deleteWithdrawalAddress(identityToken: string, address: string): Promise<void> {
+    if (!identityToken) {
+      throw new Error('identity token is required for deleteWithdrawalAddress');
+    }
+    if (!address) {
+      throw new Error('address is required for deleteWithdrawalAddress');
+    }
+
+    this.logger.debug('Deleting partner withdrawal address', { address });
+
+    await this.httpClient.deleteWithIdentity<void>(
+      `/portfolio/withdrawal-addresses/${encodeURIComponent(address)}`,
+      identityToken
+    );
   }
 
   private requireAllowanceHmacAuth(operation: string): void {

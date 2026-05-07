@@ -46,7 +46,10 @@ export class ServerWalletService {
   async withdraw(params: WithdrawServerWalletParams): Promise<WithdrawServerWalletResponse> {
     this.requireHmacAuth('withdrawServerWalletFunds');
     this.validateAmount(params.amount);
-    this.validateOnBehalfOf(params.onBehalfOf);
+
+    if (params.onBehalfOf !== undefined) {
+      this.validateOnBehalfOf(params.onBehalfOf);
+    }
 
     if (params.token !== undefined) {
       this.validateAddress(params.token, 'token');
@@ -54,6 +57,10 @@ export class ServerWalletService {
 
     if (params.destination !== undefined) {
       this.validateAddress(params.destination, 'destination');
+    }
+
+    if (params.onBehalfOf === undefined && params.destination === undefined) {
+      throw new Error('onBehalfOf or destination is required for withdraw');
     }
 
     this.logger.debug('Withdrawing from server wallet', {
@@ -65,7 +72,7 @@ export class ServerWalletService {
 
     return this.httpClient.post<WithdrawServerWalletResponse>('/portfolio/withdraw', {
       amount: params.amount,
-      onBehalfOf: params.onBehalfOf,
+      ...(params.onBehalfOf !== undefined ? { onBehalfOf: params.onBehalfOf } : {}),
       ...(params.token !== undefined ? { token: params.token } : {}),
       ...(params.destination !== undefined ? { destination: params.destination } : {}),
     });
