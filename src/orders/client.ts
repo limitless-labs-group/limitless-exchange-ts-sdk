@@ -107,7 +107,7 @@ export interface OrderClientConfig {
  * ```typescript
  * import { ethers } from 'ethers';
  *
- * const wallet = new EthersLikeWallet(process.env.PRIVATE_KEY!);
+ * const wallet = new ethers.Wallet(process.env.PRIVATE_KEY!);
  * const orderClient = new OrderClient({
  *   httpClient,  // Must have API key configured
  *   wallet,      // For EIP-712 signing

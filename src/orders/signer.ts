@@ -43,7 +43,7 @@ export class OrderSigner {
    * import { ethers } from 'ethers';
    * import { OrderSigner } from '@limitless-exchange/sdk';
    *
-   * const wallet = new EthersLikeWallet(privateKey);
+   * const wallet = new ethers.Wallet(privateKey);
    * const signer = new OrderSigner(wallet);
    * ```
    */
