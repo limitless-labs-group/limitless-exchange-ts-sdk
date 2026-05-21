@@ -3,10 +3,10 @@
  * @module orders/signer
  */
 
-import { ethers } from 'ethers';
 import type { UnsignedOrder, OrderSigningConfig } from '../types/orders';
 import type { ILogger } from '../types/logger';
 import { NoOpLogger } from '../types/logger';
+import type { EthersLikeWallet } from '../types/wallet';
 
 /**
  * EIP-712 typed data field definition.
@@ -29,7 +29,7 @@ interface TypedDataField {
  * @public
  */
 export class OrderSigner {
-  private wallet: ethers.Wallet;
+  private wallet: EthersLikeWallet;
   private logger: ILogger;
 
   /**
@@ -43,11 +43,11 @@ export class OrderSigner {
    * import { ethers } from 'ethers';
    * import { OrderSigner } from '@limitless-exchange/sdk';
    *
-   * const wallet = new ethers.Wallet(privateKey);
+   * const wallet = new EthersLikeWallet(privateKey);
    * const signer = new OrderSigner(wallet);
    * ```
    */
-  constructor(wallet: ethers.Wallet, logger?: ILogger) {
+  constructor(wallet: EthersLikeWallet, logger?: ILogger) {
     this.wallet = wallet;
     this.logger = logger || new NoOpLogger();
   }

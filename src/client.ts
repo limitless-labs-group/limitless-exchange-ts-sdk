@@ -10,6 +10,7 @@ import { ServerWalletService } from './server-wallets/service';
 import { OrderClient, type OrderClientConfig } from './orders/client';
 import { WebSocketClient } from './websocket/client';
 import type { WebSocketConfig } from './types/websocket';
+import type { EthersLikeWallet } from './types/wallet';
 import { NoOpLogger } from './types/logger';
 
 /**
@@ -64,12 +65,23 @@ export class Client {
 
   /**
    * Creates a regular EIP-712 order client reusing the shared transport and market cache.
+   *
+   * @param walletOrPrivateKey - Either a private-key string (a fresh
+   * `ethers.Wallet` is constructed internally) or any object satisfying
+   * the {@link EthersLikeWallet} interface — including `ethers.Wallet`
+   * from either ESM or CJS bundle, or a custom signer (HSM/KMS-backed,
+   * remote RPC, etc.).
+   *
+   * Using the {@link EthersLikeWallet} structural interface (rather than
+   * `ethers.Wallet` directly) avoids the dual-package nominal-type
+   * mismatch that affects ethers v6 when the consumer and the SDK
+   * resolve to different ESM/CJS bundles.
    */
   newOrderClient(
-    walletOrPrivateKey: ethers.Wallet | string,
+    walletOrPrivateKey: EthersLikeWallet | string,
     config: Omit<OrderClientConfig, 'httpClient' | 'wallet'> = {},
   ): OrderClient {
-    const wallet =
+    const wallet: EthersLikeWallet =
       typeof walletOrPrivateKey === 'string' ? new ethers.Wallet(walletOrPrivateKey) : walletOrPrivateKey;
 
     return new OrderClient({
