@@ -1,4 +1,5 @@
 export * from './auth';
+export * from './wallet';
 export * from './api-tokens';
 export * from './partner-accounts';
 export * from './delegated-orders';

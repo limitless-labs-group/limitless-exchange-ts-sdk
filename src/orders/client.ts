@@ -16,8 +16,8 @@ import type {
 import { OrderType } from '../types/orders';
 import { OrderBuilder } from './builder';
 import { OrderSigner } from './signer';
-import type { ethers } from 'ethers';
 import type { UserData } from '../types/auth';
+import type { EthersLikeWallet } from '../types/wallet';
 import { ZERO_ADDRESS } from '../utils/constants';
 import { toFiniteInteger, toFiniteNumber } from '../utils/number-flex';
 import { MarketFetcher } from '../markets/fetcher';
@@ -45,7 +45,7 @@ export interface OrderClientConfig {
   /**
    * Wallet for signing orders with EIP-712
    */
-  wallet: ethers.Wallet;
+  wallet: EthersLikeWallet;
 
   /**
    * Custom signing configuration (optional)
@@ -128,7 +128,7 @@ export interface OrderClientConfig {
  */
 export class OrderClient {
   private httpClient: HttpClient;
-  private wallet: ethers.Wallet;
+  private wallet: EthersLikeWallet;
   private orderBuilder?: OrderBuilder;
   private orderSigner: OrderSigner;
   private marketFetcher: MarketFetcher;
