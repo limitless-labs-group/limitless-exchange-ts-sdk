@@ -208,6 +208,36 @@ export interface FAKOrderArgs extends BaseOrderArgs {
 export type OrderArgs = FOKOrderArgs | GTCOrderArgs | FAKOrderArgs;
 
 /**
+ * Optional receive-window controls for order creation.
+ *
+ * @remarks
+ * These fields are sent as top-level `POST /orders` request fields. They are
+ * not part of the EIP-712 signed order payload.
+ *
+ * @public
+ */
+export interface ReceiveWindowOptions {
+  /**
+   * Client-stamped order creation time as Unix milliseconds.
+   */
+  timestamp?: number;
+
+  /**
+   * Maximum allowed order staleness in milliseconds. Must be 1..10000.
+   */
+  recvWindow?: number;
+}
+
+/**
+ * Public parameters for creating and submitting an order.
+ * @public
+ */
+export type CreateOrderParams = OrderArgs & {
+  orderType: OrderType;
+  marketSlug: string;
+} & ReceiveWindowOptions;
+
+/**
  * Unsigned order payload.
  * @public
  */
@@ -319,6 +349,18 @@ export interface NewOrderPayload {
    * Supported only for GTC orders.
    */
   postOnly?: boolean;
+
+  /**
+   * Client-stamped order creation time as Unix milliseconds.
+   * Top-level request field only; not signed.
+   */
+  timestamp?: number;
+
+  /**
+   * Maximum allowed order staleness in milliseconds.
+   * Top-level request field only; not signed.
+   */
+  recvWindow?: number;
 }
 
 /**

@@ -10,6 +10,7 @@ import {
 import { OrderType, SignatureType } from '../types/orders';
 import type { ILogger } from '../types/logger';
 import { NoOpLogger } from '../types/logger';
+import { normalizeReceiveWindowOptions } from '../orders/receive-window';
 
 const DEFAULT_DELEGATED_FEE_RATE_BPS = 300;
 
@@ -32,6 +33,11 @@ export class DelegatedOrderService {
     if (!Number.isInteger(params.onBehalfOf) || params.onBehalfOf <= 0) {
       throw new Error('onBehalfOf must be a positive integer');
     }
+
+    const receiveWindow = normalizeReceiveWindowOptions({
+      timestamp: params.timestamp,
+      recvWindow: params.recvWindow,
+    });
 
     const feeRateBps = params.feeRateBps && params.feeRateBps > 0
       ? params.feeRateBps
@@ -68,6 +74,7 @@ export class DelegatedOrderService {
       ownerId: params.onBehalfOf,
       onBehalfOf: params.onBehalfOf,
       ...(postOnly !== undefined ? { postOnly } : {}),
+      ...receiveWindow,
     };
 
     this.logger.debug('Creating delegated order', {

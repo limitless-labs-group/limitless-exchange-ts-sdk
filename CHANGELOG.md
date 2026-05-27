@@ -5,6 +5,20 @@ All notable changes to the Limitless Exchange TypeScript SDK will be documented 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.11]
+
+### Added
+
+- Optional receive-window controls for normal and delegated order creation:
+  - `timestamp`
+  - `recvWindow`
+- `ReceiveWindowOptions` public type for top-level `POST /orders` freshness controls.
+- Unit coverage ensuring receive-window fields are omitted by default, sent only as top-level request fields when provided, auto-stamped when `recvWindow` is supplied without `timestamp`, and rejected locally for invalid values.
+
+### Changed
+
+- README, order docs, and package metadata now target `v1.0.11`.
+
 ## [1.0.10]
 
 ### Added

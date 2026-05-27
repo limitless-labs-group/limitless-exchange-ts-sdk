@@ -417,6 +417,32 @@ console.log('FAK buy submitted:', fakBuy.id);
 console.log('Immediate matches:', fakBuy.makerMatches ?? []);
 ```
 
+### Optional Receive Window
+
+Order creation supports optional receive-window controls for callers that want freshness enforcement on `POST /orders`.
+
+```typescript
+const order = await orderClient.createOrder({
+  tokenId: 'YOUR_TOKEN_ID',
+  price: 0.6,
+  size: 20,
+  side: Side.BUY,
+  orderType: OrderType.GTC,
+  marketSlug: 'market-slug',
+  recvWindow: 1500,
+});
+```
+
+`timestamp` and `recvWindow` are top-level request fields only. They are not part of the EIP-712 signed order object. When `recvWindow` is supplied without `timestamp`, the SDK stamps `timestamp` with the local current Unix milliseconds.
+
+Rules:
+
+- omitted by default; existing order calls are unchanged
+- `timestamp` must be a non-negative integer when supplied
+- `recvWindow` must be an integer from `1` to `10000`
+- `recvWindow=0` is invalid for SDK callers
+- receive-window rejections from the API or OME surface as `APIError` with `status === 425`
+
 ## NegRisk Markets
 
 NegRisk markets are **group markets** containing multiple related outcomes. Trading on NegRisk markets requires using the **submarket slug** and the correct contract address.
