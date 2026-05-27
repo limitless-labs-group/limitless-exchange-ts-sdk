@@ -9,21 +9,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Partner withdrawal-address allowlist helpers:
-  - `PartnerAccountService.addWithdrawalAddress()`
-  - `PartnerAccountService.deleteWithdrawalAddress()`
-- Public withdrawal-address request/response types:
-  - `PartnerWithdrawalAddressInput`
-  - `PartnerWithdrawalAddressResponse`
 - No-address profile reads via `PortfolioFetcher.getProfile()` / `client.portfolio.getProfile()`, which now call `GET /profiles/me`.
 - Partner-owned account listing and recovery via `PartnerAccountService.listAccounts()`.
 - Public partner account list types:
   - `ListPartnerAccountsParams`
   - `PartnerAccountListItem`
   - `ListPartnerAccountsResponse`
+- Unit coverage for `/profiles/me` profile reads and HMAC-only partner account listing, filtering, pagination capping, and invalid query params.
+
+### Changed
+
+- README, API-key v3 docs, and package metadata now target `v1.0.10`.
+
+## [1.0.9]
+
+### Added
+
+- Partner withdrawal-address allowlist helpers:
+  - `PartnerAccountService.addWithdrawalAddress()`
+  - `PartnerAccountService.deleteWithdrawalAddress()`
+- Public withdrawal-address request/response types:
+  - `PartnerWithdrawalAddressInput`
+  - `PartnerWithdrawalAddressResponse`
 - `HttpClient.deleteWithIdentity()` for identity-token authenticated DELETE requests.
 - Unit coverage for identity-auth withdrawal-address allowlist calls and explicit server-wallet withdrawal destinations.
-- Unit coverage for `/profiles/me` profile reads and HMAC-only partner account listing, filtering, pagination capping, and invalid query params.
 - WebSocket subscription/event surface for order events, live sports/esports, market lifecycle, oracle price data, and system messages.
 
 ### Changed
@@ -34,7 +43,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `WithdrawServerWalletParams.destination` docs now describe omitted-destination fallback to the authenticated partner smart wallet when present, otherwise the authenticated partner account.
 - `WithdrawServerWalletParams.onBehalfOf` is now optional so callers can submit authenticated caller wallet withdrawals to explicit allowed destinations.
 - API-key v3 server-wallet redeem/withdraw example can optionally allowlist a withdraw destination before submitting the HMAC withdraw request.
-- README, API-key v3 docs, and package metadata now target `v1.0.10`.
+- README, API-key v3 docs, and package metadata now target `v1.0.9`.
 
 ## [1.0.8] - 2026-04-30
 

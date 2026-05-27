@@ -703,7 +703,7 @@ docs/
 
 **Release Date**: May 27, 2026
 
-Latest release with authenticated profile reads, partner sub-account listing/recovery, partner withdrawal-address allowlist helpers, server-wallet withdrawals to explicit whitelisted treasury destinations, and expanded WebSocket event coverage.
+Latest release with authenticated profile reads and partner sub-account listing/recovery.
 
 #### Highlights
 
@@ -717,8 +717,8 @@ Latest release with authenticated profile reads, partner sub-account listing/rec
 - 🧭 **Market Pages API**: Navigation tree, by-path resolver with 301 handling, page-scoped markets, property keys
 - 🧾 **More Trading Semantics**: `FAK` limit orders plus `postOnly` on `GTC`
 - 🪪 **Authenticated Profiles**: Fetch the current authenticated profile with `GET /profiles/me`
-- 🏦 **Partner Server Wallets**: Delegated child-account listing/recovery, redeem, and HMAC-only withdraw flows
-- 🏛️ **Treasury Withdrawals**: Allowlist external withdrawal destinations and withdraw child server-wallet funds directly to them
+- 🏦 **Partner Account Listing**: List and recover partner-owned child accounts with HMAC-scoped API-token auth
+- 🏦 **Partner Server Wallets**: Delegated child-account redeem and HMAC-only withdraw flows
 - 🔁 **Partner Allowance Recovery**: Check and retry delegated allowance targets for server-wallet child profiles
 
 #### Core Features
@@ -737,6 +737,21 @@ Latest release with authenticated profile reads, partner sub-account listing/rec
 
 - Added authenticated profile read docs for `client.portfolio.getProfile()` without an address
 - Added partner sub-account listing/recovery docs and API key v3 example coverage
+
+### v1.0.9
+
+**Release Date**: May 4, 2026
+
+Release with partner withdrawal-address allowlist helpers, server-wallet withdrawals to explicit whitelisted treasury destinations, and expanded WebSocket event coverage.
+
+#### Highlights
+
+- 🏛️ **Treasury Withdrawals**: Allowlist external withdrawal destinations and withdraw child server-wallet funds directly to them
+- 🌐 **Expanded WebSocket Surface**: Added typed subscription/event coverage for order events, live sports/esports, market lifecycle, oracle price data, and system messages
+- 🧹 **WebSocket Validation**: Unsupported legacy short channel literals now fail fast
+
+#### Documentation Enhancements (v1.0.9)
+
 - Added partner withdrawal-address allowlist docs for server-wallet treasury withdrawals
 - Updated server-wallet withdraw docs for omitted-destination smart-wallet fallback and explicit whitelisted destinations
 - Added partner allowance check/retry docs and API key v3 example for delegated server-wallet child accounts
