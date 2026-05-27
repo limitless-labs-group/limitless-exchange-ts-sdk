@@ -5,6 +5,7 @@ Complete guide to tracking positions and balances on the Limitless Exchange.
 ## Table of Contents
 
 - [Overview](#overview)
+- [Profile Lookup](#profile-lookup)
 - [Position Tracking](#position-tracking)
 - [User History](#user-history)
 - [Best Practices](#best-practices)
@@ -13,10 +14,27 @@ Complete guide to tracking positions and balances on the Limitless Exchange.
 
 The Portfolio API provides access to:
 
+- **Profile Lookup**: Your authenticated profile or an address-based profile lookup
 - **Positions**: Your current holdings across markets (CLOB and AMM)
 - **User History**: Account activity and transaction history
 
-**Authentication Required**: All portfolio endpoints require an API key.
+**Authentication Required**: Portfolio endpoints require an authenticated client.
+
+## Profile Lookup
+
+Use `getProfile()` without an address to fetch the authenticated caller's profile via
+`GET /profiles/me`. Pass an address to keep the existing address-based lookup via
+`GET /profiles/:account`.
+
+```typescript
+const currentProfile = await portfolioFetcher.getProfile();
+const profileByAddress = await portfolioFetcher.getProfile(
+  '0x1676716Ef7F19B5C5d690631CB57cf0bFD900A3d'
+);
+
+console.log(`Current profile ID: ${currentProfile.id}`);
+console.log(`Profile account: ${profileByAddress.account}`);
+```
 
 ## Position Tracking
 

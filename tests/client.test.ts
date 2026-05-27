@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { ethers } from 'ethers';
 import { Client } from '../src/client';
 import type { EthersLikeWallet } from '../src/types/wallet';
@@ -30,7 +30,7 @@ describe('Client', () => {
     });
 
     const orderClient = client.newOrderClient(
-      '0x59c6995e998f97a5a0044966f0945382d7f33b94d8538d9f1fd7055c77a46f6c',
+      '0x59c6995e998f97a5a0044966f0945382d7f33b94d8538d9f1fd7055c77a46f6c'
     );
     const wsClient = client.newWebSocketClient();
 
@@ -47,7 +47,7 @@ describe('Client', () => {
     // type space, not runtime).
     const client = new Client({ baseURL: 'https://api.limitless.exchange' });
     const wallet = new ethers.Wallet(
-      '0x59c6995e998f97a5a0044966f0945382d7f33b94d8538d9f1fd7055c77a46f6c',
+      '0x59c6995e998f97a5a0044966f0945382d7f33b94d8538d9f1fd7055c77a46f6c'
     );
     const orderClient = client.newOrderClient(wallet);
     expect(orderClient.walletAddress).toBe(wallet.address);
@@ -65,5 +65,24 @@ describe('Client', () => {
     };
     const orderClient = client.newOrderClient(customSigner);
     expect(orderClient.walletAddress).toBe(customSigner.address);
+  });
+
+  it('uses /profiles/me for no-argument portfolio profile reads', async () => {
+    const client = new Client({
+      baseURL: 'https://api.limitless.exchange',
+      hmacCredentials: {
+        tokenId: 'token-1',
+        secret: Buffer.from('test-secret').toString('base64'),
+      },
+    });
+
+    client.http.get = vi.fn().mockResolvedValue({
+      id: 1,
+      account: '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC',
+    });
+
+    await client.portfolio.getProfile();
+
+    expect(client.http.get).toHaveBeenCalledWith('/profiles/me');
   });
 });

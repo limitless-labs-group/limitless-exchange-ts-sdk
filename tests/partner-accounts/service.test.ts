@@ -46,6 +46,19 @@ const WITHDRAWAL_ADDRESS_RESPONSE: PartnerWithdrawalAddressResponse = {
   deletedAt: null,
 };
 
+const LIST_ACCOUNTS_RESPONSE = {
+  data: [
+    {
+      profileId: 12345,
+      account: '0x1676716Ef7F19B5C5d690631CB57cf0bFD900A3d',
+      displayName: 'Partner User',
+    },
+  ],
+  page: 2,
+  limit: 25,
+  hasMore: false,
+};
+
 describe('PartnerAccountService', () => {
   it('creates a server-wallet account without EOA headers', async () => {
     const httpClient = {
@@ -133,6 +146,110 @@ describe('PartnerAccountService', () => {
         createServerWallet: true,
       })
     ).rejects.toThrow('displayName must be at most 44 characters');
+  });
+
+  it('lists partner accounts with optional filters', async () => {
+    const httpClient = {
+      requireAuth: vi.fn(),
+      getHMACCredentials: vi.fn().mockReturnValue({
+        tokenId: 'token-1',
+        secret: 'secret-1',
+      }),
+      get: vi.fn().mockResolvedValue(LIST_ACCOUNTS_RESPONSE),
+    } as unknown as HttpClient;
+
+    const service = new PartnerAccountService(httpClient);
+    const response = await service.listAccounts({
+      account: ' 0x1676716Ef7F19B5C5d690631CB57cf0bFD900A3d ',
+      limit: 25,
+      page: 2,
+    });
+
+    expect(response).toEqual(LIST_ACCOUNTS_RESPONSE);
+    expect((httpClient as any).requireAuth).toHaveBeenCalledWith('listPartnerAccounts');
+    expect((httpClient as any).get).toHaveBeenCalledWith(
+      '/profiles/partner-accounts?account=0x1676716Ef7F19B5C5d690631CB57cf0bFD900A3d&limit=25&page=2'
+    );
+  });
+
+  it('lists partner accounts without query params', async () => {
+    const httpClient = {
+      requireAuth: vi.fn(),
+      getHMACCredentials: vi.fn().mockReturnValue({
+        tokenId: 'token-1',
+        secret: 'secret-1',
+      }),
+      get: vi.fn().mockResolvedValue({ data: [], page: 1, limit: 25, hasMore: false }),
+    } as unknown as HttpClient;
+
+    const service = new PartnerAccountService(httpClient);
+    await service.listAccounts();
+
+    expect((httpClient as any).get).toHaveBeenCalledWith('/profiles/partner-accounts');
+  });
+
+  it('caps partner account list limit to the API maximum', async () => {
+    const httpClient = {
+      requireAuth: vi.fn(),
+      getHMACCredentials: vi.fn().mockReturnValue({
+        tokenId: 'token-1',
+        secret: 'secret-1',
+      }),
+      get: vi.fn().mockResolvedValue({ data: [], page: 1, limit: 25, hasMore: false }),
+    } as unknown as HttpClient;
+
+    const service = new PartnerAccountService(httpClient);
+    await service.listAccounts({ limit: 100, page: 1 });
+
+    expect((httpClient as any).get).toHaveBeenCalledWith(
+      '/profiles/partner-accounts?limit=25&page=1'
+    );
+  });
+
+  it('requires HMAC auth for partner account listing', async () => {
+    const httpClient = {
+      requireAuth: vi.fn(),
+      getHMACCredentials: vi.fn().mockReturnValue(undefined),
+      get: vi.fn(),
+    } as unknown as HttpClient;
+
+    const service = new PartnerAccountService(httpClient);
+
+    await expect(service.listAccounts()).rejects.toThrow(
+      'Partner account listing requires HMAC-scoped API token auth'
+    );
+    expect((httpClient as any).get).not.toHaveBeenCalled();
+  });
+
+  it('rejects invalid partner account list query params before network', async () => {
+    const httpClient = {
+      requireAuth: vi.fn(),
+      getHMACCredentials: vi.fn().mockReturnValue({
+        tokenId: 'token-1',
+        secret: 'secret-1',
+      }),
+      get: vi.fn(),
+    } as unknown as HttpClient;
+
+    const service = new PartnerAccountService(httpClient);
+
+    await expect(service.listAccounts({ account: ' ' })).rejects.toThrow(
+      'account must be a non-empty string'
+    );
+    await expect(service.listAccounts({ limit: 0 })).rejects.toThrow(
+      'limit must be a positive integer'
+    );
+    await expect(service.listAccounts({ limit: 1.5 })).rejects.toThrow(
+      'limit must be a positive integer'
+    );
+    await expect(service.listAccounts({ page: -1 })).rejects.toThrow(
+      'page must be a positive integer'
+    );
+    await expect(service.listAccounts({ page: 2.5 })).rejects.toThrow(
+      'page must be a positive integer'
+    );
+
+    expect((httpClient as any).get).not.toHaveBeenCalled();
   });
 
   it('checks partner-account allowance readiness', async () => {

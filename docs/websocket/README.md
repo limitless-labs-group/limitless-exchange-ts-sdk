@@ -16,26 +16,30 @@ The Limitless Exchange WebSocket API provides real-time streaming for:
 
 **Public Subscriptions** (no authentication required):
 
-- **Market Prices**: Live orderbook updates and price changes
+- **Market Prices**: `subscribe_market_prices` emits CLOB `orderbookUpdate`, AMM `newPriceData`, and `oraclePriceData`
+- **Live Sports/Esports**: `subscribe_live_sports` and `subscribe_live_esports`
+- **Market Lifecycle**: `subscribe_market_lifecycle` and `unsubscribe_market_lifecycle`
 
 **Authenticated Subscriptions** (require API key):
 
 - **Positions**: Real-time position updates for authenticated users
-- **Transactions**: Live order fills and transaction notifications
+- **Transactions**: User transaction status updates
+- **Order Events**: User order lifecycle events via `subscribe_order_events`
 
 **Key Characteristics**:
 
 - SDK is a **raw data passthrough** - no transformations
-- Events use exact API event names (e.g., `orderbookUpdate`, `newPriceData`)
-- **API key not required** for public subscriptions (prices, orderbook)
-- API key required for positions and transactions
+- Events use exact API event names (e.g., `orderbookUpdate`, `newPriceData`, `orderEvent`)
+- **API key not required** for public subscriptions
+- API key required for positions, transactions, and order events
+- There is no separate `trades`, `orders`, `fills`, `markets`, `prices`, or raw `orderbook` websocket channel
 - Automatic reconnection with subscription restoration
 
 ## Connection Setup
 
 ### Public Data (No Authentication)
 
-For public subscriptions (orderbook, prices), no API key is required:
+For public subscriptions (CLOB orderbook, AMM/oracle prices, live snapshots, and market lifecycle), no API key is required:
 
 ```typescript
 import { WebSocketClient } from '@limitless-exchange/sdk';
@@ -58,11 +62,11 @@ await wsClient.subscribe('subscribe_market_prices', {
 
 ### Authenticated Data (Positions & Transactions)
 
-For authenticated subscriptions (positions, transactions), you **must provide an API key**.
+For authenticated subscriptions (positions, transactions, order events), you **must provide an API key**.
 
 **API Key Authentication**:
 
-- Required for positions and transactions subscriptions
+- Required for positions, transactions, and order-event subscriptions
 - SDK sends X-API-Key header automatically
 - Same API key used for HTTP REST API
 
@@ -99,6 +103,7 @@ await wsClient.subscribe('subscribe_positions', {
 });
 
 await wsClient.subscribe('subscribe_transactions', {});
+await wsClient.subscribe('subscribe_order_events', {});
 ```
 
 **Error Handling**:
@@ -166,7 +171,7 @@ wsClient.on('positions' as any, (data: any) => {
 
 ### Transactions (Authenticated)
 
-Subscribe to real-time transaction notifications (order fills, etc.).
+Subscribe to user transaction status updates.
 
 **Event Name**: `subscribe_transactions`
 
@@ -182,18 +187,65 @@ wsClient.on('tx' as any, (data: any) => {
 });
 ```
 
-## Event Handling
+### Order Events (Authenticated)
 
-### Raw Event Logging
+Subscribe to user order lifecycle events.
 
-The SDK passes through raw API events. You can log all events for debugging:
+**Event Name**: `subscribe_order_events`
+
+**Events Received**: `orderEvent`
 
 ```typescript
-// Log ALL raw events (for debugging)
-(wsClient as any).socket?.onAny?.((eventName: string, ...args: any[]) => {
-  console.log(`\n📨 Raw Event: "${eventName}"`);
-  console.log(JSON.stringify(args, null, 2));
+await wsClient.subscribe('subscribe_order_events', {});
+
+wsClient.on('orderEvent' as any, (data: any) => {
+  console.log(JSON.stringify(data, null, 2));
 });
+```
+
+### Live Sports and Esports (Public)
+
+Subscribe to live sports or esports snapshots.
+
+**Event Names**: `subscribe_live_sports`, `subscribe_live_esports`
+
+**Events Received**: `live_sports_update`, `live_esports_update`
+
+```typescript
+await wsClient.subscribe('subscribe_live_sports');
+await wsClient.subscribe('subscribe_live_esports');
+
+wsClient.on('live_sports_update' as any, (data: any) => {
+  console.log(JSON.stringify(data, null, 2));
+});
+```
+
+### Market Lifecycle (Public)
+
+Subscribe to market creation and resolution events.
+
+**Event Name**: `subscribe_market_lifecycle`
+
+**Events Received**: `marketCreated`, `marketResolved`
+
+```typescript
+await wsClient.subscribe('subscribe_market_lifecycle');
+
+wsClient.on('marketCreated' as any, (data: any) => {
+  console.log(JSON.stringify(data, null, 2));
+});
+```
+
+## Event Handling
+
+### Event Logging
+
+The SDK passes through backend event payloads. Register handlers for supported backend events while debugging:
+
+```typescript
+wsClient.on('orderbookUpdate' as any, (data: any) => console.log('[orderbookUpdate]', data));
+wsClient.on('newPriceData' as any, (data: any) => console.log('[newPriceData]', data));
+wsClient.on('orderEvent' as any, (data: any) => console.log('[orderEvent]', data));
 ```
 
 ### System Events
@@ -240,7 +292,7 @@ wsClient.on('orderbookUpdate' as any, (data: any) => {
 // Connect and subscribe
 await wsClient.connect();
 await wsClient.subscribe('subscribe_market_prices', {
-  marketSlugs: [MARKET_SLUG]
+  marketSlugs: [MARKET_SLUG],
 });
 
 console.log('Monitoring orderbook...');
@@ -357,7 +409,7 @@ AMM price updates with market addresses.
 ```typescript
 interface NewPriceData {
   marketAddress: string; // Market contract address (NOT marketSlug!)
-  updatedPrices: AmmPriceEntry[]; // Array of price updates
+  updatedPrices: AmmPriceEntry[]; // AMM price entries, not orderbook rows
   blockNumber: number; // Blockchain block number
   timestamp: Date | number | string; // Event timestamp
 }

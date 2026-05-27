@@ -12,6 +12,7 @@ import type {
   PortfolioSummary,
   HistoryResponse,
 } from '../types/portfolio';
+import type { UserProfile } from '../types/auth';
 import type { ILogger } from '../types/logger';
 import { NoOpLogger } from '../types/logger';
 
@@ -50,35 +51,48 @@ export class PortfolioFetcher {
   }
 
   /**
-   * Gets user profile for a specific wallet address.
+   * Gets user profile for a wallet address.
    *
    * @remarks
    * Returns user profile data including user ID and fee rate.
    * Used internally by OrderClient to fetch user data.
+   * If no address is provided, the SDK calls `/profiles/me` and the API resolves
+   * the profile from the authenticated request.
    *
-   * @param address - Wallet address to fetch profile for
+   * @param address - Optional wallet address to fetch profile for
    * @returns Promise resolving to user profile data
    * @throws Error if API request fails or user is not authenticated
    *
    * @example
    * ```typescript
+   * // Uses the authenticated account
+   * const profile = await client.portfolio.getProfile();
+   *
+   * // Or pass the address explicitly
    * const profile = await portfolioFetcher.getProfile('0x1234...');
    * console.log(`User ID: ${profile.id}`);
    * console.log(`Account: ${profile.account}`);
    * console.log(`Fee Rate: ${profile.rank?.feeRateBps}`);
    * ```
    */
-  async getProfile(address: string): Promise<any> {
-    this.logger.debug('Fetching user profile', { address });
+  async getProfile(address?: string): Promise<UserProfile> {
+    const profileAddress = address?.trim();
+    const endpoint = profileAddress
+      ? `/profiles/${encodeURIComponent(profileAddress)}`
+      : '/profiles/me';
+
+    this.logger.debug('Fetching user profile', { address: profileAddress });
 
     try {
-      const response = await this.httpClient.get<any>(`/profiles/${address}`);
+      const response = await this.httpClient.get<UserProfile>(endpoint);
 
-      this.logger.info('User profile fetched successfully', { address });
+      this.logger.info('User profile fetched successfully', { address: profileAddress });
 
       return response;
     } catch (error) {
-      this.logger.error('Failed to fetch user profile', error as Error, { address });
+      this.logger.error('Failed to fetch user profile', error as Error, {
+        address: profileAddress,
+      });
       throw error;
     }
   }
