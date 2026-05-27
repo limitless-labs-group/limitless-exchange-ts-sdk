@@ -32,15 +32,18 @@ interface ResolvedWebSocketConfig {
  *
  * @remarks
  * This client uses Socket.IO to connect to the WebSocket server and provides
- * typed event subscriptions for orderbook, trades, orders, and market data.
+ * typed event subscriptions for CLOB orderbook, AMM/oracle price, order lifecycle,
+ * market lifecycle, position, and transaction data.
  *
  * **Public Subscriptions** (no authentication required):
- * - Market prices (AMM)
- * - Orderbook updates (CLOB)
+ * - Market prices, oracle prices, and CLOB orderbook updates
+ * - Live sports/esports snapshots
+ * - Market lifecycle events
  *
  * **Authenticated Subscriptions** (require API key):
  * - User positions
  * - User transactions
+ * - User order lifecycle events
  *
  * @example
  * ```typescript
@@ -307,20 +310,19 @@ export class WebSocketClient {
    *
    * @example
    * ```typescript
-   * // Subscribe to orderbook for a specific market
-   * await wsClient.subscribe('orderbook', { marketSlugs: ['market-123'] });
+   * // Subscribe to CLOB orderbook updates through the market-price channel
+   * await wsClient.subscribe('subscribe_market_prices', { marketSlugs: ['market-123'] });
    *
-   * // Subscribe to all trades
-   * await wsClient.subscribe('trades');
-   *
-   * // Subscribe to your orders
-   * await wsClient.subscribe('orders');
+   * // Subscribe to your authenticated order lifecycle events
+   * await wsClient.subscribe('subscribe_order_events');
    * ```
    */
   async subscribe(channel: SubscriptionChannel, options: SubscriptionOptions = {}): Promise<void> {
     if (!this.isConnected()) {
       throw new Error('WebSocket not connected. Call connect() first.');
     }
+
+    this.validateSubscriptionChannel(channel);
 
     // Check if API key is required for authenticated channels
     const authenticatedChannels: SubscriptionChannel[] = [
@@ -361,7 +363,7 @@ export class WebSocketClient {
    *
    * @example
    * ```typescript
-   * await wsClient.unsubscribe('orderbook', { marketSlugs: ['market-123'] });
+   * await wsClient.unsubscribe('unsubscribe_market_lifecycle');
    * ```
    */
   async unsubscribe(
@@ -371,6 +373,8 @@ export class WebSocketClient {
     if (!this.isConnected()) {
       throw new Error('WebSocket not connected');
     }
+
+    this.validateSubscriptionChannel(channel);
 
     const subscriptionKey = this.getSubscriptionKey(channel, options);
     this.subscriptions.delete(subscriptionKey);
@@ -406,8 +410,8 @@ export class WebSocketClient {
    * @example
    * ```typescript
    * wsClient
-   *   .on('orderbook', (data) => console.log('Orderbook:', data))
-   *   .on('trade', (data) => console.log('Trade:', data))
+   *   .on('orderbookUpdate', (data) => console.log('Orderbook:', data))
+   *   .on('orderEvent', (data) => console.log('Order event:', data))
    *   .on('error', (error) => console.error('Error:', error));
    * ```
    */
@@ -568,6 +572,25 @@ export class WebSocketClient {
    */
   private getSubscriptionKey(channel: SubscriptionChannel, options: SubscriptionOptions): string {
     return `${channel}:${options.marketSlug || 'global'}`;
+  }
+
+  private validateSubscriptionChannel(channel: SubscriptionChannel): void {
+    const supportedChannels: SubscriptionChannel[] = [
+      'subscribe_market_prices',
+      'subscribe_positions',
+      'subscribe_transactions',
+      'subscribe_order_events',
+      'subscribe_live_sports',
+      'subscribe_live_esports',
+      'subscribe_market_lifecycle',
+      'unsubscribe_market_lifecycle',
+    ];
+
+    if (!supportedChannels.includes(channel)) {
+      throw new Error(
+        `Unsupported websocket subscription channel "${channel}". Use a supported websocket channel constant.`
+      );
+    }
   }
 
   /**

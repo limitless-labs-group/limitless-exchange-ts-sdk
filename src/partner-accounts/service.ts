@@ -2,6 +2,8 @@ import { HttpClient } from '../api/http';
 import type {
   CreatePartnerAccountEOAHeaders,
   CreatePartnerAccountInput,
+  ListPartnerAccountsParams,
+  ListPartnerAccountsResponse,
   PartnerAccountAllowanceResponse,
   PartnerAccountResponse,
   PartnerWithdrawalAddressInput,
@@ -12,6 +14,9 @@ import { NoOpLogger } from '../types/logger';
 
 const PARTNER_ACCOUNT_ALLOWANCE_HMAC_ONLY_ERROR =
   'Partner account allowance recovery requires HMAC-scoped API token auth; legacy API keys are not supported.';
+const PARTNER_ACCOUNT_LIST_HMAC_ONLY_ERROR =
+  'Partner account listing requires HMAC-scoped API token auth; legacy API keys are not supported.';
+const PARTNER_ACCOUNTS_MAX_LIMIT = 25;
 
 /**
  * Partner-owned profile creation API.
@@ -70,11 +75,31 @@ export class PartnerAccountService {
   }
 
   /**
+   * Lists partner-owned accounts or recovers a specific partner-owned account by address.
+   *
+   * @remarks
+   * This endpoint is intended for partner recovery flows. For example, if account creation
+   * succeeded but the partner failed to persist the returned `profileId`, call
+   * `listAccounts({ account })` to recover the minimal account metadata.
+   */
+  async listAccounts(params: ListPartnerAccountsParams = {}): Promise<ListPartnerAccountsResponse> {
+    this.requireHmacAuth('listPartnerAccounts', PARTNER_ACCOUNT_LIST_HMAC_ONLY_ERROR);
+    const path = this.partnerAccountsPath(params);
+
+    this.logger.debug('Listing partner accounts', params);
+
+    return this.httpClient.get<ListPartnerAccountsResponse>(path);
+  }
+
+  /**
    * Checks delegated-trading allowance readiness from live chain state for a partner-created
    * server-wallet profile.
    */
   async checkAllowances(profileId: number): Promise<PartnerAccountAllowanceResponse> {
-    this.requireAllowanceHmacAuth('checkPartnerAccountAllowances');
+    this.requireHmacAuth(
+      'checkPartnerAccountAllowances',
+      PARTNER_ACCOUNT_ALLOWANCE_HMAC_ONLY_ERROR
+    );
     const path = this.partnerAccountAllowancesPath(profileId);
 
     this.logger.debug('Checking partner-account allowances', { profileId });
@@ -91,7 +116,10 @@ export class PartnerAccountService {
    * state.
    */
   async retryAllowances(profileId: number): Promise<PartnerAccountAllowanceResponse> {
-    this.requireAllowanceHmacAuth('retryPartnerAccountAllowances');
+    this.requireHmacAuth(
+      'retryPartnerAccountAllowances',
+      PARTNER_ACCOUNT_ALLOWANCE_HMAC_ONLY_ERROR
+    );
     const path = this.partnerAccountAllowancesPath(profileId);
 
     this.logger.debug('Retrying partner-account allowances', { profileId });
@@ -143,12 +171,38 @@ export class PartnerAccountService {
     );
   }
 
-  private requireAllowanceHmacAuth(operation: string): void {
+  private requireHmacAuth(operation: string, errorMessage: string): void {
     this.httpClient.requireAuth(operation);
 
     if (!this.httpClient.getHMACCredentials()) {
-      throw new Error(PARTNER_ACCOUNT_ALLOWANCE_HMAC_ONLY_ERROR);
+      throw new Error(errorMessage);
     }
+  }
+
+  private partnerAccountsPath(params: ListPartnerAccountsParams): string {
+    const search = new URLSearchParams();
+
+    if (params.account !== undefined) {
+      const account = params.account.trim();
+      if (!account) {
+        throw new Error('account must be a non-empty string');
+      }
+      search.set('account', account);
+    }
+
+    if (params.limit !== undefined) {
+      search.set(
+        'limit',
+        this.formatPositiveInteger(params.limit, 'limit', PARTNER_ACCOUNTS_MAX_LIMIT)
+      );
+    }
+
+    if (params.page !== undefined) {
+      search.set('page', this.formatPositiveInteger(params.page, 'page'));
+    }
+
+    const query = search.toString();
+    return query ? `/profiles/partner-accounts?${query}` : '/profiles/partner-accounts';
   }
 
   private partnerAccountAllowancesPath(profileId: number): string {
@@ -157,5 +211,13 @@ export class PartnerAccountService {
     }
 
     return `/profiles/partner-accounts/${profileId}/allowances`;
+  }
+
+  private formatPositiveInteger(value: number, name: string, max?: number): string {
+    if (!Number.isInteger(value) || value <= 0) {
+      throw new Error(`${name} must be a positive integer`);
+    }
+
+    return String(max === undefined ? value : Math.min(value, max));
   }
 }

@@ -33,6 +33,14 @@ async function main() {
     console.log(
       `Created partner account: profileId=${account.profileId} account=${account.account}`
     );
+
+    const recovered = await scopedClient.partnerAccounts.listAccounts({
+      account: account.account,
+      limit: 25,
+      page: 1,
+    });
+
+    console.log(`Recovered ${recovered.data.length} partner account(s)`);
   } finally {
     await revokeDerivedTokenIfNeeded(scopedClient, derived);
   }

@@ -24,7 +24,7 @@ export interface WebSocketConfig {
    *
    * @remarks
    * **Required** for authenticated subscriptions (positions, transactions).
-   * Not required for public subscriptions (market prices, orderbook).
+   * Not required for public market-price subscriptions.
    *
    * You can generate an API key at https://limitless.exchange
    * and the LIMITLESS_API_KEY environment variable.
@@ -77,12 +77,6 @@ export enum WebSocketState {
  * @public
  */
 export type SubscriptionChannel =
-  | 'orderbook'
-  | 'trades'
-  | 'orders'
-  | 'fills'
-  | 'markets'
-  | 'prices'
   | 'subscribe_market_prices'
   | 'subscribe_positions'
   | 'subscribe_transactions'
@@ -125,76 +119,11 @@ export interface OrderbookUpdate {
 }
 
 /**
- * Trade event.
- * @public
- */
-export interface TradeEvent {
-  marketSlug: string;
-  side: 'BUY' | 'SELL';
-  price: number;
-  size: number;
-  timestamp: number;
-  tradeId: string;
-}
-
-/**
- * Order update event.
- * @public
- */
-export interface OrderUpdate {
-  orderId: string;
-  marketSlug: string;
-  side: 'BUY' | 'SELL';
-  price?: number;
-  size: number;
-  filled: number;
-  status: 'OPEN' | 'FILLED' | 'CANCELLED' | 'PARTIALLY_FILLED';
-  timestamp: number;
-}
-
-/**
- * Order fill event.
- * @public
- */
-export interface FillEvent {
-  orderId: string;
-  marketSlug: string;
-  side: 'BUY' | 'SELL';
-  price: number;
-  size: number;
-  timestamp: number;
-  fillId: string;
-}
-
-/**
- * Market update event.
- * @public
- */
-export interface MarketUpdate {
-  marketSlug: string;
-  lastPrice?: number;
-  volume24h?: number;
-  priceChange24h?: number;
-  timestamp: number;
-}
-
-/**
- * Price update event (deprecated - use NewPriceData for AMM prices).
+ * Single AMM price entry in `newPriceData.updatedPrices`.
  *
- * Note: This type does not match the actual API response.
- * Use NewPriceData for the correct AMM price update format.
+ * @remarks
+ * This is not used by `orderbookUpdate`; CLOB orderbook updates use `OrderbookData`.
  *
- * @public
- * @deprecated
- */
-export interface PriceUpdate {
-  marketSlug: string;
-  price: number;
-  timestamp: number;
-}
-
-/**
- * Single AMM price entry in updatedPrices array.
  * @public
  */
 export interface AmmPriceEntry {
@@ -458,29 +387,9 @@ export interface WebSocketEvents {
   oraclePriceData: (data: OraclePriceData) => void;
 
   /**
-   * Trade events
-   */
-  trade: (data: TradeEvent) => void;
-
-  /**
-   * Order updates
-   */
-  order: (data: OrderUpdate) => void;
-
-  /**
    * Order lifecycle events - API event name: orderEvent
    */
   orderEvent: (data: OrderEvent) => void;
-
-  /**
-   * Order fill events
-   */
-  fill: (data: FillEvent) => void;
-
-  /**
-   * Market updates
-   */
-  market: (data: MarketUpdate) => void;
 
   /**
    * Market-created lifecycle events.
@@ -516,12 +425,6 @@ export interface WebSocketEvents {
    * Transaction events (blockchain confirmations)
    */
   tx: (data: TransactionEvent) => void;
-
-  /**
-   * Price updates (deprecated - use newPriceData)
-   * @deprecated
-   */
-  price: (data: PriceUpdate) => void;
 }
 
 /**

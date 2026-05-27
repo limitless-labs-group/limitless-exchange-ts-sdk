@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { computeHMACSignature } from '../../src/api/hmac';
+import { WebSocketState } from '../../src/types/websocket';
 import type { SubscriptionChannel } from '../../src/types/websocket';
 
 const ioMock = vi.fn();
@@ -185,5 +186,24 @@ describe('WebSocketClient HMAC auth', () => {
     expect(socketStub.on).toHaveBeenCalledWith('live_sports_update', liveSportsHandler);
     expect(socketStub.on).toHaveBeenCalledWith('live_esports_update', liveEsportsHandler);
     expect(socketStub.on).toHaveBeenCalledWith('system', systemHandler);
+  });
+
+  it('rejects unsupported websocket subscription channels at runtime', async () => {
+    const { WebSocketClient } = await import('../../src/websocket/client');
+    const client = new WebSocketClient({
+      url: 'wss://ws.limitless.exchange',
+      autoReconnect: false,
+    });
+
+    (client as any).state = WebSocketState.CONNECTED;
+    (client as any).socket = {
+      connected: true,
+      emit: vi.fn(),
+      timeout: vi.fn(() => ({ emitWithAck: vi.fn() })),
+    };
+
+    await expect(client.subscribe('trades' as SubscriptionChannel, {})).rejects.toThrow(
+      'Unsupported websocket subscription channel "trades"'
+    );
   });
 });

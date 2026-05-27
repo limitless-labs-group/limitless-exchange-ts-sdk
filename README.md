@@ -1,10 +1,10 @@
 # Limitless Exchange TypeScript SDK
 
-**v1.0.9** | Production-Ready | Type-Safe | Fully Documented
+**v1.0.10** | Production-Ready | Type-Safe | Fully Documented
 
 A TypeScript SDK for interacting with the Limitless Exchange platform, providing type-safe access to CLOB and NegRisk prediction markets.
 
-> **v1.0.9 Release**: Adds partner withdrawal-address allowlist helpers and documents server-wallet withdrawals to explicit treasury destinations. See [Changelog](#changelog) for details.
+> **v1.0.10 Release**: Adds authenticated profile reads via `/profiles/me` and partner sub-account listing/recovery, alongside partner wallet, withdrawal, and WebSocket updates. See [Changelog](#changelog) for details.
 
 ## ⚠️ Disclaimer
 
@@ -162,6 +162,24 @@ PRIVATE_KEY=your_private_key_here
 
 Do not ship a raw `PRIVATE_KEY` in browser bundles, checked-in `.env` files, or frontend environment variables. For browser apps, use an injected wallet or move signing behind your own backend/BFF.
 
+### Authenticated Profile Reads
+
+Use `client.portfolio.getProfile()` without an address to fetch the authenticated caller's private profile via `GET /profiles/me`. Passing an address keeps the existing address-based lookup via `GET /profiles/:account`.
+
+```typescript
+import { Client } from '@limitless-exchange/sdk';
+
+const client = new Client({
+  baseURL: 'https://api.limitless.exchange',
+  apiKey: process.env.LIMITLESS_API_KEY,
+});
+
+const currentProfile = await client.portfolio.getProfile();
+const profileByAddress = await client.portfolio.getProfile(
+  '0x1676716Ef7F19B5C5d690631CB57cf0bFD900A3d'
+);
+```
+
 ### Partner API Token v3 / HMAC Usage
 
 The SDK also supports partner-scoped HMAC credentials for api-token v3 workflows such as token self-service, partner-account creation, delegated trading, and server-wallet redeem/withdraw.
@@ -177,6 +195,26 @@ Recommended setup:
 - Expose only your own app-specific endpoints to the frontend.
 
 See [`docs/code-samples/api-key-v3/`](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/tree/main/limitless-exchange-sdk/docs/code-samples/api-key-v3) for the partner HMAC examples.
+
+#### Partner Account Listing
+
+Use `client.partnerAccounts.listAccounts()` from a backend or BFF with HMAC-scoped API-token credentials that include `account_creation`. This endpoint lists or recovers partner-owned child accounts created under the authenticated partner profile.
+
+- `listAccounts()` calls `GET /profiles/partner-accounts`
+- optional `account` filters by exact account address
+- optional `limit` and `page` are positive integers; `limit` is capped to 25 before sending
+- the SDK requires HMAC credentials and does not send `x-on-behalf-of`
+
+```typescript
+const accounts = await client.partnerAccounts.listAccounts({
+  account: '0x1676716Ef7F19B5C5d690631CB57cf0bFD900A3d',
+  limit: 100,
+  page: 1,
+});
+
+console.log(accounts.limit); // 25
+console.log(accounts.data[0]?.profileId);
+```
 
 #### Partner Server-Wallet Allowances
 
@@ -661,11 +699,11 @@ docs/
 
 ## Changelog
 
-### v1.0.9
+### v1.0.10
 
-**Release Date**: May 4, 2026
+**Release Date**: May 27, 2026
 
-Latest release with partner withdrawal-address allowlist helpers and server-wallet withdrawals to explicit whitelisted treasury destinations.
+Latest release with authenticated profile reads and partner sub-account listing/recovery.
 
 #### Highlights
 
@@ -674,25 +712,43 @@ Latest release with partner withdrawal-address allowlist helpers and server-wall
 - 📚 **Well-Documented**: 18 production-ready code samples + comprehensive guides
 - ⚡ **Performance Optimized**: Venue caching system and connection pooling
 - 🔄 **Robust Error Handling**: Automatic retry logic with multiple strategies
-- 🌐 **Real-Time Updates**: WebSocket support for orderbook and position streaming
+- 🌐 **Real-Time Updates**: WebSocket support for CLOB orderbook, AMM/oracle price, position, transaction, order-event, and market lifecycle streaming
 - 🎯 **NegRisk Support**: Full support for group markets with multiple outcomes
 - 🧭 **Market Pages API**: Navigation tree, by-path resolver with 301 handling, page-scoped markets, property keys
 - 🧾 **More Trading Semantics**: `FAK` limit orders plus `postOnly` on `GTC`
+- 🪪 **Authenticated Profiles**: Fetch the current authenticated profile with `GET /profiles/me`
+- 🏦 **Partner Account Listing**: List and recover partner-owned child accounts with HMAC-scoped API-token auth
 - 🏦 **Partner Server Wallets**: Delegated child-account redeem and HMAC-only withdraw flows
-- 🏛️ **Treasury Withdrawals**: Allowlist external withdrawal destinations and withdraw child server-wallet funds directly to them
 - 🔁 **Partner Allowance Recovery**: Check and retry delegated allowance targets for server-wallet child profiles
 
 #### Core Features
 
 - **Authentication**: API key authentication, EIP-712 signing, EOA support
-- **Partner Flows**: API-token v3 services, delegated orders, server-wallet redeem/withdraw, withdrawal-address allowlists, and allowance recovery
+- **Partner Flows**: API-token v3 services, partner account listing/recovery, delegated orders, server-wallet redeem/withdraw, withdrawal-address allowlists, and allowance recovery
 - **Market Data**: Active markets with sorting, orderbook access, venue caching
 - **Market Pages & Navigation**: `/navigation`, `/market-pages/by-path`, `/market-pages/:id/markets`, `/property-keys`
 - **Order Management**: GTC, FAK, and FOK orders, GTC `postOnly`, tick alignment, automatic signing, IEEE-safe create-order payload parsing
-- **Portfolio**: Position tracking, user history
-- **WebSocket**: Real-time orderbook, price updates, event streaming
+- **Portfolio**: Authenticated profile reads, position tracking, user history
+- **WebSocket**: Real-time CLOB orderbook, AMM/oracle price, order-event, and market lifecycle streaming
 - **Error Handling**: Decorator and wrapper retry patterns, configurable strategies
 - **Token Approvals**: Complete setup script, CLOB and NegRisk workflows
+
+#### Documentation Enhancements (v1.0.10)
+
+- Added authenticated profile read docs for `client.portfolio.getProfile()` without an address
+- Added partner sub-account listing/recovery docs and API key v3 example coverage
+
+### v1.0.9
+
+**Release Date**: May 4, 2026
+
+Release with partner withdrawal-address allowlist helpers, server-wallet withdrawals to explicit whitelisted treasury destinations, and expanded WebSocket event coverage.
+
+#### Highlights
+
+- 🏛️ **Treasury Withdrawals**: Allowlist external withdrawal destinations and withdraw child server-wallet funds directly to them
+- 🌐 **Expanded WebSocket Surface**: Added typed subscription/event coverage for order events, live sports/esports, market lifecycle, oracle price data, and system messages
+- 🧹 **WebSocket Validation**: Unsupported legacy short channel literals now fail fast
 
 #### Documentation Enhancements (v1.0.9)
 

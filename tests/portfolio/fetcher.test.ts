@@ -15,6 +15,34 @@ describe('PortfolioFetcher', () => {
     fetcher = new PortfolioFetcher(httpClient);
   });
 
+  it('getProfile uses the provided address', async () => {
+    const mockResponse = {
+      id: 1,
+      account: '0x1234',
+    };
+
+    vi.mocked(httpClient.get).mockResolvedValue(mockResponse);
+
+    const result = await fetcher.getProfile(' 0x1234 ');
+
+    expect(httpClient.get).toHaveBeenCalledWith('/profiles/0x1234');
+    expect(result).toEqual(mockResponse);
+  });
+
+  it('getProfile uses the authenticated profile endpoint when address is omitted', async () => {
+    const mockResponse = {
+      id: 570,
+      account: '0x1676716Ef7F19B5C5d690631CB57cf0bFD900A3d',
+    };
+
+    vi.mocked(httpClient.get).mockResolvedValue(mockResponse);
+
+    const result = await fetcher.getProfile();
+
+    expect(httpClient.get).toHaveBeenCalledWith('/profiles/me');
+    expect(result).toEqual(mockResponse);
+  });
+
   it('getUserHistory sends empty cursor on the first page with default limit', async () => {
     const mockResponse: HistoryResponse = {
       data: [],

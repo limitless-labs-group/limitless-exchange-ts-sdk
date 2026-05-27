@@ -5,6 +5,7 @@ These samples cover the new partner self-service token flow in the TypeScript SD
 - derive scoped api tokens from a Privy identity token
 - use HMAC authentication on HTTP and WebSocket requests
 - create partner-owned child accounts
+- list or recover partner-owned child accounts
 - check and retry server-wallet delegated allowance recovery
 - place delegated orders with `onBehalfOf`
 - cancel delegated orders by id and by market
@@ -17,7 +18,7 @@ These samples cover the new partner self-service token flow in the TypeScript SD
   Capabilities, derive token, HMAC portfolio, list tokens, optional revoke
 
 - `partner-account.ts`
-  Create partner child account with `createServerWallet=true` and optional public `displayName`
+  Create partner child account with `createServerWallet=true`, optional public `displayName`, and recover it with `listAccounts({ account })`
 
 - `partner-account-allowances.ts`
   Check live allowance state and retry missing or failed retryable targets for server-wallet child profiles

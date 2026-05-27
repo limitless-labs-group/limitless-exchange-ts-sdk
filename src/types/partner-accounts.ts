@@ -35,6 +35,55 @@ export interface PartnerAccountResponse {
 }
 
 /**
+ * Query params for listing or recovering partner-owned accounts.
+ *
+ * @public
+ */
+export interface ListPartnerAccountsParams {
+  /**
+   * Optional account address filter. When supplied, the API returns only the
+   * matching account owned by the authenticated partner.
+   */
+  account?: string;
+
+  /**
+   * Page number for cursorless pagination.
+   * @defaultValue 1
+   */
+  page?: number;
+
+  /**
+   * Number of accounts to return.
+   * Values above 25 are capped to 25.
+   * @defaultValue 25
+   */
+  limit?: number;
+}
+
+/**
+ * Minimal partner-owned account returned by the recovery/list endpoint.
+ *
+ * @public
+ */
+export interface PartnerAccountListItem {
+  profileId: number;
+  account: string;
+  displayName: string;
+}
+
+/**
+ * Partner-owned account list response.
+ *
+ * @public
+ */
+export interface ListPartnerAccountsResponse {
+  data: PartnerAccountListItem[];
+  page: number;
+  limit: number;
+  hasMore: boolean;
+}
+
+/**
  * Allowance target type constants.
  * @public
  */

@@ -5,6 +5,22 @@ All notable changes to the Limitless Exchange TypeScript SDK will be documented 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.10]
+
+### Added
+
+- No-address profile reads via `PortfolioFetcher.getProfile()` / `client.portfolio.getProfile()`, which now call `GET /profiles/me`.
+- Partner-owned account listing and recovery via `PartnerAccountService.listAccounts()`.
+- Public partner account list types:
+  - `ListPartnerAccountsParams`
+  - `PartnerAccountListItem`
+  - `ListPartnerAccountsResponse`
+- Unit coverage for `/profiles/me` profile reads and HMAC-only partner account listing, filtering, pagination capping, and invalid query params.
+
+### Changed
+
+- README, API-key v3 docs, and package metadata now target `v1.0.10`.
+
 ## [1.0.9]
 
 ### Added
@@ -21,6 +37,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Removed unsupported legacy websocket short channel literals and stale typed event types for unsupported events.
+- Added runtime validation so dynamic websocket subscriptions fail fast unless they use a supported backend channel.
 - Server-wallet withdraw docs now describe explicit whitelisted treasury destinations.
 - `WithdrawServerWalletParams.destination` docs now describe omitted-destination fallback to the authenticated partner smart wallet when present, otherwise the authenticated partner account.
 - `WithdrawServerWalletParams.onBehalfOf` is now optional so callers can submit authenticated caller wallet withdrawals to explicit allowed destinations.

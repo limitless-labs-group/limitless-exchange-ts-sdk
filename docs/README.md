@@ -120,10 +120,12 @@ const orders = await market.getUserOrders();  // ✨ Clean!
 ### 💼 Portfolio
 - Position tracking (CLOB and AMM)
 - User history
+- Authenticated current-profile lookup via `client.portfolio.getProfile()`
 - [Full Documentation](./portfolio/README.md)
 
 ### 🤝 Partner Server Wallets
 - Partner child-account creation with `createServerWallet=true`
+- Partner-owned child-account listing and recovery via `client.partnerAccounts.listAccounts()`
 - Delegated order placement with `onBehalfOf`
 - Server-wallet redeem and withdraw flows via `client.serverWallets`
 - Withdrawal destination allowlist management via `client.partnerAccounts`
