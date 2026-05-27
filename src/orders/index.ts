@@ -7,3 +7,4 @@ export * from './builder';
 export * from './signer';
 export * from './validator';
 export * from './client';
+export * from './receive-window';

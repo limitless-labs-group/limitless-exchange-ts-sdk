@@ -7,9 +7,10 @@ import type { HttpClient } from '../api/http';
 import type { ILogger } from '../types/logger';
 import { NoOpLogger } from '../types/logger';
 import type {
+  CreateOrderParams,
   NewOrderPayload,
-  OrderResponse,
   OrderArgs,
+  OrderResponse,
   UnsignedOrder,
   OrderSigningConfig,
 } from '../types/orders';
@@ -22,6 +23,7 @@ import { ZERO_ADDRESS } from '../utils/constants';
 import { toFiniteInteger, toFiniteNumber } from '../utils/number-flex';
 import { MarketFetcher } from '../markets/fetcher';
 import { PortfolioFetcher } from '../portfolio/fetcher';
+import { normalizeReceiveWindowOptions } from './receive-window';
 
 /**
  * Configuration for the order client.
@@ -252,35 +254,33 @@ export class OrderClient {
    * console.log(`Order created: ${order.order.id}`);
    * ```
    */
-  async createOrder(
-    params: OrderArgs & {
-      orderType: OrderType;
-      marketSlug: string;
-    }
-  ): Promise<OrderResponse> {
+  async createOrder(params: CreateOrderParams): Promise<OrderResponse> {
+    const { timestamp, recvWindow, ...orderParams } = params;
+    const receiveWindow = normalizeReceiveWindowOptions({ timestamp, recvWindow });
+
     // Ensure user data is loaded (lazy loading with cache)
     const userData = await this.ensureUserData();
 
     this.logger.info('Creating order', {
-      side: params.side,
-      orderType: params.orderType,
-      marketSlug: params.marketSlug,
+      side: orderParams.side,
+      orderType: orderParams.orderType,
+      marketSlug: orderParams.marketSlug,
     });
 
-    let venue = this.marketFetcher.getVenue(params.marketSlug);
+    let venue = this.marketFetcher.getVenue(orderParams.marketSlug);
 
     if (!venue) {
       this.logger.warn(
         'Venue not cached, fetching market details. ' +
           'For better performance, call marketFetcher.getMarket() before createOrder().',
-        { marketSlug: params.marketSlug }
+        { marketSlug: orderParams.marketSlug }
       );
 
-      const market = await this.marketFetcher.getMarket(params.marketSlug);
+      const market = await this.marketFetcher.getMarket(orderParams.marketSlug);
 
       if (!market.venue) {
         throw new Error(
-          `Market ${params.marketSlug} does not have venue information. ` +
+          `Market ${orderParams.marketSlug} does not have venue information. ` +
             'Venue data is required for order signing.'
         );
       }
@@ -294,12 +294,12 @@ export class OrderClient {
     };
 
     this.logger.debug('Using venue for order signing', {
-      marketSlug: params.marketSlug,
+      marketSlug: orderParams.marketSlug,
       exchange: venue.exchange,
       adapter: venue.adapter,
     });
 
-    const unsignedOrder = this.orderBuilder!.buildOrder(params);
+    const unsignedOrder = this.orderBuilder!.buildOrder(orderParams);
 
     this.logger.debug('Built unsigned order', {
       salt: unsignedOrder.salt,
@@ -311,10 +311,10 @@ export class OrderClient {
 
     // Step 3: Prepare payload for API
     const postOnly =
-      params.orderType === OrderType.GTC &&
-      'postOnly' in params &&
-      params.postOnly !== undefined
-        ? params.postOnly
+      orderParams.orderType === OrderType.GTC &&
+      'postOnly' in orderParams &&
+      orderParams.postOnly !== undefined
+        ? orderParams.postOnly
         : undefined;
 
     const payload: NewOrderPayload = {
@@ -322,10 +322,11 @@ export class OrderClient {
         ...unsignedOrder,
         signature,
       },
-      orderType: params.orderType,
-      marketSlug: params.marketSlug,
+      orderType: orderParams.orderType,
+      marketSlug: orderParams.marketSlug,
       ownerId: userData.userId,
       ...(postOnly !== undefined ? { postOnly } : {}),
+      ...receiveWindow,
     };
 
     // Step 4: Submit to API

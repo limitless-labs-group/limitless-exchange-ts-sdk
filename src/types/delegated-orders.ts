@@ -1,10 +1,10 @@
-import type { OrderArgs, OrderResponse, OrderType, SignatureType, Side } from './orders';
+import type { OrderArgs, OrderResponse, OrderType, ReceiveWindowOptions, SignatureType, Side } from './orders';
 
 /**
  * Delegated-order creation parameters.
  * @public
  */
-export interface CreateDelegatedOrderParams {
+export interface CreateDelegatedOrderParams extends ReceiveWindowOptions {
   marketSlug: string;
   orderType: OrderType;
   onBehalfOf: number;
@@ -44,6 +44,8 @@ export interface CreateDelegatedOrderRequest {
   ownerId: number;
   onBehalfOf?: number;
   postOnly?: boolean;
+  timestamp?: number;
+  recvWindow?: number;
 }
 
 /**

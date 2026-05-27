@@ -1,10 +1,10 @@
 # Limitless Exchange TypeScript SDK
 
-**v1.0.10** | Production-Ready | Type-Safe | Fully Documented
+**v1.0.11** | Production-Ready | Type-Safe | Fully Documented
 
 A TypeScript SDK for interacting with the Limitless Exchange platform, providing type-safe access to CLOB and NegRisk prediction markets.
 
-> **v1.0.10 Release**: Adds authenticated profile reads via `/profiles/me` and partner sub-account listing/recovery, alongside partner wallet, withdrawal, and WebSocket updates. See [Changelog](#changelog) for details.
+> **v1.0.11 Release**: Adds optional receive-window controls for normal and delegated order creation. See [Changelog](#changelog) for details.
 
 ## ⚠️ Disclaimer
 
@@ -436,6 +436,24 @@ const gtcOrder = await orderClient.createOrder({
 console.log(gtcOrder.order.id);
 ```
 
+### Optional Receive Window
+
+Order creation can opt into receive-window freshness checks by passing `recvWindow` and, optionally, `timestamp`. These fields are top-level `POST /orders` request fields; they are not part of the EIP-712 signed order payload.
+
+```typescript
+const order = await orderClient.createOrder({
+  tokenId: marketDetails.tokens.yes,
+  price: 0.42,
+  size: 10,
+  side: Side.BUY,
+  orderType: OrderType.GTC,
+  marketSlug: 'market-slug',
+  recvWindow: 1500, // ms; SDK stamps timestamp automatically when omitted
+});
+```
+
+If omitted, no receive-window fields are sent and existing behavior is unchanged. Client-supplied `recvWindow` must be `1..10000`; `recvWindow=0` is reserved for server-side kill-switch behavior. API or OME receive-window rejections surface as `APIError` with `status === 425`.
+
 For complete examples, see [docs/code-samples/clob-gtc-order.ts](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/limitless-exchange-sdk/docs/code-samples/clob-gtc-order.ts).
 
 ### FAK Orders (Fill-and-Kill Limit Orders)
@@ -699,11 +717,11 @@ docs/
 
 ## Changelog
 
-### v1.0.10
+### v1.0.11
 
 **Release Date**: May 27, 2026
 
-Latest release with authenticated profile reads and partner sub-account listing/recovery.
+Latest release with optional receive-window controls for normal and delegated order creation.
 
 #### Highlights
 
@@ -720,6 +738,7 @@ Latest release with authenticated profile reads and partner sub-account listing/
 - 🏦 **Partner Account Listing**: List and recover partner-owned child accounts with HMAC-scoped API-token auth
 - 🏦 **Partner Server Wallets**: Delegated child-account redeem and HMAC-only withdraw flows
 - 🔁 **Partner Allowance Recovery**: Check and retry delegated allowance targets for server-wallet child profiles
+- ⏱️ **Receive Window**: Optional `timestamp` / `recvWindow` freshness controls for order creation
 
 #### Core Features
 
@@ -727,11 +746,26 @@ Latest release with authenticated profile reads and partner sub-account listing/
 - **Partner Flows**: API-token v3 services, partner account listing/recovery, delegated orders, server-wallet redeem/withdraw, withdrawal-address allowlists, and allowance recovery
 - **Market Data**: Active markets with sorting, orderbook access, venue caching
 - **Market Pages & Navigation**: `/navigation`, `/market-pages/by-path`, `/market-pages/:id/markets`, `/property-keys`
-- **Order Management**: GTC, FAK, and FOK orders, GTC `postOnly`, tick alignment, automatic signing, IEEE-safe create-order payload parsing
+- **Order Management**: GTC, FAK, and FOK orders, GTC `postOnly`, optional receive-window controls, tick alignment, automatic signing, IEEE-safe create-order payload parsing
 - **Portfolio**: Authenticated profile reads, position tracking, user history
 - **WebSocket**: Real-time CLOB orderbook, AMM/oracle price, order-event, and market lifecycle streaming
 - **Error Handling**: Decorator and wrapper retry patterns, configurable strategies
 - **Token Approvals**: Complete setup script, CLOB and NegRisk workflows
+
+#### Documentation Enhancements (v1.0.11)
+
+- Added receive-window docs for `timestamp` / `recvWindow` order creation options
+
+### v1.0.10
+
+**Release Date**: May 27, 2026
+
+Release with authenticated profile reads and partner sub-account listing/recovery.
+
+#### Highlights
+
+- 🪪 **Authenticated Profiles**: Fetch the current authenticated profile with `GET /profiles/me`
+- 🏦 **Partner Account Listing**: List and recover partner-owned child accounts with HMAC-scoped API-token auth
 
 #### Documentation Enhancements (v1.0.10)
 
