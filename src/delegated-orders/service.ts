@@ -68,6 +68,7 @@ export class DelegatedOrderService {
       ownerId: params.onBehalfOf,
       onBehalfOf: params.onBehalfOf,
       ...(postOnly !== undefined ? { postOnly } : {}),
+      ...(params.stpPolicy !== undefined ? { stpPolicy: params.stpPolicy } : {}),
     };
 
     this.logger.debug('Creating delegated order', {

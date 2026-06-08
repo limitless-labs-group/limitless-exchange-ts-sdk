@@ -297,6 +297,18 @@ Place Fill-And-Kill limit orders on CLOB markets.
 npx tsx docs/code-samples/clob-fak-order.ts
 ```
 
+#### Self-Trade Prevention (STP)
+
+**File**: `clob-stp-order.ts`
+
+Place a crossing order with an `stpPolicy` (`cancel_both` / `cancel_maker` / `cancel_taker`) and read the STP outcome from `response.execution` (`reason`, `stpMakerCancels`).
+
+**Run**:
+
+```bash
+npx tsx docs/code-samples/clob-stp-order.ts
+```
+
 ### NegRisk Markets
 
 #### FOK Orders

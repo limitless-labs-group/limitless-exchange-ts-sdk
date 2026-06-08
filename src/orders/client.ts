@@ -326,6 +326,7 @@ export class OrderClient {
       marketSlug: params.marketSlug,
       ownerId: userData.userId,
       ...(postOnly !== undefined ? { postOnly } : {}),
+      ...(params.stpPolicy !== undefined ? { stpPolicy: params.stpPolicy } : {}),
     };
 
     // Step 4: Submit to API
@@ -382,6 +383,12 @@ export class OrderClient {
         matchedSize: match.matchedSize,
         orderId: match.orderId,
       }));
+    }
+
+    // Pass execution through untouched. Present on current API responses;
+    // tolerated as missing on older API versions or hand-built responses.
+    if (apiResponse.execution !== undefined && apiResponse.execution !== null) {
+      cleanOrder.execution = apiResponse.execution;
     }
 
     return cleanOrder;

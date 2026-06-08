@@ -5,6 +5,19 @@ All notable changes to the Limitless Exchange TypeScript SDK will be documented 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Self-trade prevention (STP):
+  - `StpPolicy` string union type (`'cancel_both' | 'cancel_maker' | 'cancel_taker'`).
+  - Optional `stpPolicy` request field on `OrderClient.createOrder()` and `DelegatedOrderService.createOrder()` params, threaded top-level on the request body (never inside the signed order). Omit to use the venue default (`cancel_maker`).
+- Order execution response:
+  - New `OrderExecution` and `OrderExecutionTotalsRaw` types.
+  - `OrderResponse.execution` is now surfaced (previously dropped by the response transform). Exposes `matched`, `settlementStatus` (plain string), fee figures, `reason`, `stpMakerCancels`, and raw decimal totals. Tolerant of responses that omit it.
+- WebSocket `OmeOrderEvent.reason` optional field — carries `STP_MAKER_CANCELLED` on STP-triggered `CANCELLATION` events.
+- Code sample `docs/code-samples/clob-stp-order.ts` demonstrating an STP order and reading the execution result.
+
 ## [1.0.10]
 
 ### Added
