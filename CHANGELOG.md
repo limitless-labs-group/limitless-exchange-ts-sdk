@@ -5,6 +5,18 @@ All notable changes to the Limitless Exchange TypeScript SDK will be documented 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0]
+
+### Added
+
+- `orderEvent` EXECUTION frame (FAK/FOK terminal): `OmeOrderEvent` now models `type: 'EXECUTION'` with a `status` of `'FILLED' | 'PARTIALLY_FILLED' | 'KILLED'`. The `eventId` of an EXECUTION frame is the string `"terminal:<orderId>"`, so `OmeOrderEvent.eventId` now accepts `number | string`.
+- `orderEvent` MATCHED frame (pre-settlement per-fill): `SettlementOrderEvent` now models `type: 'MATCHED'`, adds `isEstimate?: boolean` (true on MATCHED, where fee fields are estimates) and `token?: 'YES' | 'NO'`. Maker side reports a `0` fee estimate; taker reports a real estimate.
+
+### Changed
+
+- **BREAKING (types only):** `OmeOrderEvent.price` and `OmeOrderEvent.remainingSize` are now `number` instead of `string`. The runtime value never changed — every OME frame (PLACEMENT/UPDATE/CANCELLATION/EXECUTION) has always emitted these as JSON numbers; only the static type was wrong and is now corrected. Code that read them as strings (e.g. passed to `parseFloat`/`Number`, or string-compared) must be updated.
+- README, API-key v3 docs, and package metadata now target `v1.1.0`.
+
 ## [1.0.10]
 
 ### Added

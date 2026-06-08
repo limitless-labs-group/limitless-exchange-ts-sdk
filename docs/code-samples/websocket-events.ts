@@ -6,7 +6,7 @@
  */
 
 import { config } from 'dotenv';
-import { WebSocketClient } from '@limitless-exchange/sdk';
+import { WebSocketClient, OrderEvent } from '@limitless-exchange/sdk';
 
 config();
 
@@ -71,6 +71,19 @@ async function main() {
       console.log('\n🎯 Transaction Event:', JSON.stringify(data, null, 2));
     });
 
+    // Log order events (requires API key) — discriminate on source + type
+    wsClient.on('orderEvent', (data: OrderEvent) => {
+      if (data.source === 'OME' && data.type === 'EXECUTION') {
+        // FAK/FOK terminal frame: status is FILLED | PARTIALLY_FILLED | KILLED
+        console.log(`\n⚡ Order EXECUTION (${data.status}):`, JSON.stringify(data, null, 2));
+      } else if (data.source === 'SETTLEMENT' && data.type === 'MATCHED') {
+        // Pre-settlement per-fill frame: isEstimate is true, fee fields are estimates
+        console.log(`\n🤝 Order MATCHED (isEstimate=${data.isEstimate}):`, JSON.stringify(data, null, 2));
+      } else {
+        console.log('\n📨 Order Event:', JSON.stringify(data, null, 2));
+      }
+    });
+
     // Connect to WebSocket
     console.log('🔌 Connecting to WebSocket...');
     console.log(`   URL: ${WS_URL}\n`);
@@ -94,6 +107,11 @@ async function main() {
     console.log('📡 Subscribing to transactions...\n');
     await wsClient.subscribe('subscribe_transactions', {});
     console.log('✅ Subscribed to transactions\n');
+
+    // Subscribe to order events (requires API key)
+    console.log('📡 Subscribing to order events...\n');
+    await wsClient.subscribe('subscribe_order_events', {});
+    console.log('✅ Subscribed to order events\n');
 
     console.log('\n✅ All subscriptions active. Waiting for events...\n');
     console.log('💡 Now create/cancel orders to see events appear\n');

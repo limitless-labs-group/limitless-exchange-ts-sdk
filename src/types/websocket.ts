@@ -173,16 +173,18 @@ export interface OraclePriceData {
  */
 export interface OmeOrderEvent {
   clientOrderId?: string;
-  eventId: number;
+  eventId: number | string;
   marketId: string;
   orderId: string;
-  price: string;
-  remainingSize: string;
+  price: number;
+  remainingSize: number;
   side: string;
   source: 'OME';
+  /** Present only on EXECUTION (FAK/FOK terminal) frames. */
+  status?: 'FILLED' | 'PARTIALLY_FILLED' | 'KILLED';
   timestamp: string;
   token: string;
-  type: 'PLACEMENT' | 'UPDATE' | 'CANCELLATION';
+  type: 'PLACEMENT' | 'UPDATE' | 'CANCELLATION' | 'EXECUTION';
   userId: number;
 }
 
@@ -210,6 +212,8 @@ export interface SettlementOrderEvent {
   eventId: string;
   feeAmountCollateral?: string;
   feeAmountContracts?: string;
+  /** True on pre-settlement MATCHED frames; fee fields are estimates. */
+  isEstimate?: boolean;
   makerMatches?: SettlementMakerMatch[];
   marketSlug?: string;
   orderId?: string;
@@ -219,10 +223,11 @@ export interface SettlementOrderEvent {
   takerAccount?: string;
   takerOrderId?: string;
   timestamp: Date | number | string;
+  token?: 'YES' | 'NO';
   tokenId?: string;
   tradeEventId?: string;
   txHash?: string;
-  type: 'MINED' | 'FAILED';
+  type: 'MINED' | 'FAILED' | 'MATCHED';
 }
 
 /**
