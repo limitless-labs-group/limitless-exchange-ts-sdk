@@ -73,6 +73,48 @@ describe('PortfolioFetcher', () => {
 
     await fetcher.getUserHistory('cursor-1', 5);
 
-    expect(httpClient.get).toHaveBeenCalledWith('/portfolio/history?cursor=cursor-1&limit=5');
+    expect(httpClient.get).toHaveBeenCalledWith('/portfolio/history?cursor=cursor-1&limit=5', undefined);
+  });
+
+  it('getPositions reads the caller by default (no on-behalf-of header)', async () => {
+    vi.mocked(httpClient.get).mockResolvedValue({ clob: [], amm: [] });
+
+    await fetcher.getPositions();
+
+    expect(httpClient.get).toHaveBeenCalledWith('/portfolio/positions', undefined);
+  });
+
+  it('getPositions sends x-on-behalf-of when a sub-account id is provided', async () => {
+    vi.mocked(httpClient.get).mockResolvedValue({ clob: [], amm: [] });
+
+    await fetcher.getPositions(123);
+
+    expect(httpClient.get).toHaveBeenCalledWith('/portfolio/positions', {
+      headers: { 'x-on-behalf-of': '123' },
+    });
+  });
+
+  it('getCLOBPositions forwards on-behalf-of to getPositions', async () => {
+    vi.mocked(httpClient.get).mockResolvedValue({ clob: [], amm: [] });
+
+    await fetcher.getCLOBPositions(123);
+
+    expect(httpClient.get).toHaveBeenCalledWith('/portfolio/positions', {
+      headers: { 'x-on-behalf-of': '123' },
+    });
+  });
+
+  it('getUserHistory sends x-on-behalf-of when provided', async () => {
+    vi.mocked(httpClient.get).mockResolvedValue({ data: [], nextCursor: null });
+
+    await fetcher.getUserHistory(undefined, 20, 123);
+
+    expect(httpClient.get).toHaveBeenCalledWith('/portfolio/history?cursor=&limit=20', {
+      headers: { 'x-on-behalf-of': '123' },
+    });
+  });
+
+  it.each([0, -1, 1.5])('rejects invalid on-behalf-of id %p', async (bad) => {
+    await expect(fetcher.getPositions(bad)).rejects.toThrow('onBehalfOf must be a positive integer');
   });
 });
