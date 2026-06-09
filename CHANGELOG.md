@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `orderEvent` EXECUTION frame (FAK/FOK terminal): `OmeOrderEvent` now models `type: 'EXECUTION'` with a `status` of `'FILLED' | 'PARTIALLY_FILLED' | 'KILLED'`. The `eventId` of an EXECUTION frame is the string `"terminal:<orderId>"`, so `OmeOrderEvent.eventId` now accepts `number | string`.
 - `orderEvent` MATCHED frame (pre-settlement per-fill): `SettlementOrderEvent` now models `type: 'MATCHED'`, adds `isEstimate?: boolean` (true on MATCHED, where fee fields are estimates) and `token?: 'YES' | 'NO'`. Maker side reports a `0` fee estimate; taker reports a real estimate.
+- `POST /orders` execution response: `OrderResponse` now carries an optional `execution` object (`Execution` / `ExecutionTotalsRaw`) exposing `settlementStatus` (plain string for forward-compat), `eligibleAt` for taker-delay markets, `feeRateBps` / `effectiveFeeBps`, and `totalsRaw`. The transform layer previously dropped this object from the create-order response; it is now passed through.
 
 ### Changed
 

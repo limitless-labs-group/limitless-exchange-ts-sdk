@@ -457,6 +457,119 @@ export interface OrderMatch {
 }
 
 /**
+ * Raw integer-string totals for an order execution.
+ *
+ * @remarks
+ * Every field is a decimal string holding a raw integer value (no scaling
+ * applied). `contracts*` are share/contract amounts; `usd*` are USDC amounts.
+ * Gross is the pre-fee total, fee is the fee taken, net is the post-fee total.
+ *
+ * @public
+ */
+export interface ExecutionTotalsRaw {
+  /**
+   * Fee taken in contracts, as a raw integer string
+   */
+  contractsFee: string;
+
+  /**
+   * Pre-fee contracts total, as a raw integer string
+   */
+  contractsGross: string;
+
+  /**
+   * Post-fee contracts total, as a raw integer string
+   */
+  contractsNet: string;
+
+  /**
+   * Fee taken in USDC, as a raw integer string
+   */
+  usdFee: string;
+
+  /**
+   * Pre-fee USDC total, as a raw integer string
+   */
+  usdGross: string;
+
+  /**
+   * Post-fee USDC total, as a raw integer string
+   */
+  usdNet: string;
+}
+
+/**
+ * Execution outcome summary returned with the create-order response.
+ *
+ * @remarks
+ * Carries the settlement/fee summary and the taker-delay outcome for the
+ * submitted order. Always returned by the server; modeled optional on the
+ * SDK response for back-compat safety.
+ *
+ * @public
+ */
+export interface Execution {
+  /**
+   * Echo of the caller-supplied client order id, when one was provided
+   */
+  clientOrderId?: string;
+
+  /**
+   * Effective fee actually applied, in integer basis points
+   */
+  effectiveFeeBps: number;
+
+  /**
+   * ISO-8601 timestamp at which the order is released to the matching engine.
+   *
+   * @remarks
+   * Present only when `settlementStatus === 'DELAYED'` — this is the
+   * taker-delay field. It is the moment the per-market taker delay expires
+   * and the held order is forwarded to the matching engine.
+   */
+  eligibleAt?: string;
+
+  /**
+   * Fee rate ceiling for the order, in integer basis points
+   */
+  feeRateBps: number;
+
+  /**
+   * Whether the order matched against any resting liquidity
+   */
+  matched: boolean;
+
+  /**
+   * Settlement state of the order.
+   *
+   * @remarks
+   * Kept as a plain string (not a closed union) for forward compatibility:
+   * the server adds new values over time, so a closed union would break on
+   * unknown values. Known values at time of writing:
+   * `'UNMATCHED' | 'MATCHED' | 'MINED' | 'CONFIRMED' | 'RETRYING' | 'FAILED' | 'DELAYED'`.
+   * `'DELAYED'` means the taker order was accepted but is held by a
+   * per-market taker delay before being released to the matching engine
+   * (see `eligibleAt`).
+   */
+  settlementStatus: string;
+
+  /**
+   * Raw integer-string totals for the execution
+   */
+  totalsRaw: ExecutionTotalsRaw;
+
+  /**
+   * Trade event id associated with the execution, when one exists
+   */
+  tradeEventId?: string;
+
+  /**
+   * Settlement transaction hash, or null when not yet mined
+   */
+  txHash?: string | null;
+}
+
+/**
  * Clean order creation response.
  *
  * @remarks
@@ -468,14 +581,23 @@ export interface OrderMatch {
  */
 export interface OrderResponse {
   /**
-   * Created order data
+   * Execution outcome summary (settlement status, fees, raw totals, and the
+   * taker-delay `eligibleAt` for delayed markets).
+   *
+   * @remarks
+   * Always returned by the server; optional here for back-compat safety.
    */
-  order: CreatedOrder;
+  execution?: Execution;
 
   /**
    * Matches if order was filled (FOK) or partially matched (GTC)
    */
   makerMatches?: OrderMatch[];
+
+  /**
+   * Created order data
+   */
+  order: CreatedOrder;
 }
 
 /**

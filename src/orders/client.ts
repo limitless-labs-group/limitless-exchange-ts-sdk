@@ -384,6 +384,12 @@ export class OrderClient {
       }));
     }
 
+    // Pass through the execution summary (settlement status, fees, raw totals,
+    // and the taker-delay eligibleAt). Previously this object was dropped.
+    if (apiResponse.execution) {
+      cleanOrder.execution = apiResponse.execution;
+    }
+
     return cleanOrder;
   }
 
