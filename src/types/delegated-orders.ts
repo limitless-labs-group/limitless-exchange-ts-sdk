@@ -11,8 +11,8 @@ export interface CreateDelegatedOrderParams {
   feeRateBps?: number;
   args: OrderArgs;
   /**
-   * Self-trade prevention policy. Omit to use the venue default (`cancel_maker`).
-   * Sent top-level on the request body, never inside the signed order.
+   * Optional self-trade-prevention policy. Omit to use the server default
+   * (`cancel_maker`).
    */
   stpPolicy?: StpPolicy;
 }
@@ -50,7 +50,8 @@ export interface CreateDelegatedOrderRequest {
   onBehalfOf?: number;
   postOnly?: boolean;
   /**
-   * Self-trade prevention policy. Top-level, never part of the signed order.
+   * Optional self-trade-prevention policy. Omit to use the server default
+   * (`cancel_maker`).
    */
   stpPolicy?: StpPolicy;
 }

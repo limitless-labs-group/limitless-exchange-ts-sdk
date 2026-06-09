@@ -26,18 +26,14 @@ export enum OrderType {
 }
 
 /**
- * Self-trade prevention policy.
+ * Self-trade-prevention policy: what happens when an order would match the
+ * same account's own resting orders.
  *
  * @remarks
- * Tells the matching engine what to do when an order would match against
- * another order owned by the same account.
- *
- * - `cancel_both` — cancel the resting maker order and the incoming taker order.
- * - `cancel_maker` — cancel the resting maker order, let the taker continue matching.
- * - `cancel_taker` — cancel the incoming taker order, leave the resting maker order.
- *
- * Omit to use the venue default (`cancel_maker`). Sent top-level on the request
- * body, never inside the signed order.
+ * - `cancel_maker` (default) — cancel the resting maker order, let the incoming
+ *   order continue matching.
+ * - `cancel_taker` — reject the incoming order, leave the resting maker order.
+ * - `cancel_both` — cancel both the resting maker order and the incoming order.
  *
  * @public
  */
@@ -90,12 +86,8 @@ export interface BaseOrderArgs {
   taker?: string;
 
   /**
-   * Self-trade prevention policy.
-   *
-   * @remarks
-   * Controls what happens if this order would match against another order
-   * owned by the same account. Omit to use the venue default (`cancel_maker`).
-   * Sent top-level on the request body, never inside the signed order.
+   * Optional self-trade-prevention policy. Omit to use the server default
+   * (`cancel_maker`).
    */
   stpPolicy?: StpPolicy;
 }
@@ -349,11 +341,8 @@ export interface NewOrderPayload {
   postOnly?: boolean;
 
   /**
-   * Self-trade prevention policy.
-   *
-   * @remarks
-   * Top-level field, sibling of `orderType`/`marketSlug`. Never part of the
-   * signed `order` struct. Omit to use the venue default (`cancel_maker`).
+   * Optional self-trade-prevention policy. Omit to use the server default
+   * (`cancel_maker`).
    */
   stpPolicy?: StpPolicy;
 }
