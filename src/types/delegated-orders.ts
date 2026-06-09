@@ -1,4 +1,4 @@
-import type { OrderArgs, OrderResponse, OrderType, SignatureType, Side } from './orders';
+import type { OrderArgs, OrderResponse, OrderType, SignatureType, Side, StpPolicy } from './orders';
 
 /**
  * Delegated-order creation parameters.
@@ -10,6 +10,11 @@ export interface CreateDelegatedOrderParams {
   onBehalfOf: number;
   feeRateBps?: number;
   args: OrderArgs;
+  /**
+   * Optional self-trade-prevention policy. Omit to use the server default
+   * (`cancel_maker`).
+   */
+  stpPolicy?: StpPolicy;
 }
 
 /**
@@ -44,6 +49,11 @@ export interface CreateDelegatedOrderRequest {
   ownerId: number;
   onBehalfOf?: number;
   postOnly?: boolean;
+  /**
+   * Optional self-trade-prevention policy. Omit to use the server default
+   * (`cancel_maker`).
+   */
+  stpPolicy?: StpPolicy;
 }
 
 /**

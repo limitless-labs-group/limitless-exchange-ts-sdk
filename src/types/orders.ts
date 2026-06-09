@@ -26,6 +26,20 @@ export enum OrderType {
 }
 
 /**
+ * Self-trade-prevention policy: what happens when an order would match the
+ * same account's own resting orders.
+ *
+ * @remarks
+ * - `cancel_maker` (default) — cancel the resting maker order, let the incoming
+ *   order continue matching.
+ * - `cancel_taker` — reject the incoming order, leave the resting maker order.
+ * - `cancel_both` — cancel both the resting maker order and the incoming order.
+ *
+ * @public
+ */
+export type StpPolicy = 'cancel_both' | 'cancel_maker' | 'cancel_taker';
+
+/**
  * Signature type enum.
  * @public
  */
@@ -70,6 +84,12 @@ export interface BaseOrderArgs {
    * @defaultValue '0x0000000000000000000000000000000000000000'
    */
   taker?: string;
+
+  /**
+   * Optional self-trade-prevention policy. Omit to use the server default
+   * (`cancel_maker`).
+   */
+  stpPolicy?: StpPolicy;
 }
 
 /**
@@ -319,6 +339,12 @@ export interface NewOrderPayload {
    * Supported only for GTC orders.
    */
   postOnly?: boolean;
+
+  /**
+   * Optional self-trade-prevention policy. Omit to use the server default
+   * (`cancel_maker`).
+   */
+  stpPolicy?: StpPolicy;
 }
 
 /**
@@ -457,6 +483,106 @@ export interface OrderMatch {
 }
 
 /**
+ * Raw decimal totals for an order execution.
+ *
+ * @remarks
+ * All six fields are decimal strings, not numbers. Do not coerce them — they
+ * may carry more precision than IEEE-754 can represent.
+ *
+ * @public
+ */
+export interface OrderExecutionTotalsRaw {
+  /** Gross contracts (decimal string) */
+  contractsGross: string;
+  /** Contracts taken as fee (decimal string) */
+  contractsFee: string;
+  /** Net contracts after fee (decimal string) */
+  contractsNet: string;
+  /** Gross USD value (decimal string) */
+  usdGross: string;
+  /** USD taken as fee (decimal string) */
+  usdFee: string;
+  /** Net USD value after fee (decimal string) */
+  usdNet: string;
+}
+
+/**
+ * Execution result for a created order.
+ *
+ * @remarks
+ * Returned alongside the order on every create-order response. Surfaces the
+ * settlement status, fee figures, and self-trade-prevention outcome.
+ *
+ * `feeRateBps` and `effectiveFeeBps` are numbers. `totalsRaw.*` and
+ * `stpMakerCancels[]` are strings — do not coerce.
+ *
+ * @public
+ */
+export interface OrderExecution {
+  /**
+   * True if the order matched against resting liquidity.
+   */
+  matched: boolean;
+
+  /**
+   * Settlement status as a plain string.
+   *
+   * @remarks
+   * Known values: `DELAYED`, `UNMATCHED`, `CANCELED`, `MATCHED`, `MINED`,
+   * `CONFIRMED`, `RETRYING`, `FAILED`. Modeled as a string, not an enum, so new
+   * server-side values do not break deserialization.
+   */
+  settlementStatus: string;
+
+  /**
+   * Trade event id (uuid) when a fill occurred.
+   */
+  tradeEventId?: string;
+
+  /**
+   * Settlement transaction hash, or null before it is known.
+   */
+  txHash?: string | null;
+
+  /**
+   * Echo of the client-supplied order id, when one was sent.
+   */
+  clientOrderId?: string;
+
+  /**
+   * ISO timestamp at which a DELAYED order becomes eligible. DELAYED only.
+   */
+  eligibleAt?: string;
+
+  /**
+   * Free-form reason string. Carries the self-trade-prevention taker signal,
+   * e.g. `STP_TAKER_REJECTED`. HTTP response only.
+   */
+  reason?: string;
+
+  /**
+   * UUIDs of maker orders canceled by self-trade prevention. Present only when
+   * at least one maker order was canceled.
+   */
+  stpMakerCancels?: string[];
+
+  /**
+   * Configured fee rate in basis points (number).
+   */
+  feeRateBps: number;
+
+  /**
+   * Effective fee rate in basis points after rebates/overrides (number).
+   */
+  effectiveFeeBps: number;
+
+  /**
+   * Raw decimal totals (all fields are strings).
+   */
+  totalsRaw: OrderExecutionTotalsRaw;
+}
+
+/**
  * Clean order creation response.
  *
  * @remarks
@@ -476,6 +602,15 @@ export interface OrderResponse {
    * Matches if order was filled (FOK) or partially matched (GTC)
    */
   makerMatches?: OrderMatch[];
+
+  /**
+   * Execution result for this order.
+   *
+   * @remarks
+   * Present on every response from a current API. Optional here for tolerance
+   * against older API versions and hand-built responses that omit it.
+   */
+  execution?: OrderExecution;
 }
 
 /**

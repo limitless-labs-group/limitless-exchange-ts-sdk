@@ -126,6 +126,250 @@ describe('OrderClient', () => {
     ]);
   });
 
+  it('passes the execution object through transformOrderResponse untouched', () => {
+    const client = new OrderClient({
+      httpClient: {} as any,
+      wallet: {
+        address: '0x0000000000000000000000000000000000000001',
+      } as any,
+    });
+
+    const execution = {
+      matched: true,
+      settlementStatus: 'MATCHED',
+      tradeEventId: '2c92ce01-e59b-4966-9d3f-a03bdb85e3eb',
+      txHash: null,
+      reason: 'STP_TAKER_REJECTED',
+      stpMakerCancels: ['11111111-1111-1111-1111-111111111111'],
+      feeRateBps: 300,
+      effectiveFeeBps: 0,
+      totalsRaw: {
+        contractsGross: '100.000000',
+        contractsFee: '0.000000',
+        contractsNet: '100.000000',
+        usdGross: '60.000000',
+        usdFee: '0.000000',
+        usdNet: '60.000000',
+      },
+    };
+
+    const transformed = (client as any).transformOrderResponse({
+      order: {
+        id: 'order-stp',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        makerAmount: '50',
+        takerAmount: '100',
+        expiration: '0',
+        signatureType: '0',
+        salt: '1742000000000000',
+        maker: '0x0000000000000000000000000000000000000001',
+        signer: '0x0000000000000000000000000000000000000001',
+        taker: '0x0000000000000000000000000000000000000000',
+        tokenId: '123',
+        side: '0',
+        feeRateBps: '300',
+        nonce: '0',
+        signature: '0xabc',
+        orderType: 'GTC',
+        price: '0.60',
+        marketId: '42',
+      },
+      execution,
+    });
+
+    // Pass-through: strings stay strings, numbers stay numbers, no coercion.
+    expect(transformed.execution).toEqual(execution);
+    expect(transformed.execution.feeRateBps).toBe(300);
+    expect(transformed.execution.totalsRaw.usdNet).toBe('60.000000');
+    expect(transformed.execution.stpMakerCancels).toEqual([
+      '11111111-1111-1111-1111-111111111111',
+    ]);
+  });
+
+  it('tolerates responses without an execution object (older API)', () => {
+    const client = new OrderClient({
+      httpClient: {} as any,
+      wallet: {
+        address: '0x0000000000000000000000000000000000000001',
+      } as any,
+    });
+
+    const transformed = (client as any).transformOrderResponse({
+      order: {
+        id: 'order-no-exec',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        makerAmount: '50',
+        takerAmount: '100',
+        expiration: '0',
+        signatureType: '0',
+        salt: '1742000000000000',
+        maker: '0x0000000000000000000000000000000000000001',
+        signer: '0x0000000000000000000000000000000000000001',
+        taker: '0x0000000000000000000000000000000000000000',
+        tokenId: '123',
+        side: '0',
+        feeRateBps: '300',
+        nonce: '0',
+        signature: '0xabc',
+        orderType: 'GTC',
+        price: '0.60',
+        marketId: '42',
+      },
+    });
+
+    expect(transformed.execution).toBeUndefined();
+  });
+
+  it('threads stpPolicy top-level into the order payload and never into the signed order', async () => {
+    const walletAddress = '0x0000000000000000000000000000000000000001';
+    const signature = `0x${'a'.repeat(130)}`;
+    const httpClient = {
+      post: vi.fn().mockResolvedValue({
+        order: {
+          id: 'order-stp',
+          createdAt: '2026-01-01T00:00:00.000Z',
+          makerAmount: 5500000,
+          takerAmount: 10000000,
+          expiration: '0',
+          signatureType: 0,
+          salt: 123,
+          maker: walletAddress,
+          signer: walletAddress,
+          taker: '0x0000000000000000000000000000000000000000',
+          tokenId: '123',
+          side: 0,
+          feeRateBps: 300,
+          nonce: 0,
+          signature,
+          orderType: 'GTC',
+          price: 0.55,
+          marketId: 42,
+        },
+      }),
+    } as any;
+
+    const client = new OrderClient({
+      httpClient,
+      wallet: { address: walletAddress } as any,
+    });
+
+    (client as any).cachedUserData = { userId: 42, feeRateBps: 300 };
+    (client as any).orderBuilder = {
+      buildOrder: vi.fn().mockReturnValue({
+        salt: 123,
+        maker: walletAddress,
+        signer: walletAddress,
+        taker: '0x0000000000000000000000000000000000000000',
+        tokenId: '123',
+        makerAmount: 5500000,
+        takerAmount: 10000000,
+        expiration: '0',
+        nonce: 0,
+        feeRateBps: 300,
+        side: Side.BUY,
+        signatureType: 0,
+        price: 0.55,
+      }),
+    };
+    (client as any).orderSigner = {
+      signOrder: vi.fn().mockResolvedValue(signature),
+    };
+    (client as any).marketFetcher = {
+      getVenue: vi.fn().mockReturnValue({
+        exchange: '0x0000000000000000000000000000000000000002',
+        adapter: null,
+      }),
+    };
+
+    await client.createOrder({
+      tokenId: '123',
+      side: Side.BUY,
+      price: 0.55,
+      size: 10,
+      orderType: OrderType.GTC,
+      marketSlug: 'test-market',
+      stpPolicy: 'cancel_maker',
+    } as any);
+
+    const [, payload] = httpClient.post.mock.calls[0];
+    expect(payload.stpPolicy).toBe('cancel_maker');
+    expect('stpPolicy' in payload.order).toBe(false);
+  });
+
+  it('omits stpPolicy from the order payload when unset', async () => {
+    const walletAddress = '0x0000000000000000000000000000000000000001';
+    const signature = `0x${'a'.repeat(130)}`;
+    const httpClient = {
+      post: vi.fn().mockResolvedValue({
+        order: {
+          id: 'order-no-stp',
+          createdAt: '2026-01-01T00:00:00.000Z',
+          makerAmount: 5500000,
+          takerAmount: 10000000,
+          expiration: '0',
+          signatureType: 0,
+          salt: 123,
+          maker: walletAddress,
+          signer: walletAddress,
+          taker: '0x0000000000000000000000000000000000000000',
+          tokenId: '123',
+          side: 0,
+          feeRateBps: 300,
+          nonce: 0,
+          signature,
+          orderType: 'GTC',
+          price: 0.55,
+          marketId: 42,
+        },
+      }),
+    } as any;
+
+    const client = new OrderClient({
+      httpClient,
+      wallet: { address: walletAddress } as any,
+    });
+
+    (client as any).cachedUserData = { userId: 42, feeRateBps: 300 };
+    (client as any).orderBuilder = {
+      buildOrder: vi.fn().mockReturnValue({
+        salt: 123,
+        maker: walletAddress,
+        signer: walletAddress,
+        taker: '0x0000000000000000000000000000000000000000',
+        tokenId: '123',
+        makerAmount: 5500000,
+        takerAmount: 10000000,
+        expiration: '0',
+        nonce: 0,
+        feeRateBps: 300,
+        side: Side.BUY,
+        signatureType: 0,
+        price: 0.55,
+      }),
+    };
+    (client as any).orderSigner = {
+      signOrder: vi.fn().mockResolvedValue(signature),
+    };
+    (client as any).marketFetcher = {
+      getVenue: vi.fn().mockReturnValue({
+        exchange: '0x0000000000000000000000000000000000000002',
+        adapter: null,
+      }),
+    };
+
+    await client.createOrder({
+      tokenId: '123',
+      side: Side.BUY,
+      price: 0.55,
+      size: 10,
+      orderType: OrderType.GTC,
+      marketSlug: 'test-market',
+    } as any);
+
+    const [, payload] = httpClient.post.mock.calls[0];
+    expect('stpPolicy' in payload).toBe(false);
+  });
+
   it('omits postOnly for FAK orders before submitting to the API', async () => {
     const walletAddress = '0x0000000000000000000000000000000000000001';
     const signature = `0x${'a'.repeat(130)}`;

@@ -68,6 +68,8 @@ export class DelegatedOrderService {
       ownerId: params.onBehalfOf,
       onBehalfOf: params.onBehalfOf,
       ...(postOnly !== undefined ? { postOnly } : {}),
+      // stpPolicy is sent top-level; do NOT add it to the signed order (would change the signature).
+      ...(params.stpPolicy !== undefined ? { stpPolicy: params.stpPolicy } : {}),
     };
 
     this.logger.debug('Creating delegated order', {

@@ -184,6 +184,12 @@ export interface OmeOrderEvent {
   token: string;
   type: 'PLACEMENT' | 'UPDATE' | 'CANCELLATION';
   userId: number;
+  /**
+   * Optional cancellation reason. On a `CANCELLATION` triggered by self-trade
+   * prevention, this carries `STP_MAKER_CANCELLED`. An STP-rejected taker is
+   * reported on the HTTP response only, not here.
+   */
+  reason?: string;
 }
 
 /**
