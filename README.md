@@ -518,6 +518,30 @@ if (buyOrder.makerMatches && buyOrder.makerMatches.length > 0) {
 
 For complete examples, see [docs/code-samples/clob-fok-order.ts](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/limitless-exchange-sdk/docs/code-samples/clob-fok-order.ts).
 
+### Cancel-Replace Orders
+
+Atomically cancel a resting order and submit its replacement in a single request via `POST /orders/cancel-replace`. Identify the order to cancel by `orderId` or `clientOrderId`, and set `mode` to `CancelReplaceMode.STOP_ON_FAILURE` (skip the replacement if the cancel fails) or `CancelReplaceMode.ALLOW_FAILURE`.
+
+```ts
+import { CancelReplaceMode, OrderType, Side } from '@limitless-exchange/sdk';
+
+const result = await orderClient.cancelReplace({
+  cancel: { orderId: 'old-order-id' }, // or { clientOrderId: '...' }
+  mode: CancelReplaceMode.STOP_ON_FAILURE,
+  replacement: {
+    tokenId: '123',
+    side: Side.BUY,
+    price: 0.5,
+    size: 2,
+    orderType: OrderType.GTC,
+    marketSlug: 'market-slug',
+  },
+});
+// result.cancel and result.replacement each carry a per-leg status.
+```
+
+Replace many orders at once with `orderClient.cancelReplaceBatch({ operations: [...] })`; the response `results` are index-aligned to the input. Partner integrations use `client.delegatedOrders.cancelReplace` / `cancelReplaceBatch` (which accept `onBehalfOf`). The single-order variant maps a `409` conflict onto its typed result rather than throwing.
+
 ### Partner AMM Trading
 
 `client.amm` trades binary AMM (FPMM) markets on behalf of a server wallet. Approvals are set up **once** per wallet/market pair; buy and sell never preflight allowances. All amounts are positive integer strings in the collateral token's base units (never floats). Authentication uses an HMAC API token (scopes `trading` + `delegated_signing`) or a per-call Privy `identityToken`; legacy API keys are rejected.
