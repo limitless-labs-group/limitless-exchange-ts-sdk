@@ -1,9 +1,16 @@
 import type { AxiosRequestConfig } from 'axios';
-import { HttpClient } from '../api/http';
+import { HttpClient, type HttpRawResponse } from '../api/http';
+import {
+  SdkResponse,
+  type ResponseOptions,
+  type WithRawResponseOptions,
+  type WithoutRawResponseOptions,
+} from '../api/response';
 import { Market } from '../types/market-class';
 import type {
   MarketPage,
   MarketPageMarketsParams,
+  MarketPageMarketsRawResponse,
   MarketPageMarketsResponse,
   NavigationNode,
   PropertyKey,
@@ -40,8 +47,21 @@ export class MarketPageFetcher {
   /**
    * Gets the navigation tree.
    */
-  async getNavigation(): Promise<NavigationNode[]> {
+  async getNavigation(options: WithRawResponseOptions): Promise<SdkResponse<NavigationNode[]>>;
+  async getNavigation(options?: WithoutRawResponseOptions): Promise<NavigationNode[]>;
+  async getNavigation(
+    options: ResponseOptions
+  ): Promise<NavigationNode[] | SdkResponse<NavigationNode[]>>;
+  async getNavigation(
+    options: ResponseOptions = {}
+  ): Promise<NavigationNode[] | SdkResponse<NavigationNode[]>> {
     this.logger.debug('Fetching navigation tree');
+    if (options.withRawResponse) {
+      const rawResponse = await this.httpClient.get<NavigationNode[]>('/navigation', {
+        withRawResponse: true,
+      });
+      return new SdkResponse(rawResponse.data, rawResponse);
+    }
     return this.httpClient.get<NavigationNode[]>('/navigation');
   }
 
@@ -52,11 +72,29 @@ export class MarketPageFetcher {
    * Handles 301 redirects manually by re-requesting `/market-pages/by-path` with the
    * redirected path value from `Location` header.
    */
-  async getMarketPageByPath(path: string): Promise<MarketPage> {
-    return this.getMarketPageByPathInternal(path, 0);
+  async getMarketPageByPath(
+    path: string,
+    options: WithRawResponseOptions
+  ): Promise<SdkResponse<MarketPage>>;
+  async getMarketPageByPath(path: string, options?: WithoutRawResponseOptions): Promise<MarketPage>;
+  async getMarketPageByPath(
+    path: string,
+    options: ResponseOptions
+  ): Promise<MarketPage | SdkResponse<MarketPage>>;
+  async getMarketPageByPath(
+    path: string,
+    options: ResponseOptions = {}
+  ): Promise<MarketPage | SdkResponse<MarketPage>> {
+    const rawResponse = await this.getMarketPageByPathInternal(path, 0);
+    return options.withRawResponse
+      ? new SdkResponse(rawResponse.data, rawResponse)
+      : rawResponse.data;
   }
 
-  private async getMarketPageByPathInternal(path: string, depth: number): Promise<MarketPage> {
+  private async getMarketPageByPathInternal(
+    path: string,
+    depth: number
+  ): Promise<HttpRawResponse<MarketPage>> {
     const query = new URLSearchParams({ path }).toString();
     const endpoint = `/market-pages/by-path?${query}`;
 
@@ -70,7 +108,7 @@ export class MarketPageFetcher {
     const response = await this.httpClient.getRaw<MarketPage>(endpoint, requestConfig);
 
     if (response.status === 200) {
-      return response.data;
+      return response;
     }
 
     if (response.status !== 301) {
@@ -109,7 +147,9 @@ export class MarketPageFetcher {
       const url = new URL(location, 'https://api.limitless.exchange');
       const path = url.searchParams.get('path');
       if (!path) {
-        throw new Error("Redirect location '/market-pages/by-path' is missing required 'path' query parameter");
+        throw new Error(
+          "Redirect location '/market-pages/by-path' is missing required 'path' query parameter"
+        );
       }
       return path;
     }
@@ -120,7 +160,9 @@ export class MarketPageFetcher {
       if (url.pathname === directByPathPrefix) {
         const path = url.searchParams.get('path');
         if (!path) {
-          throw new Error("Redirect location '/market-pages/by-path' is missing required 'path' query parameter");
+          throw new Error(
+            "Redirect location '/market-pages/by-path' is missing required 'path' query parameter"
+          );
         }
         return path;
       }
@@ -136,8 +178,28 @@ export class MarketPageFetcher {
    */
   async getMarkets(
     pageId: string,
-    params: MarketPageMarketsParams = {}
-  ): Promise<MarketPageMarketsResponse> {
+    params: MarketPageMarketsParams,
+    options: WithRawResponseOptions
+  ): Promise<SdkResponse<MarketPageMarketsResponse, MarketPageMarketsRawResponse>>;
+  async getMarkets(
+    pageId: string,
+    params?: MarketPageMarketsParams,
+    options?: WithoutRawResponseOptions
+  ): Promise<MarketPageMarketsResponse>;
+  async getMarkets(
+    pageId: string,
+    params: MarketPageMarketsParams | undefined,
+    options: ResponseOptions
+  ): Promise<
+    MarketPageMarketsResponse | SdkResponse<MarketPageMarketsResponse, MarketPageMarketsRawResponse>
+  >;
+  async getMarkets(
+    pageId: string,
+    params: MarketPageMarketsParams = {},
+    options: ResponseOptions = {}
+  ): Promise<
+    MarketPageMarketsResponse | SdkResponse<MarketPageMarketsResponse, MarketPageMarketsRawResponse>
+  > {
     if (params.cursor !== undefined && params.page !== undefined) {
       throw new Error('Parameters `cursor` and `page` are mutually exclusive');
     }
@@ -177,21 +239,30 @@ export class MarketPageFetcher {
 
     this.logger.debug('Fetching market-page markets', { pageId, params });
 
-    const response = await this.httpClient.get<any>(endpoint);
-    const markets = (response.data || []).map((marketData: any) => new Market(marketData, this.httpClient));
+    let rawResponse: HttpRawResponse<MarketPageMarketsRawResponse> | undefined;
+    const response = options.withRawResponse
+      ? (rawResponse = await this.httpClient.get<MarketPageMarketsRawResponse>(endpoint, {
+          withRawResponse: true,
+        })).data
+      : await this.httpClient.get<MarketPageMarketsRawResponse>(endpoint);
+    const markets = (response.data || []).map(
+      (marketData: any) => new Market(marketData, this.httpClient)
+    );
 
     if (response.pagination) {
-      return {
+      const result: MarketPageMarketsResponse = {
         data: markets,
         pagination: response.pagination,
       };
+      return rawResponse ? new SdkResponse(result, rawResponse) : result;
     }
 
     if (response.cursor) {
-      return {
+      const result: MarketPageMarketsResponse = {
         data: markets,
         cursor: response.cursor,
       };
+      return rawResponse ? new SdkResponse(result, rawResponse) : result;
     }
 
     throw new Error('Invalid market-page response: expected `pagination` or `cursor` metadata');
@@ -200,21 +271,72 @@ export class MarketPageFetcher {
   /**
    * Lists all property keys with options.
    */
-  async getPropertyKeys(): Promise<PropertyKey[]> {
+  async getPropertyKeys(options: WithRawResponseOptions): Promise<SdkResponse<PropertyKey[]>>;
+  async getPropertyKeys(options?: WithoutRawResponseOptions): Promise<PropertyKey[]>;
+  async getPropertyKeys(
+    options: ResponseOptions
+  ): Promise<PropertyKey[] | SdkResponse<PropertyKey[]>>;
+  async getPropertyKeys(
+    options: ResponseOptions = {}
+  ): Promise<PropertyKey[] | SdkResponse<PropertyKey[]>> {
+    if (options.withRawResponse) {
+      const rawResponse = await this.httpClient.get<PropertyKey[]>('/property-keys', {
+        withRawResponse: true,
+      });
+      return new SdkResponse(rawResponse.data, rawResponse);
+    }
     return this.httpClient.get<PropertyKey[]>('/property-keys');
   }
 
   /**
    * Gets a single property key by ID.
    */
-  async getPropertyKey(id: string): Promise<PropertyKey> {
-    return this.httpClient.get<PropertyKey>(`/property-keys/${id}`);
+  async getPropertyKey(
+    id: string,
+    options: WithRawResponseOptions
+  ): Promise<SdkResponse<PropertyKey>>;
+  async getPropertyKey(id: string, options?: WithoutRawResponseOptions): Promise<PropertyKey>;
+  async getPropertyKey(
+    id: string,
+    options: ResponseOptions
+  ): Promise<PropertyKey | SdkResponse<PropertyKey>>;
+  async getPropertyKey(
+    id: string,
+    options: ResponseOptions = {}
+  ): Promise<PropertyKey | SdkResponse<PropertyKey>> {
+    const endpoint = `/property-keys/${id}`;
+    if (options.withRawResponse) {
+      const rawResponse = await this.httpClient.get<PropertyKey>(endpoint, {
+        withRawResponse: true,
+      });
+      return new SdkResponse(rawResponse.data, rawResponse);
+    }
+    return this.httpClient.get<PropertyKey>(endpoint);
   }
 
   /**
    * Lists options for a property key, optionally filtered by parent option ID.
    */
-  async getPropertyOptions(keyId: string, parentId?: string): Promise<PropertyOption[]> {
+  async getPropertyOptions(
+    keyId: string,
+    parentId: string | undefined,
+    options: WithRawResponseOptions
+  ): Promise<SdkResponse<PropertyOption[]>>;
+  async getPropertyOptions(
+    keyId: string,
+    parentId?: string,
+    options?: WithoutRawResponseOptions
+  ): Promise<PropertyOption[]>;
+  async getPropertyOptions(
+    keyId: string,
+    parentId: string | undefined,
+    options: ResponseOptions
+  ): Promise<PropertyOption[] | SdkResponse<PropertyOption[]>>;
+  async getPropertyOptions(
+    keyId: string,
+    parentId?: string,
+    options: ResponseOptions = {}
+  ): Promise<PropertyOption[] | SdkResponse<PropertyOption[]>> {
     const query = new URLSearchParams();
     if (parentId) {
       query.append('parentId', parentId);
@@ -223,6 +345,12 @@ export class MarketPageFetcher {
     const queryString = query.toString();
     const endpoint = `/property-keys/${keyId}/options${queryString ? `?${queryString}` : ''}`;
 
+    if (options.withRawResponse) {
+      const rawResponse = await this.httpClient.get<PropertyOption[]>(endpoint, {
+        withRawResponse: true,
+      });
+      return new SdkResponse(rawResponse.data, rawResponse);
+    }
     return this.httpClient.get<PropertyOption[]>(endpoint);
   }
 

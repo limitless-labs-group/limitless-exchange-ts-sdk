@@ -1,4 +1,10 @@
 import { HttpClient } from '../api/http';
+import {
+  SdkResponse,
+  type ResponseOptions,
+  type WithRawResponseOptions,
+  type WithoutRawResponseOptions,
+} from '../api/response';
 import type {
   CreatePartnerAccountEOAHeaders,
   CreatePartnerAccountInput,
@@ -34,8 +40,24 @@ export class PartnerAccountService {
 
   async createAccount(
     input: CreatePartnerAccountInput,
-    eoaHeaders?: CreatePartnerAccountEOAHeaders
-  ): Promise<PartnerAccountResponse> {
+    eoaHeaders: CreatePartnerAccountEOAHeaders | undefined,
+    options: WithRawResponseOptions
+  ): Promise<SdkResponse<PartnerAccountResponse>>;
+  async createAccount(
+    input: CreatePartnerAccountInput,
+    eoaHeaders?: CreatePartnerAccountEOAHeaders,
+    options?: WithoutRawResponseOptions
+  ): Promise<PartnerAccountResponse>;
+  async createAccount(
+    input: CreatePartnerAccountInput,
+    eoaHeaders: CreatePartnerAccountEOAHeaders | undefined,
+    options: ResponseOptions
+  ): Promise<PartnerAccountResponse | SdkResponse<PartnerAccountResponse>>;
+  async createAccount(
+    input: CreatePartnerAccountInput,
+    eoaHeaders?: CreatePartnerAccountEOAHeaders,
+    options: ResponseOptions = {}
+  ): Promise<PartnerAccountResponse | SdkResponse<PartnerAccountResponse>> {
     this.httpClient.requireAuth('createPartnerAccount');
 
     const serverWalletMode = input.createServerWallet === true;
@@ -61,16 +83,28 @@ export class PartnerAccountService {
       createServerWallet: input.createServerWallet,
     };
 
+    const headers = eoaHeaders
+      ? {
+          'x-account': eoaHeaders.account,
+          'x-signing-message': eoaHeaders.signingMessage,
+          'x-signature': eoaHeaders.signature,
+        }
+      : undefined;
+
+    if (options.withRawResponse) {
+      const rawResponse = await this.httpClient.postWithHeaders<PartnerAccountResponse>(
+        '/profiles/partner-accounts',
+        payload,
+        headers,
+        { withRawResponse: true }
+      );
+      return new SdkResponse(rawResponse.data, rawResponse);
+    }
+
     return this.httpClient.postWithHeaders<PartnerAccountResponse>(
       '/profiles/partner-accounts',
       payload,
-      eoaHeaders
-        ? {
-            'x-account': eoaHeaders.account,
-            'x-signing-message': eoaHeaders.signingMessage,
-            'x-signature': eoaHeaders.signature,
-          }
-        : undefined
+      headers
     );
   }
 
@@ -82,12 +116,33 @@ export class PartnerAccountService {
    * succeeded but the partner failed to persist the returned `profileId`, call
    * `listAccounts({ account })` to recover the minimal account metadata.
    */
-  async listAccounts(params: ListPartnerAccountsParams = {}): Promise<ListPartnerAccountsResponse> {
+  async listAccounts(
+    params: ListPartnerAccountsParams,
+    options: WithRawResponseOptions
+  ): Promise<SdkResponse<ListPartnerAccountsResponse>>;
+  async listAccounts(
+    params?: ListPartnerAccountsParams,
+    options?: WithoutRawResponseOptions
+  ): Promise<ListPartnerAccountsResponse>;
+  async listAccounts(
+    params: ListPartnerAccountsParams | undefined,
+    options: ResponseOptions
+  ): Promise<ListPartnerAccountsResponse | SdkResponse<ListPartnerAccountsResponse>>;
+  async listAccounts(
+    params: ListPartnerAccountsParams = {},
+    options: ResponseOptions = {}
+  ): Promise<ListPartnerAccountsResponse | SdkResponse<ListPartnerAccountsResponse>> {
     this.requireHmacAuth('listPartnerAccounts', PARTNER_ACCOUNT_LIST_HMAC_ONLY_ERROR);
     const path = this.partnerAccountsPath(params);
 
     this.logger.debug('Listing partner accounts', params);
 
+    if (options.withRawResponse) {
+      const rawResponse = await this.httpClient.get<ListPartnerAccountsResponse>(path, {
+        withRawResponse: true,
+      });
+      return new SdkResponse(rawResponse.data, rawResponse);
+    }
     return this.httpClient.get<ListPartnerAccountsResponse>(path);
   }
 
@@ -95,7 +150,22 @@ export class PartnerAccountService {
    * Checks delegated-trading allowance readiness from live chain state for a partner-created
    * server-wallet profile.
    */
-  async checkAllowances(profileId: number): Promise<PartnerAccountAllowanceResponse> {
+  async checkAllowances(
+    profileId: number,
+    options: WithRawResponseOptions
+  ): Promise<SdkResponse<PartnerAccountAllowanceResponse>>;
+  async checkAllowances(
+    profileId: number,
+    options?: WithoutRawResponseOptions
+  ): Promise<PartnerAccountAllowanceResponse>;
+  async checkAllowances(
+    profileId: number,
+    options: ResponseOptions
+  ): Promise<PartnerAccountAllowanceResponse | SdkResponse<PartnerAccountAllowanceResponse>>;
+  async checkAllowances(
+    profileId: number,
+    options: ResponseOptions = {}
+  ): Promise<PartnerAccountAllowanceResponse | SdkResponse<PartnerAccountAllowanceResponse>> {
     this.requireHmacAuth(
       'checkPartnerAccountAllowances',
       PARTNER_ACCOUNT_ALLOWANCE_HMAC_ONLY_ERROR
@@ -104,6 +174,12 @@ export class PartnerAccountService {
 
     this.logger.debug('Checking partner-account allowances', { profileId });
 
+    if (options.withRawResponse) {
+      const rawResponse = await this.httpClient.get<PartnerAccountAllowanceResponse>(path, {
+        withRawResponse: true,
+      });
+      return new SdkResponse(rawResponse.data, rawResponse);
+    }
     return this.httpClient.get<PartnerAccountAllowanceResponse>(path);
   }
 
@@ -115,7 +191,22 @@ export class PartnerAccountService {
    * user operation; call `checkAllowances` again after a short delay to observe confirmed chain
    * state.
    */
-  async retryAllowances(profileId: number): Promise<PartnerAccountAllowanceResponse> {
+  async retryAllowances(
+    profileId: number,
+    options: WithRawResponseOptions
+  ): Promise<SdkResponse<PartnerAccountAllowanceResponse>>;
+  async retryAllowances(
+    profileId: number,
+    options?: WithoutRawResponseOptions
+  ): Promise<PartnerAccountAllowanceResponse>;
+  async retryAllowances(
+    profileId: number,
+    options: ResponseOptions
+  ): Promise<PartnerAccountAllowanceResponse | SdkResponse<PartnerAccountAllowanceResponse>>;
+  async retryAllowances(
+    profileId: number,
+    options: ResponseOptions = {}
+  ): Promise<PartnerAccountAllowanceResponse | SdkResponse<PartnerAccountAllowanceResponse>> {
     this.requireHmacAuth(
       'retryPartnerAccountAllowances',
       PARTNER_ACCOUNT_ALLOWANCE_HMAC_ONLY_ERROR
@@ -124,7 +215,16 @@ export class PartnerAccountService {
 
     this.logger.debug('Retrying partner-account allowances', { profileId });
 
-    return this.httpClient.post<PartnerAccountAllowanceResponse>(`${path}/retry`, {});
+    const endpoint = `${path}/retry`;
+    if (options.withRawResponse) {
+      const rawResponse = await this.httpClient.post<PartnerAccountAllowanceResponse>(
+        endpoint,
+        {},
+        { withRawResponse: true }
+      );
+      return new SdkResponse(rawResponse.data, rawResponse);
+    }
+    return this.httpClient.post<PartnerAccountAllowanceResponse>(endpoint, {});
   }
 
   /**
@@ -133,8 +233,24 @@ export class PartnerAccountService {
    */
   async addWithdrawalAddress(
     identityToken: string,
-    input: PartnerWithdrawalAddressInput
-  ): Promise<PartnerWithdrawalAddressResponse> {
+    input: PartnerWithdrawalAddressInput,
+    options: WithRawResponseOptions
+  ): Promise<SdkResponse<PartnerWithdrawalAddressResponse>>;
+  async addWithdrawalAddress(
+    identityToken: string,
+    input: PartnerWithdrawalAddressInput,
+    options?: WithoutRawResponseOptions
+  ): Promise<PartnerWithdrawalAddressResponse>;
+  async addWithdrawalAddress(
+    identityToken: string,
+    input: PartnerWithdrawalAddressInput,
+    options: ResponseOptions
+  ): Promise<PartnerWithdrawalAddressResponse | SdkResponse<PartnerWithdrawalAddressResponse>>;
+  async addWithdrawalAddress(
+    identityToken: string,
+    input: PartnerWithdrawalAddressInput,
+    options: ResponseOptions = {}
+  ): Promise<PartnerWithdrawalAddressResponse | SdkResponse<PartnerWithdrawalAddressResponse>> {
     if (!identityToken) {
       throw new Error('identity token is required for addWithdrawalAddress');
     }
@@ -143,6 +259,16 @@ export class PartnerAccountService {
     }
 
     this.logger.debug('Adding partner withdrawal address', { address: input.address });
+
+    if (options.withRawResponse) {
+      const rawResponse = await this.httpClient.postWithIdentity<PartnerWithdrawalAddressResponse>(
+        '/portfolio/withdrawal-addresses',
+        identityToken,
+        input,
+        { withRawResponse: true }
+      );
+      return new SdkResponse(rawResponse.data, rawResponse);
+    }
 
     return this.httpClient.postWithIdentity<PartnerWithdrawalAddressResponse>(
       '/portfolio/withdrawal-addresses',
@@ -155,7 +281,26 @@ export class PartnerAccountService {
    * Removes a partner withdrawal destination allowlist entry using a Privy identity token.
    * API-token auth is not used for this endpoint.
    */
-  async deleteWithdrawalAddress(identityToken: string, address: string): Promise<void> {
+  async deleteWithdrawalAddress(
+    identityToken: string,
+    address: string,
+    options: WithRawResponseOptions
+  ): Promise<SdkResponse<void>>;
+  async deleteWithdrawalAddress(
+    identityToken: string,
+    address: string,
+    options?: WithoutRawResponseOptions
+  ): Promise<void>;
+  async deleteWithdrawalAddress(
+    identityToken: string,
+    address: string,
+    options: ResponseOptions
+  ): Promise<void | SdkResponse<void>>;
+  async deleteWithdrawalAddress(
+    identityToken: string,
+    address: string,
+    options: ResponseOptions = {}
+  ): Promise<void | SdkResponse<void>> {
     if (!identityToken) {
       throw new Error('identity token is required for deleteWithdrawalAddress');
     }
@@ -165,10 +310,15 @@ export class PartnerAccountService {
 
     this.logger.debug('Deleting partner withdrawal address', { address });
 
-    await this.httpClient.deleteWithIdentity<void>(
-      `/portfolio/withdrawal-addresses/${encodeURIComponent(address)}`,
-      identityToken
-    );
+    const endpoint = `/portfolio/withdrawal-addresses/${encodeURIComponent(address)}`;
+    if (options.withRawResponse) {
+      const rawResponse = await this.httpClient.deleteWithIdentity<void>(endpoint, identityToken, {
+        withRawResponse: true,
+      });
+      return new SdkResponse(rawResponse.data, rawResponse);
+    }
+
+    await this.httpClient.deleteWithIdentity<void>(endpoint, identityToken);
   }
 
   private requireHmacAuth(operation: string, errorMessage: string): void {

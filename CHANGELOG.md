@@ -5,6 +5,19 @@ All notable changes to the Limitless Exchange TypeScript SDK will be documented 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Optional `{ withRawResponse: true }` support across all API-backed SDK methods. Domain methods return `SdkResponse`, which provides the normal SDK value through `data` and the underlying HTTP status, headers, and original response body through `getRaw()`.
+- Raw response mode for all `HttpClient` request variants and the retryable GET, POST, and DELETE wrapper.
+- Public raw wire-response types for transformed market-page, order, cancellation, API-token message, and market user-order responses.
+- Unit coverage for every domain service, every HTTP request variant, transformed response bodies, identity-authenticated requests, void deletes, and retry forwarding.
+- Partner AMM trading via `client.amm`: `checkAllowance`, `approveAllowance`, `buy`, `sell`, and an `ensureAllowance` helper (check → approve → poll) backed by `POST /amm/allowances/check`, `/amm/allowances/approve`, `/amm/buy`, and `/amm/sell`. Amounts are validated as positive integer strings in collateral base units; `idempotencyKey` enables safe timeout retries with a byte-identical body; `onBehalfOf` targets owned server-wallet sub-accounts. HMAC tokens require `trading` + `delegated_signing` scopes; a Privy `identityToken` may be passed per call; legacy API keys are rejected.
+- Public AMM types: `AmmAllowanceParams`, `AmmAllowanceResponse`, `AmmBuyParams`, `AmmBuyResponse`, `AmmSellParams`, `AmmSellResponse`, `AmmTransactionIdentifiers`, `AmmAllowanceSide`, `AmmAllowanceStatus`, `AmmTradeStatus`, `AmmOutcomeIndex`, and `AmmEnsureAllowanceOptions`.
+- Typed HTTP errors `ConflictError` (409), `UnprocessableEntityError` (422), `TooEarlyError` (425), and `UpstreamUnavailableError` (502/503), mapped for all requests (raw and non-raw). Existing `instanceof APIError` checks continue to match.
+- Unit coverage for AMM allowance mapping, 200/202 approve handling, buy/sell body shape, validation matrix, idempotent-body retries, 409 conflict mapping, identity vs HMAC auth, and raw-response variants.
+
 ## [1.1.0]
 
 ### Added

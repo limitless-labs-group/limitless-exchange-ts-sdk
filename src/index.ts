@@ -10,6 +10,7 @@
 
 export * from './types';
 export * from './api';
+export * from './amm';
 export * from './api-tokens';
 export * from './partner-accounts';
 export * from './delegated-orders';

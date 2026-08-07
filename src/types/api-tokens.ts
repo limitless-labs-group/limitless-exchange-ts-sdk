@@ -83,3 +83,11 @@ export const ScopeTrading = 'trading';
 export const ScopeAccountCreation = 'account_creation';
 export const ScopeDelegatedSigning = 'delegated_signing';
 export const ScopeWithdrawal = 'withdrawal';
+
+/**
+ * Message response returned by API-token mutation endpoints.
+ * @public
+ */
+export interface ApiTokenMessageResponse {
+  message: string;
+}

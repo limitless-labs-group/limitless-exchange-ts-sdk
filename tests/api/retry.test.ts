@@ -1,10 +1,5 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import {
-  RetryConfig,
-  withRetry,
-  retryOnErrors,
-  RetryableClient,
-} from '../../src/api/retry';
+import { RetryConfig, withRetry, retryOnErrors, RetryableClient } from '../../src/api/retry';
 import { APIError } from '../../src/api/errors';
 import { HttpClient } from '../../src/api/http';
 import { NoOpLogger } from '../../src/types/logger';
@@ -115,9 +110,7 @@ describe('withRetry', () => {
   });
 
   it('should not retry on non-matching status code', async () => {
-    const mockFn = vi
-      .fn()
-      .mockRejectedValue(new APIError('Not found', 404, {}, '/test', 'GET'));
+    const mockFn = vi.fn().mockRejectedValue(new APIError('Not found', 404, {}, '/test', 'GET'));
 
     await expect(
       withRetry(mockFn, { statusCodes: [429], maxRetries: 3 }, new NoOpLogger())
@@ -129,9 +122,9 @@ describe('withRetry', () => {
   it('should not retry on non-APIError', async () => {
     const mockFn = vi.fn().mockRejectedValue(new Error('Generic error'));
 
-    await expect(
-      withRetry(mockFn, { maxRetries: 3 }, new NoOpLogger())
-    ).rejects.toThrow('Generic error');
+    await expect(withRetry(mockFn, { maxRetries: 3 }, new NoOpLogger())).rejects.toThrow(
+      'Generic error'
+    );
 
     expect(mockFn).toHaveBeenCalledTimes(1); // No retries
   });
@@ -142,11 +135,7 @@ describe('withRetry', () => {
 
     // Start the promise and immediately wrap in expect to catch rejection
     const expectation = expect(
-      withRetry(
-        mockFn,
-        { statusCodes: [500], maxRetries: 2, delays: [0, 0] },
-        new NoOpLogger()
-      )
+      withRetry(mockFn, { statusCodes: [500], maxRetries: 2, delays: [0, 0] }, new NoOpLogger())
     ).rejects.toThrow('Server error');
 
     // Now advance timers
@@ -371,9 +360,7 @@ describe('RetryableClient', () => {
       mockHttpClient.get.mockRejectedValue(error);
 
       // Start the promise and immediately wrap in expect to catch rejection
-      const expectation = expect(
-        retryableClient.get('/test')
-      ).rejects.toThrow('Server error');
+      const expectation = expect(retryableClient.get('/test')).rejects.toThrow('Server error');
 
       // Now advance timers
       await vi.runAllTimersAsync();
@@ -384,9 +371,7 @@ describe('RetryableClient', () => {
     });
 
     it('should not retry on non-matching error', async () => {
-      mockHttpClient.get.mockRejectedValue(
-        new APIError('Not found', 404, {}, '/test', 'GET')
-      );
+      mockHttpClient.get.mockRejectedValue(new APIError('Not found', 404, {}, '/test', 'GET'));
 
       await expect(retryableClient.get('/test')).rejects.toThrow('Not found');
       expect(mockHttpClient.get).toHaveBeenCalledTimes(1);
@@ -450,6 +435,28 @@ describe('RetryableClient', () => {
     });
   });
 
+  it('preserves raw responses and forwards raw mode for every wrapped verb', async () => {
+    const rawResponse = {
+      status: 200,
+      headers: { 'x-request-id': 'request-1' },
+      data: { ok: true },
+    };
+    mockHttpClient.get.mockResolvedValue(rawResponse);
+    mockHttpClient.post.mockResolvedValue(rawResponse);
+    mockHttpClient.delete.mockResolvedValue(rawResponse);
+
+    const getResponse = await retryableClient.get('/test', { withRawResponse: true });
+    const postResponse = await retryableClient.post('/test', {}, { withRawResponse: true });
+    const deleteResponse = await retryableClient.delete('/test', { withRawResponse: true });
+
+    expect(getResponse).toBe(rawResponse);
+    expect(postResponse).toBe(rawResponse);
+    expect(deleteResponse).toBe(rawResponse);
+    expect(mockHttpClient.get).toHaveBeenCalledWith('/test', { withRawResponse: true });
+    expect(mockHttpClient.post).toHaveBeenCalledWith('/test', {}, { withRawResponse: true });
+    expect(mockHttpClient.delete).toHaveBeenCalledWith('/test', { withRawResponse: true });
+  });
+
   describe('integration with HttpClient', () => {
     it('should work with real HttpClient instance', async () => {
       const httpClient = new HttpClient({ baseURL: 'https://api.example.com' });
@@ -488,9 +495,7 @@ describe('Retry mechanism edge cases', () => {
   });
 
   it('should handle zero retries (no retry)', async () => {
-    const mockFn = vi
-      .fn()
-      .mockRejectedValue(new APIError('Rate limited', 429, {}, '/test', 'GET'));
+    const mockFn = vi.fn().mockRejectedValue(new APIError('Rate limited', 429, {}, '/test', 'GET'));
 
     await expect(
       withRetry(mockFn, { statusCodes: [429], maxRetries: 0 }, new NoOpLogger())
@@ -500,9 +505,7 @@ describe('Retry mechanism edge cases', () => {
   });
 
   it('should handle empty status codes set', async () => {
-    const mockFn = vi
-      .fn()
-      .mockRejectedValue(new APIError('Rate limited', 429, {}, '/test', 'GET'));
+    const mockFn = vi.fn().mockRejectedValue(new APIError('Rate limited', 429, {}, '/test', 'GET'));
 
     await expect(
       withRetry(mockFn, { statusCodes: [], maxRetries: 3 }, new NoOpLogger())

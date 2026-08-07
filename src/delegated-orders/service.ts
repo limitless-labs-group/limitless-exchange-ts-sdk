@@ -1,4 +1,10 @@
 import { HttpClient } from '../api/http';
+import {
+  SdkResponse,
+  type ResponseOptions,
+  type WithRawResponseOptions,
+  type WithoutRawResponseOptions,
+} from '../api/response';
 import { OrderBuilder } from '../orders/builder';
 import { ZERO_ADDRESS } from '../utils/constants';
 import {
@@ -26,16 +32,32 @@ export class DelegatedOrderService {
     this.logger = logger || new NoOpLogger();
   }
 
-  async createOrder(params: CreateDelegatedOrderParams): Promise<DelegatedOrderResponse> {
+  async createOrder(
+    params: CreateDelegatedOrderParams,
+    options: WithRawResponseOptions
+  ): Promise<SdkResponse<DelegatedOrderResponse>>;
+  async createOrder(
+    params: CreateDelegatedOrderParams,
+    options?: WithoutRawResponseOptions
+  ): Promise<DelegatedOrderResponse>;
+  async createOrder(
+    params: CreateDelegatedOrderParams,
+    options: ResponseOptions
+  ): Promise<DelegatedOrderResponse | SdkResponse<DelegatedOrderResponse>>;
+  async createOrder(
+    params: CreateDelegatedOrderParams,
+    options: ResponseOptions = {}
+  ): Promise<DelegatedOrderResponse | SdkResponse<DelegatedOrderResponse>> {
     this.httpClient.requireAuth('createDelegatedOrder');
 
     if (!Number.isInteger(params.onBehalfOf) || params.onBehalfOf <= 0) {
       throw new Error('onBehalfOf must be a positive integer');
     }
 
-    const feeRateBps = params.feeRateBps && params.feeRateBps > 0
-      ? params.feeRateBps
-      : DEFAULT_DELEGATED_FEE_RATE_BPS;
+    const feeRateBps =
+      params.feeRateBps && params.feeRateBps > 0
+        ? params.feeRateBps
+        : DEFAULT_DELEGATED_FEE_RATE_BPS;
 
     const builder = new OrderBuilder(ZERO_ADDRESS, feeRateBps);
     const unsignedOrder = builder.buildOrder(params.args);
@@ -76,42 +98,134 @@ export class DelegatedOrderService {
       feeRateBps,
     });
 
+    if (options.withRawResponse) {
+      const rawResponse = await this.httpClient.post<DelegatedOrderResponse>('/orders', payload, {
+        withRawResponse: true,
+      });
+      return new SdkResponse(rawResponse.data, rawResponse);
+    }
     return this.httpClient.post<DelegatedOrderResponse>('/orders', payload);
   }
 
-  async cancel(orderId: string): Promise<string> {
+  async cancel(
+    orderId: string,
+    options: WithRawResponseOptions
+  ): Promise<SdkResponse<string, CancelResponse>>;
+  async cancel(orderId: string, options?: WithoutRawResponseOptions): Promise<string>;
+  async cancel(
+    orderId: string,
+    options: ResponseOptions
+  ): Promise<string | SdkResponse<string, CancelResponse>>;
+  async cancel(
+    orderId: string,
+    options: ResponseOptions = {}
+  ): Promise<string | SdkResponse<string, CancelResponse>> {
     this.httpClient.requireAuth('cancelDelegatedOrder');
-    const response = await this.httpClient.delete<CancelResponse>(`/orders/${encodeURIComponent(orderId)}`);
+    const endpoint = `/orders/${encodeURIComponent(orderId)}`;
+    if (options.withRawResponse) {
+      const rawResponse = await this.httpClient.delete<CancelResponse>(endpoint, {
+        withRawResponse: true,
+      });
+      return new SdkResponse(rawResponse.data.message, rawResponse);
+    }
+    const response = await this.httpClient.delete<CancelResponse>(endpoint);
     return response.message;
   }
 
-  async cancelOnBehalfOf(orderId: string, onBehalfOf: number): Promise<string> {
+  async cancelOnBehalfOf(
+    orderId: string,
+    onBehalfOf: number,
+    options: WithRawResponseOptions
+  ): Promise<SdkResponse<string, CancelResponse>>;
+  async cancelOnBehalfOf(
+    orderId: string,
+    onBehalfOf: number,
+    options?: WithoutRawResponseOptions
+  ): Promise<string>;
+  async cancelOnBehalfOf(
+    orderId: string,
+    onBehalfOf: number,
+    options: ResponseOptions
+  ): Promise<string | SdkResponse<string, CancelResponse>>;
+  async cancelOnBehalfOf(
+    orderId: string,
+    onBehalfOf: number,
+    options: ResponseOptions = {}
+  ): Promise<string | SdkResponse<string, CancelResponse>> {
     this.httpClient.requireAuth('cancelDelegatedOrder');
     if (!Number.isInteger(onBehalfOf) || onBehalfOf <= 0) {
       throw new Error('onBehalfOf must be a positive integer');
     }
 
-    const response = await this.httpClient.delete<CancelResponse>(
-      `/orders/${encodeURIComponent(orderId)}?onBehalfOf=${onBehalfOf}`,
-    );
+    const endpoint = `/orders/${encodeURIComponent(orderId)}?onBehalfOf=${onBehalfOf}`;
+    if (options.withRawResponse) {
+      const rawResponse = await this.httpClient.delete<CancelResponse>(endpoint, {
+        withRawResponse: true,
+      });
+      return new SdkResponse(rawResponse.data.message, rawResponse);
+    }
+    const response = await this.httpClient.delete<CancelResponse>(endpoint);
     return response.message;
   }
 
-  async cancelAll(marketSlug: string): Promise<string> {
+  async cancelAll(
+    marketSlug: string,
+    options: WithRawResponseOptions
+  ): Promise<SdkResponse<string, CancelResponse>>;
+  async cancelAll(marketSlug: string, options?: WithoutRawResponseOptions): Promise<string>;
+  async cancelAll(
+    marketSlug: string,
+    options: ResponseOptions
+  ): Promise<string | SdkResponse<string, CancelResponse>>;
+  async cancelAll(
+    marketSlug: string,
+    options: ResponseOptions = {}
+  ): Promise<string | SdkResponse<string, CancelResponse>> {
     this.httpClient.requireAuth('cancelAllDelegatedOrders');
-    const response = await this.httpClient.delete<CancelResponse>(`/orders/all/${encodeURIComponent(marketSlug)}`);
+    const endpoint = `/orders/all/${encodeURIComponent(marketSlug)}`;
+    if (options.withRawResponse) {
+      const rawResponse = await this.httpClient.delete<CancelResponse>(endpoint, {
+        withRawResponse: true,
+      });
+      return new SdkResponse(rawResponse.data.message, rawResponse);
+    }
+    const response = await this.httpClient.delete<CancelResponse>(endpoint);
     return response.message;
   }
 
-  async cancelAllOnBehalfOf(marketSlug: string, onBehalfOf: number): Promise<string> {
+  async cancelAllOnBehalfOf(
+    marketSlug: string,
+    onBehalfOf: number,
+    options: WithRawResponseOptions
+  ): Promise<SdkResponse<string, CancelResponse>>;
+  async cancelAllOnBehalfOf(
+    marketSlug: string,
+    onBehalfOf: number,
+    options?: WithoutRawResponseOptions
+  ): Promise<string>;
+  async cancelAllOnBehalfOf(
+    marketSlug: string,
+    onBehalfOf: number,
+    options: ResponseOptions
+  ): Promise<string | SdkResponse<string, CancelResponse>>;
+  async cancelAllOnBehalfOf(
+    marketSlug: string,
+    onBehalfOf: number,
+    options: ResponseOptions = {}
+  ): Promise<string | SdkResponse<string, CancelResponse>> {
     this.httpClient.requireAuth('cancelAllDelegatedOrders');
     if (!Number.isInteger(onBehalfOf) || onBehalfOf <= 0) {
       throw new Error('onBehalfOf must be a positive integer');
     }
 
-    const response = await this.httpClient.delete<CancelResponse>(
-      `/orders/all/${encodeURIComponent(marketSlug)}?onBehalfOf=${onBehalfOf}`,
-    );
+    const endpoint = `/orders/all/${encodeURIComponent(marketSlug)}?onBehalfOf=${onBehalfOf}`;
+    if (options.withRawResponse) {
+      const rawResponse = await this.httpClient.delete<CancelResponse>(endpoint, {
+        withRawResponse: true,
+      });
+      return new SdkResponse(rawResponse.data.message, rawResponse);
+    }
+    const response = await this.httpClient.delete<CancelResponse>(endpoint);
     return response.message;
   }
 }

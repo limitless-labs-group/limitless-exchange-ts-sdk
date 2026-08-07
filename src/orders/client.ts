@@ -4,6 +4,12 @@
  */
 
 import type { HttpClient } from '../api/http';
+import {
+  SdkResponse,
+  type ResponseOptions,
+  type WithRawResponseOptions,
+  type WithoutRawResponseOptions,
+} from '../api/response';
 import type { ILogger } from '../types/logger';
 import { NoOpLogger } from '../types/logger';
 import type {
@@ -12,6 +18,8 @@ import type {
   OrderArgs,
   UnsignedOrder,
   OrderSigningConfig,
+  RawOrderResponse,
+  OrderCancellationResponse,
 } from '../types/orders';
 import { OrderType } from '../types/orders';
 import { OrderBuilder } from './builder';
@@ -256,8 +264,30 @@ export class OrderClient {
     params: OrderArgs & {
       orderType: OrderType;
       marketSlug: string;
-    }
-  ): Promise<OrderResponse> {
+    },
+    options: WithRawResponseOptions
+  ): Promise<SdkResponse<OrderResponse, RawOrderResponse>>;
+  async createOrder(
+    params: OrderArgs & {
+      orderType: OrderType;
+      marketSlug: string;
+    },
+    options?: WithoutRawResponseOptions
+  ): Promise<OrderResponse>;
+  async createOrder(
+    params: OrderArgs & {
+      orderType: OrderType;
+      marketSlug: string;
+    },
+    options: ResponseOptions
+  ): Promise<OrderResponse | SdkResponse<OrderResponse, RawOrderResponse>>;
+  async createOrder(
+    params: OrderArgs & {
+      orderType: OrderType;
+      marketSlug: string;
+    },
+    options: ResponseOptions = {}
+  ): Promise<OrderResponse | SdkResponse<OrderResponse, RawOrderResponse>> {
     // Ensure user data is loaded (lazy loading with cache)
     const userData = await this.ensureUserData();
 
@@ -311,9 +341,7 @@ export class OrderClient {
 
     // Step 3: Prepare payload for API
     const postOnly =
-      params.orderType === OrderType.GTC &&
-      'postOnly' in params &&
-      params.postOnly !== undefined
+      params.orderType === OrderType.GTC && 'postOnly' in params && params.postOnly !== undefined
         ? params.postOnly
         : undefined;
 
@@ -330,7 +358,19 @@ export class OrderClient {
 
     // Step 4: Submit to API
     this.logger.debug('Submitting order to API', payload);
-    const apiResponse = await this.httpClient.post<any>('/orders', payload);
+    if (options.withRawResponse) {
+      const rawResponse = await this.httpClient.post<RawOrderResponse>('/orders', payload, {
+        withRawResponse: true,
+      });
+
+      this.logger.info('Order created successfully', {
+        orderId: rawResponse.data.order.id,
+      });
+
+      return new SdkResponse(this.transformOrderResponse(rawResponse.data), rawResponse);
+    }
+
+    const apiResponse = await this.httpClient.post<RawOrderResponse>('/orders', payload);
 
     this.logger.info('Order created successfully', {
       orderId: apiResponse.order.id,
@@ -348,7 +388,7 @@ export class OrderClient {
    *
    * @internal
    */
-  private transformOrderResponse(apiResponse: any): OrderResponse {
+  private transformOrderResponse(apiResponse: RawOrderResponse): OrderResponse {
     const order = apiResponse.order;
 
     const cleanOrder: OrderResponse = {
@@ -369,7 +409,10 @@ export class OrderClient {
         nonce: order.nonce,
         signature: order.signature,
         orderType: order.orderType,
-        price: order.price === undefined || order.price === null ? order.price : toFiniteNumber(order.price) ?? order.price,
+        price:
+          order.price === undefined || order.price === null
+            ? order.price
+            : (toFiniteNumber(order.price) ?? order.price),
         marketId: order.marketId,
       },
     };
@@ -407,10 +450,37 @@ export class OrderClient {
    * console.log(result.message); // "Order canceled successfully"
    * ```
    */
-  async cancel(orderId: string): Promise<{ message: string }> {
+  async cancel(
+    orderId: string,
+    options: WithRawResponseOptions
+  ): Promise<SdkResponse<OrderCancellationResponse>>;
+  async cancel(
+    orderId: string,
+    options?: WithoutRawResponseOptions
+  ): Promise<OrderCancellationResponse>;
+  async cancel(
+    orderId: string,
+    options: ResponseOptions
+  ): Promise<OrderCancellationResponse | SdkResponse<OrderCancellationResponse>>;
+  async cancel(
+    orderId: string,
+    options: ResponseOptions = {}
+  ): Promise<OrderCancellationResponse | SdkResponse<OrderCancellationResponse>> {
     this.logger.info('Cancelling order', { orderId });
 
-    const response = await this.httpClient.delete<{ message: string }>(`/orders/${orderId}`);
+    const endpoint = `/orders/${orderId}`;
+    if (options.withRawResponse) {
+      const rawResponse = await this.httpClient.delete<OrderCancellationResponse>(endpoint, {
+        withRawResponse: true,
+      });
+      this.logger.info('Order cancellation response', {
+        orderId,
+        message: rawResponse.data.message,
+      });
+      return new SdkResponse(rawResponse.data, rawResponse);
+    }
+
+    const response = await this.httpClient.delete<OrderCancellationResponse>(endpoint);
 
     this.logger.info('Order cancellation response', {
       orderId,
@@ -434,10 +504,37 @@ export class OrderClient {
    * console.log(result.message); // "Orders canceled successfully"
    * ```
    */
-  async cancelAll(marketSlug: string): Promise<{ message: string }> {
+  async cancelAll(
+    marketSlug: string,
+    options: WithRawResponseOptions
+  ): Promise<SdkResponse<OrderCancellationResponse>>;
+  async cancelAll(
+    marketSlug: string,
+    options?: WithoutRawResponseOptions
+  ): Promise<OrderCancellationResponse>;
+  async cancelAll(
+    marketSlug: string,
+    options: ResponseOptions
+  ): Promise<OrderCancellationResponse | SdkResponse<OrderCancellationResponse>>;
+  async cancelAll(
+    marketSlug: string,
+    options: ResponseOptions = {}
+  ): Promise<OrderCancellationResponse | SdkResponse<OrderCancellationResponse>> {
     this.logger.info('Cancelling all orders for market', { marketSlug });
 
-    const response = await this.httpClient.delete<{ message: string }>(`/orders/all/${marketSlug}`);
+    const endpoint = `/orders/all/${marketSlug}`;
+    if (options.withRawResponse) {
+      const rawResponse = await this.httpClient.delete<OrderCancellationResponse>(endpoint, {
+        withRawResponse: true,
+      });
+      this.logger.info('All orders cancellation response', {
+        marketSlug,
+        message: rawResponse.data.message,
+      });
+      return new SdkResponse(rawResponse.data, rawResponse);
+    }
+
+    const response = await this.httpClient.delete<OrderCancellationResponse>(endpoint);
 
     this.logger.info('All orders cancellation response', {
       marketSlug,

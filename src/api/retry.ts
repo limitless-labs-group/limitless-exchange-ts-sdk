@@ -24,6 +24,12 @@
  */
 
 import { APIError } from './errors';
+import type {
+  HttpDataResponseRequestConfig,
+  HttpRawResponse,
+  HttpRawResponseRequestConfig,
+  HttpRequestConfig,
+} from './http';
 import type { ILogger } from '../types/logger';
 import { NoOpLogger } from '../types/logger';
 
@@ -353,8 +359,14 @@ export class RetryableClient {
    * @param config - Additional request configuration
    * @returns Promise resolving to the response data
    */
-  async get<T = any>(url: string, config?: any): Promise<T> {
-    return withRetry(
+  async get<T = any>(
+    url: string,
+    config: HttpRawResponseRequestConfig
+  ): Promise<HttpRawResponse<T>>;
+  async get<T = any>(url: string, config?: HttpDataResponseRequestConfig): Promise<T>;
+  async get<T = any>(url: string, config: HttpRequestConfig): Promise<T | HttpRawResponse<T>>;
+  async get<T = any>(url: string, config?: HttpRequestConfig): Promise<T | HttpRawResponse<T>> {
+    return withRetry<T | HttpRawResponse<T>>(
       async () => this.httpClient.get(url, config),
       {
         statusCodes: Array.from(this.retryConfig.statusCodes),
@@ -376,8 +388,23 @@ export class RetryableClient {
    * @param config - Additional request configuration
    * @returns Promise resolving to the response data
    */
-  async post<T = any>(url: string, data?: any, config?: any): Promise<T> {
-    return withRetry(
+  async post<T = any>(
+    url: string,
+    data: any,
+    config: HttpRawResponseRequestConfig
+  ): Promise<HttpRawResponse<T>>;
+  async post<T = any>(url: string, data?: any, config?: HttpDataResponseRequestConfig): Promise<T>;
+  async post<T = any>(
+    url: string,
+    data: any,
+    config: HttpRequestConfig
+  ): Promise<T | HttpRawResponse<T>>;
+  async post<T = any>(
+    url: string,
+    data?: any,
+    config?: HttpRequestConfig
+  ): Promise<T | HttpRawResponse<T>> {
+    return withRetry<T | HttpRawResponse<T>>(
       async () => this.httpClient.post(url, data, config),
       {
         statusCodes: Array.from(this.retryConfig.statusCodes),
@@ -398,8 +425,14 @@ export class RetryableClient {
    * @param config - Additional request configuration
    * @returns Promise resolving to the response data
    */
-  async delete<T = any>(url: string, config?: any): Promise<T> {
-    return withRetry(
+  async delete<T = any>(
+    url: string,
+    config: HttpRawResponseRequestConfig
+  ): Promise<HttpRawResponse<T>>;
+  async delete<T = any>(url: string, config?: HttpDataResponseRequestConfig): Promise<T>;
+  async delete<T = any>(url: string, config: HttpRequestConfig): Promise<T | HttpRawResponse<T>>;
+  async delete<T = any>(url: string, config?: HttpRequestConfig): Promise<T | HttpRawResponse<T>> {
+    return withRetry<T | HttpRawResponse<T>>(
       async () => this.httpClient.delete(url, config),
       {
         statusCodes: Array.from(this.retryConfig.statusCodes),

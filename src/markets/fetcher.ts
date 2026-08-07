@@ -3,9 +3,16 @@
  * @module markets/fetcher
  */
 
-import { HttpClient } from '../api/http';
+import { HttpClient, type HttpRawResponse } from '../api/http';
+import {
+  SdkResponse,
+  type ResponseOptions,
+  type WithRawResponseOptions,
+  type WithoutRawResponseOptions,
+} from '../api/response';
 import { Market } from '../types/market-class';
 import type {
+  Market as MarketData,
   MarketsResponse,
   OrderBook,
   ActiveMarketsParams,
@@ -50,7 +57,6 @@ export class MarketFetcher {
     this.venueCache = new Map();
   }
 
-
   /**
    * Gets active markets with query parameters and pagination support.
    *
@@ -75,7 +81,22 @@ export class MarketFetcher {
    * });
    * ```
    */
-  async getActiveMarkets(params?: ActiveMarketsParams): Promise<ActiveMarketsResponse> {
+  async getActiveMarkets(
+    params: ActiveMarketsParams | undefined,
+    options: WithRawResponseOptions
+  ): Promise<SdkResponse<ActiveMarketsResponse>>;
+  async getActiveMarkets(
+    params?: ActiveMarketsParams,
+    options?: WithoutRawResponseOptions
+  ): Promise<ActiveMarketsResponse>;
+  async getActiveMarkets(
+    params: ActiveMarketsParams | undefined,
+    options: ResponseOptions
+  ): Promise<ActiveMarketsResponse | SdkResponse<ActiveMarketsResponse>>;
+  async getActiveMarkets(
+    params?: ActiveMarketsParams,
+    options: ResponseOptions = {}
+  ): Promise<ActiveMarketsResponse | SdkResponse<ActiveMarketsResponse>> {
     const queryParams = new URLSearchParams();
 
     if (params?.limit !== undefined) {
@@ -96,10 +117,17 @@ export class MarketFetcher {
     this.logger.debug('Fetching active markets', { params });
 
     try {
-      const response = await this.httpClient.get<any>(endpoint);
+      let rawResponse: HttpRawResponse<ActiveMarketsResponse> | undefined;
+      const response = options.withRawResponse
+        ? (rawResponse = await this.httpClient.get<ActiveMarketsResponse>(endpoint, {
+            withRawResponse: true,
+          })).data
+        : await this.httpClient.get<ActiveMarketsResponse>(endpoint);
 
       // Convert market data to Market instances with httpClient attached
-      const markets = response.data.map((marketData: any) => new Market(marketData, this.httpClient));
+      const markets = response.data.map(
+        (marketData: any) => new Market(marketData, this.httpClient)
+      );
 
       const result = {
         data: markets,
@@ -113,7 +141,7 @@ export class MarketFetcher {
         page: params?.page,
       });
 
-      return result;
+      return rawResponse ? new SdkResponse(result, rawResponse) : result;
     } catch (error) {
       this.logger.error('Failed to fetch active markets', error as Error, { params });
       throw error;
@@ -149,11 +177,28 @@ export class MarketFetcher {
    * });
    * ```
    */
-  async getMarket(slug: string): Promise<Market> {
+  async getMarket(
+    slug: string,
+    options: WithRawResponseOptions
+  ): Promise<SdkResponse<Market, MarketData>>;
+  async getMarket(slug: string, options?: WithoutRawResponseOptions): Promise<Market>;
+  async getMarket(
+    slug: string,
+    options: ResponseOptions
+  ): Promise<Market | SdkResponse<Market, MarketData>>;
+  async getMarket(
+    slug: string,
+    options: ResponseOptions = {}
+  ): Promise<Market | SdkResponse<Market, MarketData>> {
     this.logger.debug('Fetching market', { slug });
 
     try {
-      const response = await this.httpClient.get<any>(`/markets/${slug}`);
+      const endpoint = `/markets/${slug}`;
+      let rawResponse: HttpRawResponse<MarketData> | undefined;
+      const response = options.withRawResponse
+        ? (rawResponse = await this.httpClient.get<MarketData>(endpoint, { withRawResponse: true }))
+            .data
+        : await this.httpClient.get<MarketData>(endpoint);
 
       // Create Market instance with httpClient attached for fluent API
       const market = new Market(response, this.httpClient);
@@ -174,7 +219,7 @@ export class MarketFetcher {
         slug,
         title: market.title,
       });
-      return market;
+      return rawResponse ? new SdkResponse(market, rawResponse) : market;
     } catch (error) {
       this.logger.error('Failed to fetch market', error as Error, { slug });
       throw error;
@@ -227,13 +272,28 @@ export class MarketFetcher {
    * console.log(`Bids: ${orderbook.bids.length}, Asks: ${orderbook.asks.length}`);
    * ```
    */
-  async getOrderBook(slug: string): Promise<OrderBook> {
+  async getOrderBook(
+    slug: string,
+    options: WithRawResponseOptions
+  ): Promise<SdkResponse<OrderBook>>;
+  async getOrderBook(slug: string, options?: WithoutRawResponseOptions): Promise<OrderBook>;
+  async getOrderBook(
+    slug: string,
+    options: ResponseOptions
+  ): Promise<OrderBook | SdkResponse<OrderBook>>;
+  async getOrderBook(
+    slug: string,
+    options: ResponseOptions = {}
+  ): Promise<OrderBook | SdkResponse<OrderBook>> {
     this.logger.debug('Fetching orderbook', { slug });
 
     try {
-      const orderbook = await this.httpClient.get<OrderBook>(
-        `/markets/${slug}/orderbook`
-      );
+      const endpoint = `/markets/${slug}/orderbook`;
+      let rawResponse: HttpRawResponse<OrderBook> | undefined;
+      const orderbook = options.withRawResponse
+        ? (rawResponse = await this.httpClient.get<OrderBook>(endpoint, { withRawResponse: true }))
+            .data
+        : await this.httpClient.get<OrderBook>(endpoint);
 
       this.logger.info('Orderbook fetched successfully', {
         slug,
@@ -241,11 +301,10 @@ export class MarketFetcher {
         asks: orderbook.asks.length,
         tokenId: orderbook.tokenId,
       });
-      return orderbook;
+      return rawResponse ? new SdkResponse(orderbook, rawResponse) : orderbook;
     } catch (error) {
       this.logger.error('Failed to fetch orderbook', error as Error, { slug });
       throw error;
     }
   }
-
 }
