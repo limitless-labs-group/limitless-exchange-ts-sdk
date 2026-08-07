@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { OrderClient } from '../../src/orders/client';
-import { OrderType, Side } from '../../src/types/orders';
+import { CancelReplaceMode, OrderType, Side } from '../../src/types/orders';
 
 describe('OrderClient', () => {
   it('normalizes numeric-string createOrder fields for makerAmount, takerAmount, price, and safe salt', () => {
@@ -206,5 +206,80 @@ describe('OrderClient', () => {
     const [, payload] = httpClient.post.mock.calls[0];
     expect(payload.orderType).toBe(OrderType.FAK);
     expect(payload.postOnly).toBeUndefined();
+  });
+
+  it('builds and signs a direct cancel-replace replacement for the venue', async () => {
+    const httpClient = { post: vi.fn().mockResolvedValue({ cancel: {}, replacement: {} }) } as any;
+    const client = new OrderClient({
+      httpClient,
+      wallet: { address: '0x0000000000000000000000000000000000000001' } as any,
+    });
+    (client as any).cachedUserData = { userId: 42, feeRateBps: 300 };
+    (client as any).orderBuilder = { buildOrder: vi.fn().mockReturnValue({ tokenId: '123' }) };
+    (client as any).orderSigner = { signOrder: vi.fn().mockResolvedValue('0xsigned') };
+    (client as any).marketFetcher = {
+      getVenue: vi.fn().mockReturnValue({ exchange: '0x0000000000000000000000000000000000000002' }),
+    };
+
+    await client.cancelReplace({
+      cancel: { clientOrderId: 'old-client-id' },
+      mode: CancelReplaceMode.ALLOW_FAILURE,
+      replacement: {
+        tokenId: '123',
+        side: Side.BUY,
+        price: 0.5,
+        size: 2,
+        orderType: OrderType.GTC,
+        marketSlug: 'market',
+        clientOrderId: 'new-client-id',
+        timestamp: 1000,
+        recvWindow: 500,
+        stpPolicy: 'cancel_taker',
+        postOnly: true,
+      },
+    });
+
+    const [path, body, config] = httpClient.post.mock.calls[0];
+    const payload = JSON.parse(body);
+    expect(path).toBe('/orders/cancel-replace');
+    expect(payload.cancel).toEqual({ clientOrderId: 'old-client-id' });
+    expect(payload.replacement).toMatchObject({
+      ownerId: 42,
+      clientOrderId: 'new-client-id',
+      timestamp: 1000,
+      recvWindow: 500,
+      stpPolicy: 'cancel_taker',
+      postOnly: true,
+      order: { tokenId: '123', signature: '0xsigned' },
+    });
+    expect(payload.replacement.onBehalfOf).toBeUndefined();
+    expect((client as any).orderSigner.signOrder).toHaveBeenCalledWith(
+      { tokenId: '123' },
+      expect.objectContaining({ contractAddress: '0x0000000000000000000000000000000000000002' })
+    );
+    expect(config.validateStatus(409)).toBe(true);
+    expect(config.validateStatus(400)).toBe(false);
+  });
+
+  it('posts direct cancel-replace batches without imposing a local maximum', async () => {
+    const httpClient = { post: vi.fn().mockResolvedValue({ results: [] }) } as any;
+    const client = new OrderClient({ httpClient, wallet: { address: '0x1' } as any });
+    (client as any).buildCancelReplaceReplacement = vi.fn().mockResolvedValue({ order: {} });
+    const operation = {
+      cancel: { orderId: 'old' },
+      mode: CancelReplaceMode.STOP_ON_FAILURE,
+      replacement: {
+        tokenId: '1',
+        side: Side.BUY,
+        makerAmount: 1,
+        orderType: OrderType.FOK,
+        marketSlug: 'm',
+      },
+    } as const;
+
+    await client.cancelReplaceBatch({ operations: Array.from({ length: 5 }, () => operation) });
+
+    expect(httpClient.post.mock.calls[0][0]).toBe('/orders/cancel-replace/batch');
+    expect(JSON.parse(httpClient.post.mock.calls[0][1]).operations).toHaveLength(5);
   });
 });

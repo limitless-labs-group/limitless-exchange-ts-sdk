@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { DelegatedOrderService } from '../../src/delegated-orders/service';
-import { OrderType, Side } from '../../src/types/orders';
+import { CancelReplaceMode, OrderType, Side } from '../../src/types/orders';
 import type { HttpClient } from '../../src/api/http';
 
 describe('DelegatedOrderService', () => {
@@ -45,7 +45,9 @@ describe('DelegatedOrderService', () => {
     const message = await service.cancelAllOnBehalfOf('market-slug', 326);
 
     expect(message).toBe('Orders canceled successfully');
-    expect((httpClient as any).delete).toHaveBeenCalledWith('/orders/all/market-slug?onBehalfOf=326');
+    expect((httpClient as any).delete).toHaveBeenCalledWith(
+      '/orders/all/market-slug?onBehalfOf=326'
+    );
   });
 
   it('omits postOnly for FAK delegated orders before submitting to the API', async () => {
@@ -72,5 +74,38 @@ describe('DelegatedOrderService', () => {
     const [, payload] = (httpClient as any).post.mock.calls[0];
     expect(payload.orderType).toBe(OrderType.FAK);
     expect(payload.postOnly).toBeUndefined();
+  });
+
+  it('builds delegated cancel-replace with operation-level onBehalfOf and no signature', async () => {
+    const httpClient = {
+      requireAuth: vi.fn(),
+      post: vi.fn().mockResolvedValue({ cancel: {}, replacement: {} }),
+    } as unknown as HttpClient;
+    const service = new DelegatedOrderService(httpClient);
+
+    await service.cancelReplace({
+      cancel: { orderId: 'old-order' },
+      mode: CancelReplaceMode.STOP_ON_FAILURE,
+      onBehalfOf: 326,
+      replacement: {
+        tokenId: '123',
+        side: Side.BUY,
+        price: 0.55,
+        size: 10,
+        orderType: OrderType.GTC,
+        marketSlug: 'market',
+        clientOrderId: 'replacement',
+      },
+    });
+
+    const [path, body, config] = (httpClient as any).post.mock.calls[0];
+    const payload = JSON.parse(body);
+    expect(path).toBe('/orders/cancel-replace');
+    expect(payload.onBehalfOf).toBe(326);
+    expect(payload.replacement.ownerId).toBe(326);
+    expect(payload.replacement.onBehalfOf).toBeUndefined();
+    expect(payload.replacement.order.signature).toBeUndefined();
+    expect(config.validateStatus(409)).toBe(true);
+    expect(config.validateStatus(400)).toBe(false);
   });
 });
