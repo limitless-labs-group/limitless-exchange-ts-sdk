@@ -539,6 +539,10 @@ export interface Execution {
    */
   matched: boolean;
 
+  reason?: string;
+
+  stpMakerCancels?: string[];
+
   /**
    * Settlement state of the order.
    *
@@ -614,4 +618,94 @@ export interface OrderSigningConfig {
    * Contract address for verification (from venue.exchange)
    */
   contractAddress: string;
+}
+
+export enum CancelReplaceMode {
+  ALLOW_FAILURE = 'ALLOW_FAILURE',
+  STOP_ON_FAILURE = 'STOP_ON_FAILURE',
+}
+
+export type StpPolicy = 'cancel_maker' | 'cancel_taker' | 'cancel_both';
+
+export type CancelReplaceTarget =
+  | { orderId: string; clientOrderId?: never }
+  | { clientOrderId: string; orderId?: never };
+
+export interface CancelReplaceOrderSubmission extends Omit<SignedOrder, 'signatureType'> {
+  signatureType: SignatureType | 3;
+}
+
+export interface CancelReplaceReplacementRequest {
+  order: CancelReplaceOrderSubmission;
+  orderType: OrderType;
+  marketSlug: string;
+  ownerId: number;
+  postOnly?: boolean;
+  clientOrderId?: string;
+  timestamp?: number;
+  recvWindow?: number;
+  stpPolicy?: StpPolicy;
+  onBehalfOf?: never;
+}
+
+export interface CancelReplaceRequest {
+  cancel: CancelReplaceTarget;
+  replacement: CancelReplaceReplacementRequest;
+  mode: CancelReplaceMode;
+  onBehalfOf?: number;
+}
+
+export interface CancelReplaceBatchRequest {
+  operations: CancelReplaceRequest[];
+}
+
+export interface CancelReplaceError {
+  code: string;
+  message: string;
+}
+
+export type CancelReplaceCancelResult =
+  | { status: 'SUCCESS'; orderId: string; clientOrderId?: string; error?: never }
+  | {
+      status: 'FAILURE' | 'UNKNOWN';
+      error: CancelReplaceError;
+      orderId?: never;
+      clientOrderId?: never;
+    };
+
+export type CancelReplaceReplacementResult =
+  | { status: 'SUCCESS'; data: OrderResponse & { execution: Execution }; error?: never }
+  | { status: 'FAILURE' | 'UNKNOWN'; error: CancelReplaceError; data?: never }
+  | { status: 'NOT_ATTEMPTED'; data?: never; error?: never };
+
+export interface CancelReplaceResponse {
+  cancel: CancelReplaceCancelResult;
+  replacement: CancelReplaceReplacementResult;
+}
+
+export type CancelReplaceBatchResult = CancelReplaceResponse & { index: number };
+
+export interface CancelReplaceBatchResponse {
+  results: CancelReplaceBatchResult[];
+}
+
+export type CancelReplaceReplacementParams = OrderArgs & {
+  orderType: OrderType;
+  marketSlug: string;
+  clientOrderId?: string;
+  timestamp?: number;
+  recvWindow?: number;
+  stpPolicy?: StpPolicy;
+  onBehalfOf?: never;
+};
+
+export interface CancelReplaceParams {
+  cancel: CancelReplaceTarget;
+  replacement: CancelReplaceReplacementParams;
+  mode: CancelReplaceMode;
+  onBehalfOf?: never;
+}
+
+export interface CancelReplaceBatchParams {
+  operations: CancelReplaceParams[];
 }

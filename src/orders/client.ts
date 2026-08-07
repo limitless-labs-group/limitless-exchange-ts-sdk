@@ -7,6 +7,12 @@ import type { HttpClient } from '../api/http';
 import type { ILogger } from '../types/logger';
 import { NoOpLogger } from '../types/logger';
 import type {
+  CancelReplaceBatchParams,
+  CancelReplaceBatchResponse,
+  CancelReplaceParams,
+  CancelReplaceReplacementParams,
+  CancelReplaceReplacementRequest,
+  CancelReplaceResponse,
   NewOrderPayload,
   OrderResponse,
   OrderArgs,
@@ -311,9 +317,7 @@ export class OrderClient {
 
     // Step 3: Prepare payload for API
     const postOnly =
-      params.orderType === OrderType.GTC &&
-      'postOnly' in params &&
-      params.postOnly !== undefined
+      params.orderType === OrderType.GTC && 'postOnly' in params && params.postOnly !== undefined
         ? params.postOnly
         : undefined;
 
@@ -338,6 +342,66 @@ export class OrderClient {
 
     // Step 5: Transform API response to clean DTO
     return this.transformOrderResponse(apiResponse);
+  }
+
+  async cancelReplace(params: CancelReplaceParams): Promise<CancelReplaceResponse> {
+    const payload = {
+      cancel: params.cancel,
+      replacement: await this.buildCancelReplaceReplacement(params.replacement),
+      mode: params.mode,
+    };
+    const body = JSON.stringify(payload);
+
+    return this.httpClient.post<CancelReplaceResponse>('/orders/cancel-replace', body, {
+      validateStatus: (status) => (status >= 200 && status < 300) || status === 409,
+    });
+  }
+
+  async cancelReplaceBatch(params: CancelReplaceBatchParams): Promise<CancelReplaceBatchResponse> {
+    const operations = await Promise.all(
+      params.operations.map(async (operation) => ({
+        cancel: operation.cancel,
+        replacement: await this.buildCancelReplaceReplacement(operation.replacement),
+        mode: operation.mode,
+      }))
+    );
+    const body = JSON.stringify({ operations });
+
+    return this.httpClient.post<CancelReplaceBatchResponse>('/orders/cancel-replace/batch', body);
+  }
+
+  private async buildCancelReplaceReplacement(
+    params: CancelReplaceReplacementParams
+  ): Promise<CancelReplaceReplacementRequest> {
+    const userData = await this.ensureUserData();
+    let venue = this.marketFetcher.getVenue(params.marketSlug);
+    if (!venue) {
+      const market = await this.marketFetcher.getMarket(params.marketSlug);
+      if (!market.venue) {
+        throw new Error(`Market ${params.marketSlug} does not have venue information.`);
+      }
+      venue = market.venue;
+    }
+
+    const unsignedOrder = this.orderBuilder!.buildOrder(params);
+    const signature = await this.orderSigner.signOrder(unsignedOrder, {
+      ...this.signingConfig,
+      contractAddress: venue.exchange,
+    });
+    const postOnly =
+      params.orderType === OrderType.GTC && 'postOnly' in params ? params.postOnly : undefined;
+
+    return {
+      order: { ...unsignedOrder, signature },
+      orderType: params.orderType,
+      marketSlug: params.marketSlug,
+      ownerId: userData.userId,
+      ...(postOnly !== undefined ? { postOnly } : {}),
+      ...(params.clientOrderId !== undefined ? { clientOrderId: params.clientOrderId } : {}),
+      ...(params.timestamp !== undefined ? { timestamp: params.timestamp } : {}),
+      ...(params.recvWindow !== undefined ? { recvWindow: params.recvWindow } : {}),
+      ...(params.stpPolicy !== undefined ? { stpPolicy: params.stpPolicy } : {}),
+    };
   }
 
   /**
@@ -369,7 +433,10 @@ export class OrderClient {
         nonce: order.nonce,
         signature: order.signature,
         orderType: order.orderType,
-        price: order.price === undefined || order.price === null ? order.price : toFiniteNumber(order.price) ?? order.price,
+        price:
+          order.price === undefined || order.price === null
+            ? order.price
+            : (toFiniteNumber(order.price) ?? order.price),
         marketId: order.marketId,
       },
     };

@@ -11,6 +11,36 @@ function normalizeHeaders(headers: any): Record<string, string> {
 }
 
 describe('HttpClient HMAC auth', () => {
+  it('signs and transmits the exact pre-serialized cancel-replace body', async () => {
+    const secret = Buffer.from('test-secret').toString('base64');
+    const client = new HttpClient({
+      baseURL: 'https://api.limitless.exchange',
+      hmacCredentials: { tokenId: 'token-1', secret },
+    });
+    let capturedConfig: any;
+    (client as any).client.defaults.adapter = async (config: any) => {
+      capturedConfig = config;
+      return { data: { ok: true }, status: 409, statusText: 'Conflict', headers: {}, config };
+    };
+    const body = '{"replacement":{"clientOrderId":"exact"},"cancel":{"orderId":"old"}}';
+
+    await client.post('/orders/cancel-replace', body, {
+      validateStatus: (status) => status === 409,
+    });
+
+    const headers = normalizeHeaders(capturedConfig.headers);
+    expect(capturedConfig.data).toBe(body);
+    expect(headers['lmts-signature']).toBe(
+      computeHMACSignature(
+        secret,
+        headers['lmts-timestamp'],
+        'POST',
+        '/orders/cancel-replace',
+        body
+      )
+    );
+  });
+
   it('injects HMAC headers and suppresses X-API-Key when HMAC is configured', async () => {
     const secret = Buffer.from('test-secret').toString('base64');
     const client = new HttpClient({
