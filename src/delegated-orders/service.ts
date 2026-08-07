@@ -11,8 +11,13 @@ import {
   type CancelResponse,
   type CreateDelegatedOrderParams,
   type CreateDelegatedOrderRequest,
+  type DelegatedCancelReplaceBatchParams,
+  type DelegatedCancelReplaceParams,
+  type DelegatedCancelReplaceReplacementParams,
+  type DelegatedCancelReplaceReplacementRequest,
   type DelegatedOrderResponse,
 } from '../types/delegated-orders';
+import type { CancelReplaceBatchResponse, CancelReplaceResponse } from '../types/orders';
 import { OrderType, SignatureType } from '../types/orders';
 import type { ILogger } from '../types/logger';
 import { NoOpLogger } from '../types/logger';
@@ -130,6 +135,74 @@ export class DelegatedOrderService {
     }
     const response = await this.httpClient.delete<CancelResponse>(endpoint);
     return response.message;
+  }
+
+  async cancelReplace(params: DelegatedCancelReplaceParams): Promise<CancelReplaceResponse> {
+    this.httpClient.requireAuth('cancelReplaceDelegatedOrder');
+    this.assertOnBehalfOf(params.onBehalfOf);
+    const payload = {
+      cancel: params.cancel,
+      replacement: this.buildCancelReplaceReplacement(params.replacement, params.onBehalfOf),
+      mode: params.mode,
+      onBehalfOf: params.onBehalfOf,
+    };
+    const body = JSON.stringify(payload);
+
+    return this.httpClient.post<CancelReplaceResponse>('/orders/cancel-replace', body, {
+      validateStatus: (status) => (status >= 200 && status < 300) || status === 409,
+    });
+  }
+
+  async cancelReplaceBatch(
+    params: DelegatedCancelReplaceBatchParams
+  ): Promise<CancelReplaceBatchResponse> {
+    this.httpClient.requireAuth('cancelReplaceDelegatedOrderBatch');
+    const operations = params.operations.map((operation) => {
+      this.assertOnBehalfOf(operation.onBehalfOf);
+      return {
+        cancel: operation.cancel,
+        replacement: this.buildCancelReplaceReplacement(
+          operation.replacement,
+          operation.onBehalfOf
+        ),
+        mode: operation.mode,
+        onBehalfOf: operation.onBehalfOf,
+      };
+    });
+    const body = JSON.stringify({ operations });
+
+    return this.httpClient.post<CancelReplaceBatchResponse>('/orders/cancel-replace/batch', body);
+  }
+
+  private buildCancelReplaceReplacement(
+    params: DelegatedCancelReplaceReplacementParams,
+    onBehalfOf: number
+  ): DelegatedCancelReplaceReplacementRequest {
+    const feeRateBps =
+      params.feeRateBps && params.feeRateBps > 0
+        ? params.feeRateBps
+        : DEFAULT_DELEGATED_FEE_RATE_BPS;
+    const unsignedOrder = new OrderBuilder(ZERO_ADDRESS, feeRateBps).buildOrder(params);
+    const postOnly =
+      params.orderType === OrderType.GTC && 'postOnly' in params ? params.postOnly : undefined;
+
+    return {
+      order: unsignedOrder,
+      orderType: params.orderType,
+      marketSlug: params.marketSlug,
+      ownerId: onBehalfOf,
+      ...(postOnly !== undefined ? { postOnly } : {}),
+      ...(params.clientOrderId !== undefined ? { clientOrderId: params.clientOrderId } : {}),
+      ...(params.timestamp !== undefined ? { timestamp: params.timestamp } : {}),
+      ...(params.recvWindow !== undefined ? { recvWindow: params.recvWindow } : {}),
+      ...(params.stpPolicy !== undefined ? { stpPolicy: params.stpPolicy } : {}),
+    };
+  }
+
+  private assertOnBehalfOf(onBehalfOf: number): void {
+    if (!Number.isInteger(onBehalfOf) || onBehalfOf <= 0) {
+      throw new Error('onBehalfOf must be a positive integer');
+    }
   }
 
   async cancelOnBehalfOf(
