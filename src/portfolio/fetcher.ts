@@ -100,6 +100,9 @@ export class PortfolioFetcher {
   /**
    * Gets raw portfolio positions response from API.
    *
+   * @param onBehalfOf - Optional sub-account profile id. Partner tokens with the
+   * `delegated_signing` scope can read a sub-account's positions via the
+   * `x-on-behalf-of` header. Omit to read the authenticated caller's own positions.
    * @returns Promise resolving to portfolio positions response with CLOB and AMM positions
    * @throws Error if API request fails or user is not authenticated
    *
@@ -111,12 +114,28 @@ export class PortfolioFetcher {
    * console.log(`Total points: ${response.accumulativePoints}`);
    * ```
    */
-  async getPositions(): Promise<PortfolioPositionsResponse> {
-    this.logger.debug('Fetching user positions');
+  /**
+   * Builds the request config for a delegated (partner on-behalf-of) read.
+   * Partners with the `delegated_signing` scope can read a sub-account's data by
+   * sending the `x-on-behalf-of` header. The HMAC signature covers only
+   * timestamp/method/path/body, so this extra header does not affect auth.
+   */
+  private onBehalfOfConfig(onBehalfOf?: number): { headers: Record<string, string> } | undefined {
+    if (onBehalfOf === undefined) return undefined;
+    if (!Number.isInteger(onBehalfOf) || onBehalfOf <= 0) {
+      throw new Error('onBehalfOf must be a positive integer');
+    }
+    return { headers: { 'x-on-behalf-of': String(onBehalfOf) } };
+  }
+
+  async getPositions(onBehalfOf?: number): Promise<PortfolioPositionsResponse> {
+    this.logger.debug('Fetching user positions', { onBehalfOf });
 
     try {
-      const response =
-        await this.httpClient.get<PortfolioPositionsResponse>('/portfolio/positions');
+      const response = await this.httpClient.get<PortfolioPositionsResponse>(
+        '/portfolio/positions',
+        this.onBehalfOfConfig(onBehalfOf)
+      );
 
       this.logger.info('Positions fetched successfully', {
         clobCount: response.clob?.length || 0,
@@ -144,8 +163,8 @@ export class PortfolioFetcher {
    * });
    * ```
    */
-  async getCLOBPositions(): Promise<CLOBPosition[]> {
-    const response = await this.getPositions();
+  async getCLOBPositions(onBehalfOf?: number): Promise<CLOBPosition[]> {
+    const response = await this.getPositions(onBehalfOf);
     return response.clob || [];
   }
 
@@ -163,8 +182,8 @@ export class PortfolioFetcher {
    * });
    * ```
    */
-  async getAMMPositions(): Promise<AMMPosition[]> {
-    const response = await this.getPositions();
+  async getAMMPositions(onBehalfOf?: number): Promise<AMMPosition[]> {
+    const response = await this.getPositions(onBehalfOf);
     return response.amm || [];
   }
 
@@ -175,6 +194,7 @@ export class PortfolioFetcher {
    *
    * @param cursor - Opaque cursor for pagination. Omit it or pass an empty string for the first page.
    * @param limit - Number of items per page
+   * @param onBehalfOf - Optional sub-account profile id (partner `delegated_signing` scope).
    * @returns Promise resolving to cursor-paginated history response
    * @throws Error if API request fails or user is not authenticated
    *
@@ -196,8 +216,12 @@ export class PortfolioFetcher {
    * }
    * ```
    */
-  async getUserHistory(cursor?: string, limit: number = 20): Promise<HistoryResponse> {
-    this.logger.debug('Fetching user history', { cursor, limit });
+  async getUserHistory(
+    cursor?: string,
+    limit: number = 20,
+    onBehalfOf?: number
+  ): Promise<HistoryResponse> {
+    this.logger.debug('Fetching user history', { cursor, limit, onBehalfOf });
 
     try {
       // Always send cursor=, using an empty value on the first page.
@@ -207,7 +231,8 @@ export class PortfolioFetcher {
       });
 
       const response = await this.httpClient.get<HistoryResponse>(
-        `/portfolio/history?${params.toString()}`
+        `/portfolio/history?${params.toString()}`,
+        this.onBehalfOfConfig(onBehalfOf)
       );
 
       this.logger.info('User history fetched successfully');
