@@ -605,6 +605,27 @@ export interface OrderResponse {
 }
 
 /**
+ * Original create-order response body before the SDK normalizes order fields.
+ *
+ * @public
+ */
+export interface RawOrderResponse {
+  order: Record<string, any>;
+  makerMatches?: Array<Record<string, any>>;
+  execution?: Execution;
+  [key: string]: unknown;
+}
+
+/**
+ * Response body returned by order cancellation endpoints.
+ *
+ * @public
+ */
+export interface OrderCancellationResponse {
+  message: string;
+}
+
+/**
  * Order signing configuration.
  * @public
  */

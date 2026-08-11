@@ -10,7 +10,16 @@ import http from 'http';
 import https from 'https';
 import { DEFAULT_API_URL } from '../utils/constants';
 import { buildSdkTrackingHeaders } from '../utils/sdk-tracking';
-import { APIError, RateLimitError, AuthenticationError, ValidationError } from './errors';
+import {
+  APIError,
+  RateLimitError,
+  AuthenticationError,
+  ValidationError,
+  ConflictError,
+  UnprocessableEntityError,
+  TooEarlyError,
+  UpstreamUnavailableError,
+} from './errors';
 import type { ILogger } from '../types/logger';
 import { NoOpLogger } from '../types/logger';
 import type { HMACCredentials } from '../types/api-tokens';
@@ -135,6 +144,26 @@ export interface HttpRawResponse<T = any> {
 }
 
 /**
+ * Axios request configuration extended with SDK response-mode selection.
+ *
+ * @public
+ */
+export interface HttpRequestConfig extends AxiosRequestConfig {
+  /** Return status, headers, and data instead of unwrapping the response body. */
+  withRawResponse?: boolean;
+}
+
+/** @public */
+export interface HttpRawResponseRequestConfig extends HttpRequestConfig {
+  withRawResponse: true;
+}
+
+/** @public */
+export interface HttpDataResponseRequestConfig extends HttpRequestConfig {
+  withRawResponse?: false;
+}
+
+/**
  * HTTP client wrapper for Limitless Exchange API.
  *
  * @remarks
@@ -167,7 +196,7 @@ export class HttpClient {
     if (!this.apiKey && !this.hmacCredentials) {
       this.logger.warn(
         'Authentication not set. Authenticated endpoints will fail. ' +
-        'Set LIMITLESS_API_KEY environment variable, pass apiKey, or configure hmacCredentials.'
+          'Set LIMITLESS_API_KEY environment variable, pass apiKey, or configure hmacCredentials.'
       );
     }
 
@@ -223,7 +252,10 @@ export class HttpClient {
   private setupInterceptors(): void {
     this.client.interceptors.request.use(
       (rawConfig: InternalAxiosRequestConfig & { identityToken?: string }) => {
-        const config = rawConfig as InternalAxiosRequestConfig & { identityToken?: string; headers: any };
+        const config = rawConfig as InternalAxiosRequestConfig & {
+          identityToken?: string;
+          headers: any;
+        };
         const headers = (config.headers ||= {});
         const identityToken = config.identityToken;
 
@@ -244,7 +276,7 @@ export class HttpClient {
             timestamp,
             config.method || 'GET',
             requestPath,
-            requestBody,
+            requestBody
           );
 
           (headers as any)['lmts-api-key'] = this.hmacCredentials.tokenId;
@@ -333,6 +365,14 @@ export class HttpClient {
             throw new AuthenticationError(message, status, data, url, method);
           } else if (status === 400) {
             throw new ValidationError(message, status, data, url, method);
+          } else if (status === 409) {
+            throw new ConflictError(message, status, data, url, method);
+          } else if (status === 422) {
+            throw new UnprocessableEntityError(message, status, data, url, method);
+          } else if (status === 425) {
+            throw new TooEarlyError(message, status, data, url, method);
+          } else if (status === 502 || status === 503) {
+            throw new UpstreamUnavailableError(message, status, data, url, method);
           } else {
             throw new APIError(message, status, data, url, method);
           }
@@ -370,7 +410,13 @@ export class HttpClient {
         return messages || data.error || JSON.stringify(data);
       }
 
-      return data.message || data.error || data.msg || (data.errors && JSON.stringify(data.errors)) || JSON.stringify(data);
+      return (
+        data.message ||
+        data.error ||
+        data.msg ||
+        (data.errors && JSON.stringify(data.errors)) ||
+        JSON.stringify(data)
+      );
     }
 
     return String(data);
@@ -380,7 +426,13 @@ export class HttpClient {
    * Creates a typed API error class from status code.
    * @internal
    */
-  private createTypedApiError(status: number, message: string, data: any, url?: string, method?: string): APIError {
+  private createTypedApiError(
+    status: number,
+    message: string,
+    data: any,
+    url?: string,
+    method?: string
+  ): APIError {
     if (status === 429) {
       return new RateLimitError(message, status, data, url, method);
     }
@@ -391,6 +443,22 @@ export class HttpClient {
 
     if (status === 400) {
       return new ValidationError(message, status, data, url, method);
+    }
+
+    if (status === 409) {
+      return new ConflictError(message, status, data, url, method);
+    }
+
+    if (status === 422) {
+      return new UnprocessableEntityError(message, status, data, url, method);
+    }
+
+    if (status === 425) {
+      return new TooEarlyError(message, status, data, url, method);
+    }
+
+    if (status === 502 || status === 503) {
+      return new UpstreamUnavailableError(message, status, data, url, method);
     }
 
     return new APIError(message, status, data, url, method);
@@ -498,8 +566,47 @@ export class HttpClient {
     }
 
     throw new Error(
-      `Authentication is required for ${operation}; pass apiKey, hmacCredentials, cookie/auth headers, or set LIMITLESS_API_KEY.`,
+      `Authentication is required for ${operation}; pass apiKey, hmacCredentials, cookie/auth headers, or set LIMITLESS_API_KEY.`
     );
+  }
+
+  private prepareRequestConfig(config?: HttpRequestConfig): {
+    axiosConfig: AxiosRequestConfig | undefined;
+    withRawResponse: boolean;
+  } {
+    if (!config) {
+      return { axiosConfig: undefined, withRawResponse: false };
+    }
+
+    const { withRawResponse = false, ...axiosConfig } = config;
+    return { axiosConfig, withRawResponse };
+  }
+
+  private resolveResponse<T>(
+    response: AxiosResponse<T>,
+    url: string,
+    method: string,
+    withRawResponse: boolean
+  ): T | HttpRawResponse<T> {
+    // Preserve the SDK's typed error behavior when a raw caller supplies a
+    // validateStatus callback that accepts an HTTP error response.
+    if (withRawResponse && response.status >= 400) {
+      const message = this.extractErrorMessage(
+        response.data,
+        `Request failed with status ${response.status}`
+      );
+      throw this.createTypedApiError(response.status, message, response.data, url, method);
+    }
+
+    if (!withRawResponse) {
+      return response.data;
+    }
+
+    return {
+      status: response.status,
+      headers: response.headers,
+      data: response.data,
+    };
   }
 
   /**
@@ -509,20 +616,47 @@ export class HttpClient {
    * @param config - Additional request configuration
    * @returns Promise resolving to the response data
    */
-  async get<T = any>(url: string, config?: AxiosRequestConfig): Promise<T> {
-    const response: AxiosResponse<T> = await this.client.get(url, config);
-    return response.data;
+  async get<T = any>(
+    url: string,
+    config: HttpRawResponseRequestConfig
+  ): Promise<HttpRawResponse<T>>;
+  async get<T = any>(url: string, config?: HttpDataResponseRequestConfig): Promise<T>;
+  async get<T = any>(url: string, config: HttpRequestConfig): Promise<T | HttpRawResponse<T>>;
+  async get<T = any>(url: string, config?: HttpRequestConfig): Promise<T | HttpRawResponse<T>> {
+    const prepared = this.prepareRequestConfig(config);
+    const response: AxiosResponse<T> = await this.client.get(url, prepared.axiosConfig);
+    return this.resolveResponse(response, url, 'GET', prepared.withRawResponse);
   }
 
   /**
    * Performs a GET request with identity-token authentication.
    */
-  async getWithIdentity<T = any>(url: string, identityToken: string, config?: AxiosRequestConfig): Promise<T> {
+  async getWithIdentity<T = any>(
+    url: string,
+    identityToken: string,
+    config: HttpRawResponseRequestConfig
+  ): Promise<HttpRawResponse<T>>;
+  async getWithIdentity<T = any>(
+    url: string,
+    identityToken: string,
+    config?: HttpDataResponseRequestConfig
+  ): Promise<T>;
+  async getWithIdentity<T = any>(
+    url: string,
+    identityToken: string,
+    config: HttpRequestConfig
+  ): Promise<T | HttpRawResponse<T>>;
+  async getWithIdentity<T = any>(
+    url: string,
+    identityToken: string,
+    config?: HttpRequestConfig
+  ): Promise<T | HttpRawResponse<T>> {
+    const prepared = this.prepareRequestConfig(config);
     const response: AxiosResponse<T> = await this.client.get(url, {
-      ...config,
+      ...prepared.axiosConfig,
       identityToken,
     } as AxiosRequestConfig & { identityToken: string });
-    return response.data;
+    return this.resolveResponse(response, url, 'GET', prepared.withRawResponse);
   }
 
   /**
@@ -536,20 +670,7 @@ export class HttpClient {
    * @returns Promise resolving to status, headers, and response data
    */
   async getRaw<T = any>(url: string, config?: AxiosRequestConfig): Promise<HttpRawResponse<T>> {
-    const response: AxiosResponse<T> = await this.client.get(url, config);
-
-    // Guard against callers allowing 4xx/5xx through custom validateStatus.
-    // getRaw should preserve normal typed API error behavior for error responses.
-    if (response.status >= 400) {
-      const message = this.extractErrorMessage(response.data, `Request failed with status ${response.status}`);
-      throw this.createTypedApiError(response.status, message, response.data, url, 'GET');
-    }
-
-    return {
-      status: response.status,
-      headers: response.headers,
-      data: response.data,
-    };
+    return this.get<T>(url, { ...config, withRawResponse: true });
   }
 
   /**
@@ -560,9 +681,25 @@ export class HttpClient {
    * @param config - Additional request configuration
    * @returns Promise resolving to the response data
    */
-  async post<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> {
-    const response: AxiosResponse<T> = await this.client.post(url, data, config);
-    return response.data;
+  async post<T = any>(
+    url: string,
+    data: any,
+    config: HttpRawResponseRequestConfig
+  ): Promise<HttpRawResponse<T>>;
+  async post<T = any>(url: string, data?: any, config?: HttpDataResponseRequestConfig): Promise<T>;
+  async post<T = any>(
+    url: string,
+    data: any,
+    config: HttpRequestConfig
+  ): Promise<T | HttpRawResponse<T>>;
+  async post<T = any>(
+    url: string,
+    data?: any,
+    config?: HttpRequestConfig
+  ): Promise<T | HttpRawResponse<T>> {
+    const prepared = this.prepareRequestConfig(config);
+    const response: AxiosResponse<T> = await this.client.post(url, data, prepared.axiosConfig);
+    return this.resolveResponse(response, url, 'POST', prepared.withRawResponse);
   }
 
   /**
@@ -571,14 +708,33 @@ export class HttpClient {
   async postWithIdentity<T = any>(
     url: string,
     identityToken: string,
+    data: any,
+    config: HttpRawResponseRequestConfig
+  ): Promise<HttpRawResponse<T>>;
+  async postWithIdentity<T = any>(
+    url: string,
+    identityToken: string,
     data?: any,
-    config?: AxiosRequestConfig,
-  ): Promise<T> {
+    config?: HttpDataResponseRequestConfig
+  ): Promise<T>;
+  async postWithIdentity<T = any>(
+    url: string,
+    identityToken: string,
+    data: any,
+    config: HttpRequestConfig
+  ): Promise<T | HttpRawResponse<T>>;
+  async postWithIdentity<T = any>(
+    url: string,
+    identityToken: string,
+    data?: any,
+    config?: HttpRequestConfig
+  ): Promise<T | HttpRawResponse<T>> {
+    const prepared = this.prepareRequestConfig(config);
     const response: AxiosResponse<T> = await this.client.post(url, data, {
-      ...config,
+      ...prepared.axiosConfig,
       identityToken,
     } as AxiosRequestConfig & { identityToken: string });
-    return response.data;
+    return this.resolveResponse(response, url, 'POST', prepared.withRawResponse);
   }
 
   /**
@@ -587,17 +743,33 @@ export class HttpClient {
   async deleteWithIdentity<T = any>(
     url: string,
     identityToken: string,
-    config?: AxiosRequestConfig,
-  ): Promise<T> {
+    config: HttpRawResponseRequestConfig
+  ): Promise<HttpRawResponse<T>>;
+  async deleteWithIdentity<T = any>(
+    url: string,
+    identityToken: string,
+    config?: HttpDataResponseRequestConfig
+  ): Promise<T>;
+  async deleteWithIdentity<T = any>(
+    url: string,
+    identityToken: string,
+    config: HttpRequestConfig
+  ): Promise<T | HttpRawResponse<T>>;
+  async deleteWithIdentity<T = any>(
+    url: string,
+    identityToken: string,
+    config?: HttpRequestConfig
+  ): Promise<T | HttpRawResponse<T>> {
+    const prepared = this.prepareRequestConfig(config);
     const response: AxiosResponse<T> = await this.client.delete(url, {
-      ...config,
+      ...prepared.axiosConfig,
       identityToken,
       headers: {
-        ...config?.headers,
+        ...prepared.axiosConfig?.headers,
         'Content-Type': undefined,
       },
     } as AxiosRequestConfig & { identityToken: string });
-    return response.data;
+    return this.resolveResponse(response, url, 'DELETE', prepared.withRawResponse);
   }
 
   /**
@@ -605,26 +777,61 @@ export class HttpClient {
    */
   async postWithHeaders<T = any>(
     url: string,
+    data: any,
+    headers: Record<string, string> | undefined,
+    config: HttpRawResponseRequestConfig
+  ): Promise<HttpRawResponse<T>>;
+  async postWithHeaders<T = any>(
+    url: string,
     data?: any,
     headers?: Record<string, string>,
-    config?: AxiosRequestConfig,
-  ): Promise<T> {
+    config?: HttpDataResponseRequestConfig
+  ): Promise<T>;
+  async postWithHeaders<T = any>(
+    url: string,
+    data: any,
+    headers: Record<string, string> | undefined,
+    config: HttpRequestConfig
+  ): Promise<T | HttpRawResponse<T>>;
+  async postWithHeaders<T = any>(
+    url: string,
+    data?: any,
+    headers?: Record<string, string>,
+    config?: HttpRequestConfig
+  ): Promise<T | HttpRawResponse<T>> {
+    const prepared = this.prepareRequestConfig(config);
     const response: AxiosResponse<T> = await this.client.post(url, data, {
-      ...config,
+      ...prepared.axiosConfig,
       headers: {
-        ...(config?.headers || {}),
+        ...(prepared.axiosConfig?.headers || {}),
         ...(headers || {}),
       },
     });
-    return response.data;
+    return this.resolveResponse(response, url, 'POST', prepared.withRawResponse);
   }
 
   /**
    * Performs a PATCH request.
    */
-  async patch<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> {
-    const response: AxiosResponse<T> = await this.client.patch(url, data, config);
-    return response.data;
+  async patch<T = any>(
+    url: string,
+    data: any,
+    config: HttpRawResponseRequestConfig
+  ): Promise<HttpRawResponse<T>>;
+  async patch<T = any>(url: string, data?: any, config?: HttpDataResponseRequestConfig): Promise<T>;
+  async patch<T = any>(
+    url: string,
+    data: any,
+    config: HttpRequestConfig
+  ): Promise<T | HttpRawResponse<T>>;
+  async patch<T = any>(
+    url: string,
+    data?: any,
+    config?: HttpRequestConfig
+  ): Promise<T | HttpRawResponse<T>> {
+    const prepared = this.prepareRequestConfig(config);
+    const response: AxiosResponse<T> = await this.client.patch(url, data, prepared.axiosConfig);
+    return this.resolveResponse(response, url, 'PATCH', prepared.withRawResponse);
   }
 
   /**
@@ -638,22 +845,32 @@ export class HttpClient {
    * @param config - Additional request configuration
    * @returns Promise resolving to the response data
    */
-  async delete<T = any>(url: string, config?: AxiosRequestConfig): Promise<T> {
+  async delete<T = any>(
+    url: string,
+    config: HttpRawResponseRequestConfig
+  ): Promise<HttpRawResponse<T>>;
+  async delete<T = any>(url: string, config?: HttpDataResponseRequestConfig): Promise<T>;
+  async delete<T = any>(url: string, config: HttpRequestConfig): Promise<T | HttpRawResponse<T>>;
+  async delete<T = any>(url: string, config?: HttpRequestConfig): Promise<T | HttpRawResponse<T>> {
+    const prepared = this.prepareRequestConfig(config);
     // Remove Content-Type header for DELETE requests (no body expected)
     const deleteConfig: AxiosRequestConfig = {
-      ...config,
+      ...prepared.axiosConfig,
       headers: {
-        ...config?.headers,
+        ...prepared.axiosConfig?.headers,
         'Content-Type': undefined,
       },
     };
 
     const response: AxiosResponse<T> = await this.client.delete(url, deleteConfig);
-    return response.data;
+    return this.resolveResponse(response, url, 'DELETE', prepared.withRawResponse);
   }
 
   private getRequestPath(config: AxiosRequestConfig): string {
-    const resolved = new URL(config.url || '', config.baseURL || this.client.defaults.baseURL || DEFAULT_API_URL);
+    const resolved = new URL(
+      config.url || '',
+      config.baseURL || this.client.defaults.baseURL || DEFAULT_API_URL
+    );
     return `${resolved.pathname}${resolved.search}`;
   }
 
@@ -671,7 +888,13 @@ export class HttpClient {
 
   private maskSensitiveHeaders(headers: Record<string, unknown>): Record<string, unknown> {
     const masked = { ...headers };
-    for (const key of ['X-API-Key', 'lmts-api-key', 'lmts-timestamp', 'lmts-signature', 'identity']) {
+    for (const key of [
+      'X-API-Key',
+      'lmts-api-key',
+      'lmts-timestamp',
+      'lmts-signature',
+      'identity',
+    ]) {
       if (masked[key] !== undefined) {
         masked[key] = key === 'identity' ? 'Bearer ***' : '***';
       }

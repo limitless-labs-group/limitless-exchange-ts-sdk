@@ -1,4 +1,5 @@
 import type { Market } from './market-class';
+import type { Market as MarketData } from './markets';
 
 /**
  * Navigation node returned by /navigation endpoint.
@@ -169,3 +170,15 @@ export interface MarketPageMarketsCursorResponse {
 export type MarketPageMarketsResponse =
   | MarketPageMarketsOffsetResponse
   | MarketPageMarketsCursorResponse;
+
+/**
+ * Original response body returned by the market-page markets endpoint before
+ * SDK `Market` instances are created.
+ *
+ * @public
+ */
+export interface MarketPageMarketsRawResponse {
+  data: MarketData[];
+  pagination?: OffsetPagination;
+  cursor?: CursorPagination;
+}

@@ -41,6 +41,7 @@ For production use, we strongly recommend:
 - ✅ **Market Data**: Access real-time market data and orderbooks
 - ✅ **NegRisk Markets**: Full support for group markets with multiple outcomes
 - ✅ **Error Handling & Retry**: Automatic retry logic for rate limits and transient failures
+- ✅ **Raw Response Access**: Opt-in access to HTTP status, headers, and original response bodies across all API methods
 - ✅ **Type Safety**: Full TypeScript support with comprehensive type definitions
 - ✅ **IEEE-Safe Order Payload Parsing**: `createOrder()` handles `makerAmount`, `takerAmount`, `price`, and `salt` returned as JSON strings
 - ✅ **TSDoc Documentation**: Complete API documentation with examples
@@ -517,6 +518,75 @@ if (buyOrder.makerMatches && buyOrder.makerMatches.length > 0) {
 
 For complete examples, see [docs/code-samples/clob-fok-order.ts](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/limitless-exchange-sdk/docs/code-samples/clob-fok-order.ts).
 
+### Cancel-Replace Orders
+
+Atomically cancel a resting order and submit its replacement in a single request via `POST /orders/cancel-replace`. Identify the order to cancel by `orderId` or `clientOrderId`, and set `mode` to `CancelReplaceMode.STOP_ON_FAILURE` (skip the replacement if the cancel fails) or `CancelReplaceMode.ALLOW_FAILURE`.
+
+```ts
+import { CancelReplaceMode, OrderType, Side } from '@limitless-exchange/sdk';
+
+const result = await orderClient.cancelReplace({
+  cancel: { orderId: 'old-order-id' }, // or { clientOrderId: '...' }
+  mode: CancelReplaceMode.STOP_ON_FAILURE,
+  replacement: {
+    tokenId: '123',
+    side: Side.BUY,
+    price: 0.5,
+    size: 2,
+    orderType: OrderType.GTC,
+    marketSlug: 'market-slug',
+  },
+});
+// result.cancel and result.replacement each carry a per-leg status.
+```
+
+Replace many orders at once with `orderClient.cancelReplaceBatch({ operations: [...] })`; the response `results` are index-aligned to the input. Partner integrations use `client.delegatedOrders.cancelReplace` / `cancelReplaceBatch` (which accept `onBehalfOf`). The single-order variant maps a `409` conflict onto its typed result rather than throwing.
+
+### Partner AMM Trading
+
+`client.amm` trades binary AMM (FPMM) markets on behalf of a server wallet. Approvals are set up **once** per wallet/market pair; buy and sell never preflight allowances. All amounts are positive integer strings in the collateral token's base units (never floats). Authentication uses an HMAC API token (scopes `trading` + `delegated_signing`) or a per-call Privy `identityToken`; legacy API keys are rejected.
+
+```typescript
+import { Client } from '@limitless-exchange/sdk';
+
+const client = new Client({
+  hmacCredentials: { tokenId: process.env.LMTS_TOKEN_ID!, secret: process.env.LMTS_SECRET! },
+});
+
+// 1. One-time approval setup for a wallet/market pair (BUY and SELL are independent).
+//    ensureAllowance checks, approves at most once, then polls check until confirmed.
+await client.amm.ensureAllowance({ market: 'market-slug', side: 'BUY', onBehalfOf: 12345 });
+await client.amm.ensureAllowance({ market: 'market-slug', side: 'SELL', onBehalfOf: 12345 });
+
+// 2. Buy: spend an exact collateral amount on outcome 0 (YES).
+const buy = await client.amm.buy({
+  market: 'market-slug',
+  outcomeIndex: 0, // 0 = YES, 1 = NO
+  collateralAmount: '1000000', // base units, positive integer string
+  slippageBps: 100, // optional, 0..1000, defaults to 100
+  idempotencyKey: 'buy-unique-key-001', // required; reuse the exact key + body to retry safely
+  onBehalfOf: 12345, // omit for a direct profile
+});
+console.log(buy.status, buy.expectedShares, buy.minShares);
+
+// 3. Sell: request an exact collateral return.
+const sell = await client.amm.sell({
+  market: 'market-slug',
+  outcomeIndex: 0,
+  collateralReturnAmount: '992015',
+  idempotencyKey: 'sell-unique-key-001',
+  onBehalfOf: 12345,
+});
+console.log(sell.status, sell.expectedShares, sell.maxShares);
+```
+
+**Notes**:
+
+- `ensureAllowance` polls `checkAllowance` (default every 2s, up to 30 attempts); tune with `{ intervalMs, maxAttempts, signal }`. A `202 submitted` approve response is not confirmation.
+- Reuse the same params on a timeout retry — the serialized body and `idempotencyKey` stay byte-identical, so the server replays the original submission. Reusing a key with different params raises `ConflictError` (409).
+- Errors map to typed classes: `ValidationError` (400), `AuthenticationError` (401/403), `ConflictError` (409), `UnprocessableEntityError` (422, e.g. insufficient balance/invalid quote), `TooEarlyError` (425, maintenance), `RateLimitError` (429), and `UpstreamUnavailableError` (502/503). The four AMM routes share a limit of 10 requests / 10s per actor.
+- Pass `{ withRawResponse: true }` to any AMM method to get an `SdkResponse` exposing the HTTP status/headers via `getRaw()`.
+
 ### Error Handling & Retry
 
 The SDK provides automatic retry logic for handling transient failures like rate limits and server errors:
@@ -578,6 +648,35 @@ httpClient.setApiKey('sk_live_...');
 // Make requests - X-API-Key header automatically included
 const data = await httpClient.get('/endpoint');
 await httpClient.post('/endpoint', { data });
+```
+
+### Raw HTTP Responses
+
+Every API-backed domain method supports an optional `{ withRawResponse: true }` argument. The returned `SdkResponse` keeps the normal SDK value in `data` and exposes the underlying status, headers, and original API body through `getRaw()`.
+
+```typescript
+const response = await client.markets.getMarket('bitcoin-price-market', { withRawResponse: true });
+
+response.data; // Normal Market instance, including SDK transformations
+
+const raw = response.getRaw();
+console.log(raw.status);
+console.log(raw.headers);
+console.log(raw.data); // Original API response body
+```
+
+Existing calls are unchanged and continue to return their original values directly:
+
+```typescript
+const market = await client.markets.getMarket('bitcoin-price-market');
+```
+
+The low-level `HttpClient` supports the same option for GET, POST, PATCH, DELETE, identity-authenticated, custom-header, and retryable requests. Low-level calls return `HttpRawResponse` directly:
+
+```typescript
+const raw = await client.http.post('/endpoint', { value: 1 }, { withRawResponse: true });
+
+console.log(raw.status, raw.headers, raw.data);
 ```
 
 ## Documentation

@@ -4,6 +4,7 @@ import { MarketFetcher } from './markets/fetcher';
 import { PortfolioFetcher } from './portfolio/fetcher';
 import { MarketPageFetcher } from './market-pages/fetcher';
 import { ApiTokenService } from './api-tokens/service';
+import { AmmService } from './amm/service';
 import { PartnerAccountService } from './partner-accounts/service';
 import { DelegatedOrderService } from './delegated-orders/service';
 import { ServerWalletService } from './server-wallets/service';
@@ -27,6 +28,7 @@ export class Client {
   portfolio: PortfolioFetcher;
   pages: MarketPageFetcher;
   apiTokens: ApiTokenService;
+  amm: AmmService;
   partnerAccounts: PartnerAccountService;
   delegatedOrders: DelegatedOrderService;
   serverWallets: ServerWalletService;
@@ -39,6 +41,7 @@ export class Client {
     this.portfolio = new PortfolioFetcher(this.http, logger);
     this.pages = new MarketPageFetcher(this.http, logger);
     this.apiTokens = new ApiTokenService(this.http, logger);
+    this.amm = new AmmService(this.http, logger);
     this.partnerAccounts = new PartnerAccountService(this.http, logger);
     this.delegatedOrders = new DelegatedOrderService(this.http, logger);
     this.serverWallets = new ServerWalletService(this.http, logger);
@@ -56,6 +59,7 @@ export class Client {
     client.portfolio = new PortfolioFetcher(httpClient, logger);
     client.pages = new MarketPageFetcher(httpClient, logger);
     client.apiTokens = new ApiTokenService(httpClient, logger);
+    client.amm = new AmmService(httpClient, logger);
     client.partnerAccounts = new PartnerAccountService(httpClient, logger);
     client.delegatedOrders = new DelegatedOrderService(httpClient, logger);
     client.serverWallets = new ServerWalletService(httpClient, logger);

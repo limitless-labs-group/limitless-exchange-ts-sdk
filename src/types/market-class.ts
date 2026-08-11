@@ -4,6 +4,12 @@
  */
 
 import type { HttpClient } from '../api/http';
+import {
+  SdkResponse,
+  type ResponseOptions,
+  type WithRawResponseOptions,
+  type WithoutRawResponseOptions,
+} from '../api/response';
 import type {
   CollateralToken,
   MarketCreator,
@@ -15,6 +21,12 @@ import type {
   Venue,
   MarketOutcome,
 } from './markets';
+
+/**
+ * Original response body returned by a market's user-orders endpoint.
+ * @public
+ */
+export type MarketUserOrdersRawResponse = any[] | { orders?: any[] };
 
 /**
  * Market class with fluent API support.
@@ -124,15 +136,35 @@ export class Market {
    * console.log(`You have ${orders.length} orders in ${market.title}`);
    * ```
    */
-  async getUserOrders(): Promise<any[]> {
+  async getUserOrders(
+    options: WithRawResponseOptions
+  ): Promise<SdkResponse<any[], MarketUserOrdersRawResponse>>;
+  async getUserOrders(options?: WithoutRawResponseOptions): Promise<any[]>;
+  async getUserOrders(
+    options: ResponseOptions
+  ): Promise<any[] | SdkResponse<any[], MarketUserOrdersRawResponse>>;
+  async getUserOrders(
+    options: ResponseOptions = {}
+  ): Promise<any[] | SdkResponse<any[], MarketUserOrdersRawResponse>> {
     if (!this.httpClient) {
       throw new Error(
         'This Market instance has no httpClient attached. ' +
-        'Make sure to fetch the market via MarketFetcher.getMarket() to use this method.'
+          'Make sure to fetch the market via MarketFetcher.getMarket() to use this method.'
       );
     }
 
-    const response = await this.httpClient.get<any>(`/markets/${this.slug}/user-orders`);
+    const endpoint = `/markets/${this.slug}/user-orders`;
+    if (options.withRawResponse) {
+      const rawResponse = await this.httpClient.get<MarketUserOrdersRawResponse>(endpoint, {
+        withRawResponse: true,
+      });
+      const orders = Array.isArray(rawResponse.data)
+        ? rawResponse.data
+        : rawResponse.data.orders || [];
+      return new SdkResponse(orders, rawResponse);
+    }
+
+    const response = await this.httpClient.get<MarketUserOrdersRawResponse>(endpoint);
 
     // Handle both array response and object with orders property
     const orders = Array.isArray(response) ? response : response.orders || [];

@@ -64,9 +64,16 @@ describe('HttpClient HMAC auth', () => {
       };
     };
 
-    await client.patch('/orders?market=btc', { foo: 'bar' });
+    const response = await client.patch(
+      '/orders?market=btc',
+      { foo: 'bar' },
+      { withRawResponse: true }
+    );
 
     const headers = normalizeHeaders(capturedConfig.headers);
+    expect(response.status).toBe(200);
+    expect(response.data).toEqual({ ok: true });
+    expect(capturedConfig.withRawResponse).toBeUndefined();
     expect(headers['X-API-Key']).toBeUndefined();
     expect(headers['lmts-api-key']).toBe('token-1');
     expect(headers['lmts-timestamp']).toBeTruthy();

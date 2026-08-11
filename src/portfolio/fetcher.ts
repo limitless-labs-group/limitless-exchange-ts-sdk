@@ -4,6 +4,12 @@
  */
 
 import { HttpClient } from '../api/http';
+import {
+  SdkResponse,
+  type ResponseOptions,
+  type WithRawResponseOptions,
+  type WithoutRawResponseOptions,
+} from '../api/response';
 import type {
   PortfolioPositionsResponse,
   CLOBPosition,
@@ -75,7 +81,19 @@ export class PortfolioFetcher {
    * console.log(`Fee Rate: ${profile.rank?.feeRateBps}`);
    * ```
    */
-  async getProfile(address?: string): Promise<UserProfile> {
+  async getProfile(
+    address: string | undefined,
+    options: WithRawResponseOptions
+  ): Promise<SdkResponse<UserProfile>>;
+  async getProfile(address?: string, options?: WithoutRawResponseOptions): Promise<UserProfile>;
+  async getProfile(
+    address: string | undefined,
+    options: ResponseOptions
+  ): Promise<UserProfile | SdkResponse<UserProfile>>;
+  async getProfile(
+    address?: string,
+    options: ResponseOptions = {}
+  ): Promise<UserProfile | SdkResponse<UserProfile>> {
     const profileAddress = address?.trim();
     const endpoint = profileAddress
       ? `/profiles/${encodeURIComponent(profileAddress)}`
@@ -84,6 +102,14 @@ export class PortfolioFetcher {
     this.logger.debug('Fetching user profile', { address: profileAddress });
 
     try {
+      if (options.withRawResponse) {
+        const rawResponse = await this.httpClient.get<UserProfile>(endpoint, {
+          withRawResponse: true,
+        });
+        this.logger.info('User profile fetched successfully', { address: profileAddress });
+        return new SdkResponse(rawResponse.data, rawResponse);
+      }
+
       const response = await this.httpClient.get<UserProfile>(endpoint);
 
       this.logger.info('User profile fetched successfully', { address: profileAddress });
@@ -111,10 +137,33 @@ export class PortfolioFetcher {
    * console.log(`Total points: ${response.accumulativePoints}`);
    * ```
    */
-  async getPositions(): Promise<PortfolioPositionsResponse> {
+  async getPositions(
+    options: WithRawResponseOptions
+  ): Promise<SdkResponse<PortfolioPositionsResponse>>;
+  async getPositions(options?: WithoutRawResponseOptions): Promise<PortfolioPositionsResponse>;
+  async getPositions(
+    options: ResponseOptions
+  ): Promise<PortfolioPositionsResponse | SdkResponse<PortfolioPositionsResponse>>;
+  async getPositions(
+    options: ResponseOptions = {}
+  ): Promise<PortfolioPositionsResponse | SdkResponse<PortfolioPositionsResponse>> {
     this.logger.debug('Fetching user positions');
 
     try {
+      if (options.withRawResponse) {
+        const rawResponse = await this.httpClient.get<PortfolioPositionsResponse>(
+          '/portfolio/positions',
+          { withRawResponse: true }
+        );
+
+        this.logger.info('Positions fetched successfully', {
+          clobCount: rawResponse.data.clob?.length || 0,
+          ammCount: rawResponse.data.amm?.length || 0,
+        });
+
+        return new SdkResponse(rawResponse.data, rawResponse);
+      }
+
       const response =
         await this.httpClient.get<PortfolioPositionsResponse>('/portfolio/positions');
 
@@ -144,7 +193,20 @@ export class PortfolioFetcher {
    * });
    * ```
    */
-  async getCLOBPositions(): Promise<CLOBPosition[]> {
+  async getCLOBPositions(
+    options: WithRawResponseOptions
+  ): Promise<SdkResponse<CLOBPosition[], PortfolioPositionsResponse>>;
+  async getCLOBPositions(options?: WithoutRawResponseOptions): Promise<CLOBPosition[]>;
+  async getCLOBPositions(
+    options: ResponseOptions
+  ): Promise<CLOBPosition[] | SdkResponse<CLOBPosition[], PortfolioPositionsResponse>>;
+  async getCLOBPositions(
+    options: ResponseOptions = {}
+  ): Promise<CLOBPosition[] | SdkResponse<CLOBPosition[], PortfolioPositionsResponse>> {
+    if (options.withRawResponse) {
+      const response = await this.getPositions({ withRawResponse: true });
+      return new SdkResponse(response.data.clob || [], response.getRaw());
+    }
     const response = await this.getPositions();
     return response.clob || [];
   }
@@ -163,7 +225,20 @@ export class PortfolioFetcher {
    * });
    * ```
    */
-  async getAMMPositions(): Promise<AMMPosition[]> {
+  async getAMMPositions(
+    options: WithRawResponseOptions
+  ): Promise<SdkResponse<AMMPosition[], PortfolioPositionsResponse>>;
+  async getAMMPositions(options?: WithoutRawResponseOptions): Promise<AMMPosition[]>;
+  async getAMMPositions(
+    options: ResponseOptions
+  ): Promise<AMMPosition[] | SdkResponse<AMMPosition[], PortfolioPositionsResponse>>;
+  async getAMMPositions(
+    options: ResponseOptions = {}
+  ): Promise<AMMPosition[] | SdkResponse<AMMPosition[], PortfolioPositionsResponse>> {
+    if (options.withRawResponse) {
+      const response = await this.getPositions({ withRawResponse: true });
+      return new SdkResponse(response.data.amm || [], response.getRaw());
+    }
     const response = await this.getPositions();
     return response.amm || [];
   }
@@ -196,7 +271,26 @@ export class PortfolioFetcher {
    * }
    * ```
    */
-  async getUserHistory(cursor?: string, limit: number = 20): Promise<HistoryResponse> {
+  async getUserHistory(
+    cursor: string | undefined,
+    limit: number | undefined,
+    options: WithRawResponseOptions
+  ): Promise<SdkResponse<HistoryResponse>>;
+  async getUserHistory(
+    cursor?: string,
+    limit?: number,
+    options?: WithoutRawResponseOptions
+  ): Promise<HistoryResponse>;
+  async getUserHistory(
+    cursor: string | undefined,
+    limit: number | undefined,
+    options: ResponseOptions
+  ): Promise<HistoryResponse | SdkResponse<HistoryResponse>>;
+  async getUserHistory(
+    cursor?: string,
+    limit: number = 20,
+    options: ResponseOptions = {}
+  ): Promise<HistoryResponse | SdkResponse<HistoryResponse>> {
     this.logger.debug('Fetching user history', { cursor, limit });
 
     try {
@@ -206,9 +300,16 @@ export class PortfolioFetcher {
         limit: limit.toString(),
       });
 
-      const response = await this.httpClient.get<HistoryResponse>(
-        `/portfolio/history?${params.toString()}`
-      );
+      const endpoint = `/portfolio/history?${params.toString()}`;
+      if (options.withRawResponse) {
+        const rawResponse = await this.httpClient.get<HistoryResponse>(endpoint, {
+          withRawResponse: true,
+        });
+        this.logger.info('User history fetched successfully');
+        return new SdkResponse(rawResponse.data, rawResponse);
+      }
+
+      const response = await this.httpClient.get<HistoryResponse>(endpoint);
 
       this.logger.info('User history fetched successfully');
 

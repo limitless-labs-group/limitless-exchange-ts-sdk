@@ -231,9 +231,9 @@ export interface OrderBook {
   minSize: string;
 
   /**
-   * Last trade price for the market
+   * Last trade price for the market, or null until the market's first trade.
    */
-  lastTradePrice: number;
+  lastTradePrice: number | null;
 }
 
 

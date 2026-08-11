@@ -204,3 +204,110 @@ export class ValidationError extends APIError {
     }
   }
 }
+
+/**
+ * Conflict error (HTTP 409).
+ *
+ * @remarks
+ * Thrown when a request conflicts with current server state. For AMM trades this
+ * includes reusing an idempotency key with different parameters, a duplicate
+ * in-flight trade, or a market that is not currently tradable.
+ *
+ * @public
+ */
+export class ConflictError extends APIError {
+  constructor(
+    message: string = 'Conflict',
+    status: number = 409,
+    data: any = null,
+    url?: string,
+    method?: string
+  ) {
+    super(message, status, data, url, method);
+    this.name = 'ConflictError';
+
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, ConflictError);
+    }
+  }
+}
+
+/**
+ * Unprocessable entity error (HTTP 422).
+ *
+ * @remarks
+ * Thrown when a well-formed request cannot be fulfilled. For AMM trades this
+ * includes insufficient collateral or outcome balance, an un-quotable trade, or
+ * an amount too small for the requested slippage.
+ *
+ * @public
+ */
+export class UnprocessableEntityError extends APIError {
+  constructor(
+    message: string = 'Unprocessable entity',
+    status: number = 422,
+    data: any = null,
+    url?: string,
+    method?: string
+  ) {
+    super(message, status, data, url, method);
+    this.name = 'UnprocessableEntityError';
+
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, UnprocessableEntityError);
+    }
+  }
+}
+
+/**
+ * Too-early error (HTTP 425).
+ *
+ * @remarks
+ * Thrown when trading is temporarily blocked by a maintenance / trading-mode
+ * state (post-only, cancel-only, or disabled). Retry after the reported window.
+ *
+ * @public
+ */
+export class TooEarlyError extends APIError {
+  constructor(
+    message: string = 'Too early',
+    status: number = 425,
+    data: any = null,
+    url?: string,
+    method?: string
+  ) {
+    super(message, status, data, url, method);
+    this.name = 'TooEarlyError';
+
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, TooEarlyError);
+    }
+  }
+}
+
+/**
+ * Upstream-unavailable error (HTTP 502, 503).
+ *
+ * @remarks
+ * Thrown when an upstream dependency is unavailable — for AMM trades a failed
+ * sponsored submission, a failed on-chain read, or an unavailable market /
+ * rate-limiter / idempotency store. Safe to retry with the same idempotency key.
+ *
+ * @public
+ */
+export class UpstreamUnavailableError extends APIError {
+  constructor(
+    message: string = 'Upstream unavailable',
+    status: number = 502,
+    data: any = null,
+    url?: string,
+    method?: string
+  ) {
+    super(message, status, data, url, method);
+    this.name = 'UpstreamUnavailableError';
+
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, UpstreamUnavailableError);
+    }
+  }
+}

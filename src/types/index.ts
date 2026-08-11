@@ -1,5 +1,6 @@
 export * from './auth';
 export * from './wallet';
+export * from './amm';
 export * from './api-tokens';
 export * from './partner-accounts';
 export * from './delegated-orders';
@@ -23,7 +24,7 @@ export type {
   MarketOutcome,
   Venue,
   MarketTokens,
-  Market as MarketInterface,  // Export interface as alias for typing
+  Market as MarketInterface, // Export interface as alias for typing
   MarketsResponse,
   ActiveMarketsSortBy,
   ActiveMarketsParams,
@@ -31,4 +32,4 @@ export type {
 } from './markets';
 
 // Export Market class for fluent API
-export { Market } from './market-class';
+export { Market, type MarketUserOrdersRawResponse } from './market-class';

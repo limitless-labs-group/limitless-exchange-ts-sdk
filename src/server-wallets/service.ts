@@ -1,5 +1,11 @@
 import { ethers } from 'ethers';
 import { HttpClient } from '../api/http';
+import {
+  SdkResponse,
+  type ResponseOptions,
+  type WithRawResponseOptions,
+  type WithoutRawResponseOptions,
+} from '../api/response';
 import type {
   RedeemServerWalletParams,
   RedeemServerWalletResponse,
@@ -27,7 +33,22 @@ export class ServerWalletService {
     this.logger = logger || new NoOpLogger();
   }
 
-  async redeemPositions(params: RedeemServerWalletParams): Promise<RedeemServerWalletResponse> {
+  async redeemPositions(
+    params: RedeemServerWalletParams,
+    options: WithRawResponseOptions
+  ): Promise<SdkResponse<RedeemServerWalletResponse>>;
+  async redeemPositions(
+    params: RedeemServerWalletParams,
+    options?: WithoutRawResponseOptions
+  ): Promise<RedeemServerWalletResponse>;
+  async redeemPositions(
+    params: RedeemServerWalletParams,
+    options: ResponseOptions
+  ): Promise<RedeemServerWalletResponse | SdkResponse<RedeemServerWalletResponse>>;
+  async redeemPositions(
+    params: RedeemServerWalletParams,
+    options: ResponseOptions = {}
+  ): Promise<RedeemServerWalletResponse | SdkResponse<RedeemServerWalletResponse>> {
     this.requireHmacAuth('redeemServerWalletPositions');
     this.validateConditionId(params.conditionId);
     this.validateOnBehalfOf(params.onBehalfOf);
@@ -37,13 +58,38 @@ export class ServerWalletService {
       onBehalfOf: params.onBehalfOf,
     });
 
-    return this.httpClient.post<RedeemServerWalletResponse>('/portfolio/redeem', {
+    const payload = {
       conditionId: params.conditionId,
       onBehalfOf: params.onBehalfOf,
-    });
+    };
+
+    if (options.withRawResponse) {
+      const rawResponse = await this.httpClient.post<RedeemServerWalletResponse>(
+        '/portfolio/redeem',
+        payload,
+        { withRawResponse: true }
+      );
+      return new SdkResponse(rawResponse.data, rawResponse);
+    }
+    return this.httpClient.post<RedeemServerWalletResponse>('/portfolio/redeem', payload);
   }
 
-  async withdraw(params: WithdrawServerWalletParams): Promise<WithdrawServerWalletResponse> {
+  async withdraw(
+    params: WithdrawServerWalletParams,
+    options: WithRawResponseOptions
+  ): Promise<SdkResponse<WithdrawServerWalletResponse>>;
+  async withdraw(
+    params: WithdrawServerWalletParams,
+    options?: WithoutRawResponseOptions
+  ): Promise<WithdrawServerWalletResponse>;
+  async withdraw(
+    params: WithdrawServerWalletParams,
+    options: ResponseOptions
+  ): Promise<WithdrawServerWalletResponse | SdkResponse<WithdrawServerWalletResponse>>;
+  async withdraw(
+    params: WithdrawServerWalletParams,
+    options: ResponseOptions = {}
+  ): Promise<WithdrawServerWalletResponse | SdkResponse<WithdrawServerWalletResponse>> {
     this.requireHmacAuth('withdrawServerWalletFunds');
     this.validateAmount(params.amount);
 
@@ -70,12 +116,22 @@ export class ServerWalletService {
       destination: params.destination,
     });
 
-    return this.httpClient.post<WithdrawServerWalletResponse>('/portfolio/withdraw', {
+    const payload = {
       amount: params.amount,
       ...(params.onBehalfOf !== undefined ? { onBehalfOf: params.onBehalfOf } : {}),
       ...(params.token !== undefined ? { token: params.token } : {}),
       ...(params.destination !== undefined ? { destination: params.destination } : {}),
-    });
+    };
+
+    if (options.withRawResponse) {
+      const rawResponse = await this.httpClient.post<WithdrawServerWalletResponse>(
+        '/portfolio/withdraw',
+        payload,
+        { withRawResponse: true }
+      );
+      return new SdkResponse(rawResponse.data, rawResponse);
+    }
+    return this.httpClient.post<WithdrawServerWalletResponse>('/portfolio/withdraw', payload);
   }
 
   private requireHmacAuth(operation: string): void {

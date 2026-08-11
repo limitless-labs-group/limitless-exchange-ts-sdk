@@ -5,6 +5,19 @@ All notable changes to the Limitless Exchange TypeScript SDK will be documented 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Optional `{ withRawResponse: true }` support across all API-backed SDK methods. Domain methods return `SdkResponse`, which provides the normal SDK value through `data` and the underlying HTTP status, headers, and original response body through `getRaw()`.
+- Raw response mode for all `HttpClient` request variants and the retryable GET, POST, and DELETE wrapper.
+- Public raw wire-response types for transformed market-page, order, cancellation, API-token message, and market user-order responses.
+- Unit coverage for every domain service, every HTTP request variant, transformed response bodies, identity-authenticated requests, void deletes, and retry forwarding.
+- Partner AMM trading via `client.amm`: `checkAllowance`, `approveAllowance`, `buy`, `sell`, and an `ensureAllowance` helper (check → approve → poll) backed by `POST /amm/allowances/check`, `/amm/allowances/approve`, `/amm/buy`, and `/amm/sell`. Amounts are validated as positive integer strings in collateral base units; `idempotencyKey` enables safe timeout retries with a byte-identical body; `onBehalfOf` targets owned server-wallet sub-accounts. HMAC tokens require `trading` + `delegated_signing` scopes; a Privy `identityToken` may be passed per call; legacy API keys are rejected.
+- Public AMM types: `AmmAllowanceParams`, `AmmAllowanceResponse`, `AmmBuyParams`, `AmmBuyResponse`, `AmmSellParams`, `AmmSellResponse`, `AmmTransactionIdentifiers`, `AmmAllowanceSide`, `AmmAllowanceStatus`, `AmmTradeStatus`, `AmmOutcomeIndex`, and `AmmEnsureAllowanceOptions`.
+- Typed HTTP errors `ConflictError` (409), `UnprocessableEntityError` (422), `TooEarlyError` (425), and `UpstreamUnavailableError` (502/503), mapped for all requests (raw and non-raw). Existing `instanceof APIError` checks continue to match.
+- Unit coverage for AMM allowance mapping, 200/202 approve handling, buy/sell body shape, validation matrix, idempotent-body retries, 409 conflict mapping, identity vs HMAC auth, and raw-response variants.
+
 ## [1.1.0]
 
 ### Added
@@ -12,10 +25,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `orderEvent` EXECUTION frame (FAK/FOK terminal): `OmeOrderEvent` now models `type: 'EXECUTION'` with a `status` of `'FILLED' | 'PARTIALLY_FILLED' | 'KILLED'`. The `eventId` of an EXECUTION frame is the string `"terminal:<orderId>"`, so `OmeOrderEvent.eventId` now accepts `number | string`.
 - `orderEvent` MATCHED frame (pre-settlement per-fill): `SettlementOrderEvent` now models `type: 'MATCHED'`, adds `isEstimate?: boolean` (true on MATCHED, where fee fields are estimates) and `token?: 'YES' | 'NO'`. Maker side reports a `0` fee estimate; taker reports a real estimate.
 - `POST /orders` execution response: `OrderResponse` now carries an optional `execution` object (`Execution` / `ExecutionTotalsRaw`) exposing `settlementStatus` (plain string for forward-compat), `eligibleAt` for taker-delay markets, `feeRateBps` / `effectiveFeeBps`, and `totalsRaw`. The transform layer previously dropped this object from the create-order response; it is now passed through.
+- Atomic cancel-replace for orders via `client.orders.cancelReplace` / `cancelReplaceBatch` and `client.delegatedOrders.cancelReplace` / `cancelReplaceBatch`, backed by `POST /orders/cancel-replace` and `/orders/cancel-replace/batch`. A single request cancels a resting order and submits its replacement atomically; the batch variant does so for many operations at once. Public types `CancelReplaceParams`, `CancelReplaceBatchParams`, `CancelReplaceResponse`, `CancelReplaceBatchResponse`, and the delegated `DelegatedCancelReplaceParams` / `DelegatedCancelReplaceBatchParams`.
 
 ### Changed
 
 - **BREAKING (types only):** `OmeOrderEvent.price` and `OmeOrderEvent.remainingSize` are now `number` instead of `string`. The runtime value never changed — every OME frame (PLACEMENT/UPDATE/CANCELLATION/EXECUTION) has always emitted these as JSON numbers; only the static type was wrong and is now corrected. Code that read them as strings (e.g. passed to `parseFloat`/`Number`, or string-compared) must be updated.
+- **BREAKING (types only):** `OrderBook.lastTradePrice` is now `number | null` (was `number`). The API returns `null` for markets with no trades yet — the runtime value was already `null`, only the static type was wrong. Callers must handle `null` (e.g. before arithmetic or comparisons).
 - README, API-key v3 docs, and package metadata now target `v1.1.0`.
 
 ## [1.0.10]
