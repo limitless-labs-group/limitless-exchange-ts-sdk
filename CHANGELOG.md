@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **BREAKING (types only):** `OmeOrderEvent.price` and `OmeOrderEvent.remainingSize` are now `number` instead of `string`. The runtime value never changed — every OME frame (PLACEMENT/UPDATE/CANCELLATION/EXECUTION) has always emitted these as JSON numbers; only the static type was wrong and is now corrected. Code that read them as strings (e.g. passed to `parseFloat`/`Number`, or string-compared) must be updated.
+- **BREAKING (types only):** `OrderBook.lastTradePrice` is now `number | null` (was `number`). The API returns `null` for markets with no trades yet — the runtime value was already `null`, only the static type was wrong. Callers must handle `null` (e.g. before arithmetic or comparisons).
 - README, API-key v3 docs, and package metadata now target `v1.1.0`.
 
 ## [1.0.10]
