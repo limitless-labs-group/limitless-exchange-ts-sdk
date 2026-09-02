@@ -367,6 +367,7 @@ Complete orderbook state with nested structure.
 interface OrderbookUpdate {
   marketSlug: string; // Market slug identifier (camelCase)
   orderbook: OrderbookData; // Nested orderbook object
+  version: number; // Publisher sequence; 0 when the initial snapshot came from the DB fallback
   timestamp: Date | number | string; // Event timestamp
 }
 
@@ -374,7 +375,8 @@ interface OrderbookData {
   bids: OrderbookEntry[]; // List of bid orders (descending)
   asks: OrderbookEntry[]; // List of ask orders (ascending)
   tokenId: string; // Token ID for the orderbook
-  adjustedMidpoint: number; // Adjusted midpoint price
+  adjustedMidpoint: number; // Adjusted midpoint price (levels below minSize dropped)
+  midpoint: number; // Midpoint of the best displayed bid and ask
   maxSpread: number; // Maximum spread allowed
   minSize: number; // Minimum order size
 }
@@ -395,9 +397,11 @@ interface OrderbookEntry {
     "asks": [{ "price": 0.55, "size": 150 }],
     "tokenId": "0x123...",
     "adjustedMidpoint": 0.535,
+    "midpoint": 0.535,
     "maxSpread": 0.1,
     "minSize": 10
   },
+  "version": 48213,
   "timestamp": "2025-12-08T10:30:00Z"
 }
 ```
