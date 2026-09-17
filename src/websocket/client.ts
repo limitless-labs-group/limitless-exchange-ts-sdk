@@ -188,6 +188,41 @@ export class WebSocketClient {
    * console.log('Connected!');
    * ```
    */
+  /**
+   * Builds the handshake headers, signing the HMAC afresh each time.
+   *
+   * The server re-validates the handshake signature on every authenticated
+   * subscribe, and only accepts a timestamp within 30 seconds. Socket.IO reuses
+   * the options object across automatic reconnects, so headers signed once at
+   * first connect go stale and every re-subscription after a reconnect fails
+   * with "Invalid HMAC authentication". Call this again per connection attempt.
+   */
+  private buildHandshakeHeaders(): Record<string, string> {
+    const headers = buildWebSocketTrackingHeaders();
+
+    if (this.config.hmacCredentials) {
+      const timestamp = new Date().toISOString();
+      return {
+        ...headers,
+        'lmts-api-key': this.config.hmacCredentials.tokenId,
+        'lmts-timestamp': timestamp,
+        'lmts-signature': computeHMACSignature(
+          this.config.hmacCredentials.secret,
+          timestamp,
+          'GET',
+          '/socket.io/?EIO=4&transport=websocket',
+          ''
+        ),
+      };
+    }
+
+    if (this.config.apiKey) {
+      return { ...headers, 'X-API-Key': this.config.apiKey };
+    }
+
+    return headers;
+  }
+
   async connect(): Promise<void> {
     // Fix: Prevent race condition by checking CONNECTING state
     if (this.socket?.connected || this.state === WebSocketState.CONNECTING) {
@@ -217,33 +252,9 @@ export class WebSocketClient {
         randomizationFactor: 0.2, // Add jitter to prevent thundering herd
         timeout: this.config.timeout,
       };
-      const extraHeaders = buildWebSocketTrackingHeaders();
-
-      if (this.config.hmacCredentials) {
-        const timestamp = new Date().toISOString();
-        const signature = computeHMACSignature(
-          this.config.hmacCredentials.secret,
-          timestamp,
-          'GET',
-          '/socket.io/?EIO=4&transport=websocket',
-          ''
-        );
-
-        socketOptions.extraHeaders = {
-          ...extraHeaders,
-          'lmts-api-key': this.config.hmacCredentials.tokenId,
-          'lmts-timestamp': timestamp,
-          'lmts-signature': signature,
-        };
-      } else if (this.config.apiKey) {
-        // Add API key to headers if provided
-        // Required for authenticated subscriptions (positions, transactions)
-        socketOptions.extraHeaders = {
-          ...extraHeaders,
-          'X-API-Key': this.config.apiKey,
-        };
-      } else if (Object.keys(extraHeaders).length > 0) {
-        socketOptions.extraHeaders = extraHeaders;
+      const handshakeHeaders = this.buildHandshakeHeaders();
+      if (Object.keys(handshakeHeaders).length > 0) {
+        socketOptions.extraHeaders = handshakeHeaders;
       }
 
       // Connect to base URL with /markets namespace
@@ -524,6 +535,14 @@ export class WebSocketClient {
     this.socket.io.on('reconnect_attempt', (attempt) => {
       this.state = WebSocketState.RECONNECTING;
       this.reconnectAttempts = attempt;
+      // Re-sign before the attempt goes out: the manager replays the options it
+      // was constructed with, so without this the reconnect carries the original
+      // timestamp and every re-subscription is rejected.
+      const headers = this.buildHandshakeHeaders();
+      const opts = this.socket?.io?.opts as Record<string, unknown> | undefined;
+      if (opts && Object.keys(headers).length > 0) {
+        opts.extraHeaders = headers;
+      }
       this.logger.info('Reconnecting...', { attempt });
     });
 
