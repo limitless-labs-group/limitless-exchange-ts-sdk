@@ -127,26 +127,24 @@ Detailed guide: [docs/market-pages/README.md](https://github.com/limitless-labs-
 
 ### Authentication
 
-The SDK uses API keys for authentication. API keys can be obtained from your Limitless Exchange account settings(Click on User Profile).
+The SDK uses API tokens for authentication. API Key and Secret can be obtained from your Limitless Exchange account settings (Click on User Profile).
 
 ```typescript
 import { HttpClient } from '@limitless-exchange/sdk';
 
-// Option 1: Automatic from environment variable (recommended)
-// Set LIMITLESS_API_KEY in your .env file
 const httpClient = new HttpClient({
   baseURL: 'https://api.limitless.exchange',
+  hmacCredentials: {
+    tokenId: process.env.LIMITLESS_API_TOKEN_ID!, // API Key
+    secret: process.env.LIMITLESS_API_TOKEN_SECRET!, // Secret
+  },
 });
 
-// Option 2: Explicit API key
-const httpClient = new HttpClient({
-  baseURL: 'https://api.limitless.exchange',
-  apiKey: process.env.LIMITLESS_API_KEY,
-});
-
-// All requests automatically include X-API-Key header
+// Requests are signed automatically
 // For authenticated endpoints like portfolio, orders, etc.
 ```
+
+> Legacy static API keys (`apiKey`) are [deprecated](https://docs.limitless.exchange/developers/authentication) and no longer issued to new users.
 
 **Environment Variables:**
 
@@ -154,7 +152,8 @@ Create a local `.env` file that is not committed to source control:
 
 ```bash
 # Required for authenticated endpoints
-LIMITLESS_API_KEY=sk_live_your_api_key_here
+LIMITLESS_API_TOKEN_ID=your_api_key_here
+LIMITLESS_API_TOKEN_SECRET=your_secret_here
 
 # REQUIRED for server-side or local scripts that sign orders (EIP-712)
 # Never commit a real private key to the repository.
@@ -172,7 +171,10 @@ import { Client } from '@limitless-exchange/sdk';
 
 const client = new Client({
   baseURL: 'https://api.limitless.exchange',
-  apiKey: process.env.LIMITLESS_API_KEY,
+  hmacCredentials: {
+    tokenId: process.env.LIMITLESS_API_TOKEN_ID!,
+    secret: process.env.LIMITLESS_API_TOKEN_SECRET!,
+  },
 });
 
 const currentProfile = await client.portfolio.getProfile();
