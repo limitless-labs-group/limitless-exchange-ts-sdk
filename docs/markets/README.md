@@ -354,7 +354,7 @@ main().catch(console.error);
 
 Complete working examples:
 
-- [Fetching Active Markets](../../docs/code-samples/active-markets.ts)
+- [Fetching Active Markets](../../docs/code-samples/get-active-markets.ts)
 - [Fetching Orderbooks](../../docs/code-samples/orderbook.ts)
 - [WebSocket Events](../../docs/code-samples/websocket-events.ts)
 

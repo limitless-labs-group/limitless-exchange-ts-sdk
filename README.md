@@ -92,7 +92,7 @@ const page2 = await marketFetcher.getActiveMarkets({
 });
 ```
 
-See [examples/project-integration/src/active-markets.ts](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/examples/project-integration/src/active-markets.ts) for more examples.
+See [docs/code-samples/get-active-markets.ts](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/docs/code-samples/get-active-markets.ts) for more examples.
 
 ### Market Pages & Navigation (No Authentication Required)
 
@@ -123,7 +123,7 @@ if ('pagination' in markets) {
 }
 ```
 
-Detailed guide: [docs/market-pages/README.md](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/limitless-exchange-sdk/docs/market-pages/README.md)
+Detailed guide: [docs/market-pages/README.md](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/docs/market-pages/README.md)
 
 ### Authentication
 
@@ -195,7 +195,7 @@ Recommended setup:
 - Use this SDK server-side to sign partner-authenticated requests.
 - Expose only your own app-specific endpoints to the frontend.
 
-See [`docs/code-samples/api-key-v3/`](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/tree/main/limitless-exchange-sdk/docs/code-samples/api-key-v3) for the partner HMAC examples.
+See [`docs/code-samples/api-key-v3/`](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/tree/main/docs/code-samples/api-key-v3) for the partner HMAC examples.
 
 #### Partner Account Listing
 
@@ -247,7 +247,7 @@ if (!allowances.ready) {
 
 Poll `checkAllowances()` first. If `ready` is false and one or more targets are `missing` or `failed` with `retryable: true`, call `retryAllowances()`, then poll `checkAllowances()` again after a short delay. Retry `429` responses throw `RateLimitError` and include `retryAfterSeconds` in `error.data`; retry `409` responses throw `APIError` with `status === 409`, which means another retry is already running.
 
-For a complete runnable flow, see [`docs/code-samples/api-key-v3/partner-account-allowances.ts`](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/limitless-exchange-sdk/docs/code-samples/api-key-v3/partner-account-allowances.ts).
+For a complete runnable flow, see [`docs/code-samples/api-key-v3/partner-account-allowances.ts`](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/docs/code-samples/api-key-v3/partner-account-allowances.ts).
 
 #### Server Wallet Redeem & Withdraw
 
@@ -314,7 +314,7 @@ await client.partnerAccounts.deleteWithdrawalAddress(identityToken, treasuryAddr
 
 `redeem.hash` or `withdraw.hash` may be an empty string for user-operation submissions. Track those calls using `userOperationHash` or `transactionId`.
 
-For a complete runnable flow, see [`docs/code-samples/api-key-v3/server-wallet-redeem-withdraw.ts`](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/limitless-exchange-sdk/docs/code-samples/api-key-v3/server-wallet-redeem-withdraw.ts).
+For a complete runnable flow, see [`docs/code-samples/api-key-v3/server-wallet-redeem-withdraw.ts`](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/docs/code-samples/api-key-v3/server-wallet-redeem-withdraw.ts).
 
 ### Token Approvals
 
@@ -379,7 +379,7 @@ if (market.negRiskRequestId) {
 }
 ```
 
-For complete examples, see [docs/code-samples/setup-approvals.ts](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/limitless-exchange-sdk/docs/code-samples/setup-approvals.ts).
+For complete examples, see [docs/code-samples/setup-approvals.ts](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/docs/code-samples/setup-approvals.ts).
 
 ### Trading on NegRisk Markets
 
@@ -415,7 +415,7 @@ const order = await orderClient.createOrder({
 
 **Important**: Always use the **submarket slug** for NegRisk orders, not the group market slug!
 
-For more details, see the [NegRisk Trading Guide](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/limitless-exchange-sdk/docs/orders/README.md#negrisk-markets).
+For more details, see the [NegRisk Trading Guide](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/docs/orders/README.md#negrisk-markets).
 
 ### GTC Orders (Limit Orders)
 
@@ -437,7 +437,7 @@ const gtcOrder = await orderClient.createOrder({
 console.log(gtcOrder.order.id);
 ```
 
-For complete examples, see [docs/code-samples/clob-gtc-order.ts](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/limitless-exchange-sdk/docs/code-samples/clob-gtc-order.ts).
+For complete examples, see [docs/code-samples/clob-gtc-order.ts](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/docs/code-samples/clob-gtc-order.ts).
 
 ### FAK Orders (Fill-and-Kill Limit Orders)
 
@@ -469,7 +469,7 @@ if (fakOrder.makerMatches && fakOrder.makerMatches.length > 0) {
 - Any unfilled remainder is cancelled
 - `postOnly` is not supported for FAK
 
-For complete examples, see [docs/code-samples/clob-fak-order.ts](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/limitless-exchange-sdk/docs/code-samples/clob-fak-order.ts).
+For complete examples, see [docs/code-samples/clob-fak-order.ts](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/docs/code-samples/clob-fak-order.ts).
 
 ### FOK Orders (Fill-or-Kill Market Orders)
 
@@ -516,7 +516,7 @@ if (buyOrder.makerMatches && buyOrder.makerMatches.length > 0) {
 - All-or-nothing execution (no partial fills)
 - Best for immediate execution at market price
 
-For complete examples, see [docs/code-samples/clob-fok-order.ts](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/limitless-exchange-sdk/docs/code-samples/clob-fok-order.ts).
+For complete examples, see [docs/code-samples/clob-fok-order.ts](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/docs/code-samples/clob-fok-order.ts).
 
 ### Cancel-Replace Orders
 
@@ -625,7 +625,7 @@ class TradingService {
 - Callback hooks for monitoring retry attempts
 - Three approaches: decorator, wrapper function, or global client wrapper
 
-For detailed documentation, see the [Error Handling & Retry Guide](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/limitless-exchange-sdk/docs/api/README.md).
+For detailed documentation, see the [Error Handling & Retry Guide](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/docs/api/README.md).
 
 ## API Documentation
 
@@ -681,20 +681,20 @@ console.log(raw.status, raw.headers, raw.data);
 
 ## Documentation
 
-For detailed documentation, see the [docs](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/tree/main/limitless-exchange-sdk/docs) directory:
+For detailed documentation, see the [docs](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/tree/main/docs) directory:
 
-- **[Complete Documentation](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/limitless-exchange-sdk/docs/README.md)** - Full SDK documentation
-- **[Authentication Guide](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/limitless-exchange-sdk/docs/api/README.md)** - API key authentication and HTTP client
-- **[Trading & Orders](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/limitless-exchange-sdk/docs/orders/README.md)** - Order creation, management, and NegRisk markets
-- **[Market Data](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/limitless-exchange-sdk/docs/markets/README.md)** - Market discovery and orderbook access
-- **[Portfolio & Positions](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/limitless-exchange-sdk/docs/portfolio/README.md)** - Position tracking and user history
-- **[WebSocket Streaming](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/limitless-exchange-sdk/docs/websocket/README.md)** - Real-time data updates
-- **[Error Handling & Retry](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/limitless-exchange-sdk/docs/api/README.md)** - API error handling and retry mechanisms
-- **[Logging](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/limitless-exchange-sdk/docs/logging/LOGGING.md)** - Logging configuration
+- **[Complete Documentation](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/docs/README.md)** - Full SDK documentation
+- **[Authentication Guide](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/docs/api/README.md)** - API key authentication and HTTP client
+- **[Trading & Orders](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/docs/orders/README.md)** - Order creation, management, and NegRisk markets
+- **[Market Data](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/docs/markets/README.md)** - Market discovery and orderbook access
+- **[Portfolio & Positions](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/docs/portfolio/README.md)** - Position tracking and user history
+- **[WebSocket Streaming](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/docs/websocket/README.md)** - Real-time data updates
+- **[Error Handling & Retry](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/docs/api/README.md)** - API error handling and retry mechanisms
+- **[Logging](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/docs/logging/LOGGING.md)** - Logging configuration
 
 ## Code Examples
 
-Production-ready code samples are available in [docs/code-samples](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/tree/main/limitless-exchange-sdk/docs/code-samples):
+Production-ready code samples are available in [docs/code-samples](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/tree/main/docs/code-samples):
 
 ### Authentication Examples
 
@@ -860,7 +860,7 @@ Release with partner withdrawal-address allowlist helpers, server-wallet withdra
 - Detailed guides for authentication, trading, markets, portfolio, and WebSocket
 - Added market-pages guide and README quick-start for navigation-driven discovery
 
-For complete release notes, see [CHANGELOG.md](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/limitless-exchange-sdk/CHANGELOG.md).
+For complete release notes, see [CHANGELOG.md](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/CHANGELOG.md).
 
 ---
 
@@ -874,4 +874,4 @@ For complete release notes, see [CHANGELOG.md](https://github.com/limitless-labs
 
 ## License
 
-MIT - See [LICENSE](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/limitless-exchange-sdk/LICENSE) file for details
+MIT - See [LICENSE](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/LICENSE) file for details
