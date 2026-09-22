@@ -343,9 +343,10 @@ export class OrderClient {
       params.orderType === OrderType.GTC && 'postOnly' in params && params.postOnly !== undefined
         ? params.postOnly
         : undefined;
+    let orderBuilder = this.orderBuilder!;
 
     for (let attempt = 0; attempt < 2; attempt += 1) {
-      const unsignedOrder = this.orderBuilder!.buildOrder(params);
+      const unsignedOrder = orderBuilder.buildOrder(params);
 
       this.logger.debug('Built unsigned order', {
         salt: unsignedOrder.salt,
@@ -398,11 +399,7 @@ export class OrderClient {
           throw error;
         }
 
-        this.cachedUserData = {
-          ...userData,
-          feeRateBps: expectedFeeRateBps,
-        };
-        this.orderBuilder = new OrderBuilder(this.wallet.address, expectedFeeRateBps, 0.001);
+        orderBuilder = new OrderBuilder(this.wallet.address, expectedFeeRateBps, 0.001);
       }
     }
 

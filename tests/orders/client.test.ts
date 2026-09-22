@@ -99,9 +99,56 @@ describe('OrderClient', () => {
     expect(httpClient.post.mock.calls[0][1].order.salt).not.toBe(
       httpClient.post.mock.calls[1][1].order.salt
     );
-    expect((client as any).cachedUserData.feeRateBps).toBe(150);
+    expect((client as any).cachedUserData.feeRateBps).toBe(300);
     expect(response.data.order.id).toBe('retried-order');
     expect(response.getRaw().status).toBe(201);
+  });
+
+  it('keeps market-specific retry fee out of profile cache and later order builders', async () => {
+    const mismatch = new ValidationError(
+      'fee mismatch',
+      400,
+      { code: 'FEE_RATE_MISMATCH', expectedFeeRateBps: 0 },
+      '/orders',
+      'POST'
+    );
+    let createCalls = 0;
+    const httpClient = {
+      post: vi.fn().mockImplementation(async (path: string, payload: any) => {
+        if (path === '/orders') {
+          createCalls += 1;
+          if (createCalls === 1) {
+            throw mismatch;
+          }
+          return rawOrderResponse(payload, `order-${createCalls}`);
+        }
+        return {
+          cancel: { status: 'FAILURE', error: { code: 'X', message: 'x' } },
+          replacement: { status: 'NOT_ATTEMPTED' },
+        };
+      }),
+    };
+    const client = configuredClient(httpClient);
+    (client as any).cachedUserData = { userId: 42, feeRateBps: 300 };
+    (client as any).orderBuilder = new OrderBuilder(walletAddress, 300);
+
+    await client.createOrder({ ...orderParams, marketSlug: 'fee-disabled' });
+    await client.createOrder({ ...orderParams, marketSlug: 'fee-enabled' });
+    await client.cancelReplace({
+      cancel: { orderId: 'old-order' },
+      mode: CancelReplaceMode.STOP_ON_FAILURE,
+      replacement: { ...orderParams, marketSlug: 'fee-enabled' },
+    });
+
+    const createPayloads = httpClient.post.mock.calls
+      .filter(([path]) => path === '/orders')
+      .map(([, payload]) => payload);
+    const cancelReplaceCall = httpClient.post.mock.calls.find(
+      ([path]) => path === '/orders/cancel-replace'
+    );
+    expect(createPayloads.map((payload) => payload.order.feeRateBps)).toEqual([300, 0, 300]);
+    expect(JSON.parse(cancelReplaceCall![1]).replacement.order.feeRateBps).toBe(300);
+    expect((client as any).cachedUserData.feeRateBps).toBe(300);
   });
 
   it.each([
