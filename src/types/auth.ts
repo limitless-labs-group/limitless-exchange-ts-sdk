@@ -78,6 +78,11 @@ export interface UserProfile {
   rank?: UserRank;
 
   /**
+   * Effective CLOB fee rate in basis points after profile-specific caps
+   */
+  effectiveFeeRateBps?: number;
+
+  /**
    * Account creation timestamp
    */
   createdAt?: string;
