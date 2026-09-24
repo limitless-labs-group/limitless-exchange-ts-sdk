@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `WebSocketClient` now re-signs the HMAC handshake (`lmts-timestamp` / `lmts-signature`) before every automatic reconnect attempt. Socket.IO replays the options object it was constructed with, so headers signed once at first connect went stale after the server's 30-second window, and every re-subscription after a reconnect was rejected with `Invalid HMAC authentication`, leaving the socket open and silent.
+
 ### Added
 
 - Optional `{ withRawResponse: true }` support across all API-backed SDK methods. Domain methods return `SdkResponse`, which provides the normal SDK value through `data` and the underlying HTTP status, headers, and original response body through `getRaw()`.
