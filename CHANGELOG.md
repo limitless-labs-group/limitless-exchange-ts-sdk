@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `version` on `OrderbookUpdate` and `midpoint` on `OrderbookData`, matching the `orderbookUpdate` wire frame. `version` is the publisher sequence for the book (`0` when the initial snapshot came from the database fallback); use it to drop an out-of-order frame right after subscribing. `midpoint` is the midpoint of the best displayed bid and ask without the `minSize` filter that `adjustedMidpoint` applies.
 - Optional `{ withRawResponse: true }` support across all API-backed SDK methods. Domain methods return `SdkResponse`, which provides the normal SDK value through `data` and the underlying HTTP status, headers, and original response body through `getRaw()`.
 - Raw response mode for all `HttpClient` request variants and the retryable GET, POST, and DELETE wrapper.
 - Public raw wire-response types for transformed market-page, order, cancellation, API-token message, and market user-order responses.

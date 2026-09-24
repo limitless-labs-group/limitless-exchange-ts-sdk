@@ -97,8 +97,10 @@ export interface OrderbookData {
   asks: OrderbookEntry[];
   /** Token ID for the orderbook */
   tokenId: string;
-  /** Adjusted midpoint price */
+  /** Adjusted midpoint price (best bid/ask after dropping levels below minSize) */
   adjustedMidpoint: number;
+  /** Midpoint of the best displayed bid and ask, without the minSize filter */
+  midpoint: number;
   /** Maximum spread allowed */
   maxSpread: number;
   /** Minimum order size */
@@ -114,6 +116,12 @@ export interface OrderbookUpdate {
   marketSlug: string;
   /** Nested orderbook data object */
   orderbook: OrderbookData;
+  /**
+   * Publisher sequence for this market's book. Increases with every frame while the
+   * same publisher is active and can restart after a backend failover. The initial
+   * snapshot sent after subscribing carries 0 when it came from the database fallback.
+   */
+  version: number;
   /** Timestamp as Date or number after serialization */
   timestamp: Date | number | string;
 }
