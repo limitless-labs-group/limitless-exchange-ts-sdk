@@ -36,6 +36,7 @@ import { ZERO_ADDRESS } from '../utils/constants';
 import { toFiniteInteger, toFiniteNumber } from '../utils/number-flex';
 import { MarketFetcher } from '../markets/fetcher';
 import { PortfolioFetcher } from '../portfolio/fetcher';
+import { APIError } from '../api/errors';
 
 /**
  * Configuration for the order client.
@@ -205,7 +206,10 @@ export class OrderClient {
       const profile = await portfolioFetcher.getProfile(this.wallet.address);
 
       const userId = toFiniteInteger(profile.id);
-      const feeRateBps = toFiniteInteger(profile.rank?.feeRateBps) ?? 300;
+      const feeRateBps =
+        toFiniteInteger(profile.effectiveFeeRateBps) ??
+        toFiniteInteger(profile.rank?.feeRateBps) ??
+        300;
       if (userId === undefined) {
         throw new Error(`Invalid user profile id: ${profile.id}`);
       }
@@ -335,55 +339,71 @@ export class OrderClient {
       adapter: venue.adapter,
     });
 
-    const unsignedOrder = this.orderBuilder!.buildOrder(params);
-
-    this.logger.debug('Built unsigned order', {
-      salt: unsignedOrder.salt,
-      makerAmount: unsignedOrder.makerAmount,
-      takerAmount: unsignedOrder.takerAmount,
-    });
-
-    const signature = await this.orderSigner.signOrder(unsignedOrder, dynamicSigningConfig);
-
-    // Step 3: Prepare payload for API
     const postOnly =
       params.orderType === OrderType.GTC && 'postOnly' in params && params.postOnly !== undefined
         ? params.postOnly
         : undefined;
+    let orderBuilder = this.orderBuilder!;
 
-    const payload: NewOrderPayload = {
-      order: {
-        ...unsignedOrder,
-        signature,
-      },
-      orderType: params.orderType,
-      marketSlug: params.marketSlug,
-      ownerId: userData.userId,
-      ...(postOnly !== undefined ? { postOnly } : {}),
-    };
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const unsignedOrder = orderBuilder.buildOrder(params);
 
-    // Step 4: Submit to API
-    this.logger.debug('Submitting order to API', payload);
-    if (options.withRawResponse) {
-      const rawResponse = await this.httpClient.post<RawOrderResponse>('/orders', payload, {
-        withRawResponse: true,
+      this.logger.debug('Built unsigned order', {
+        salt: unsignedOrder.salt,
+        makerAmount: unsignedOrder.makerAmount,
+        takerAmount: unsignedOrder.takerAmount,
       });
 
-      this.logger.info('Order created successfully', {
-        orderId: rawResponse.data.order.id,
-      });
+      const signature = await this.orderSigner.signOrder(unsignedOrder, dynamicSigningConfig);
+      const payload: NewOrderPayload = {
+        order: {
+          ...unsignedOrder,
+          signature,
+        },
+        orderType: params.orderType,
+        marketSlug: params.marketSlug,
+        ownerId: userData.userId,
+        ...(postOnly !== undefined ? { postOnly } : {}),
+      };
 
-      return new SdkResponse(this.transformOrderResponse(rawResponse.data), rawResponse);
+      this.logger.debug('Submitting order to API', payload);
+      try {
+        if (options.withRawResponse) {
+          const rawResponse = await this.httpClient.post<RawOrderResponse>('/orders', payload, {
+            withRawResponse: true,
+          });
+
+          this.logger.info('Order created successfully', {
+            orderId: rawResponse.data.order.id,
+          });
+
+          return new SdkResponse(this.transformOrderResponse(rawResponse.data), rawResponse);
+        }
+
+        const apiResponse = await this.httpClient.post<RawOrderResponse>('/orders', payload);
+
+        this.logger.info('Order created successfully', {
+          orderId: apiResponse.order.id,
+        });
+
+        return this.transformOrderResponse(apiResponse);
+      } catch (error) {
+        const expectedFeeRateBps =
+          error instanceof APIError &&
+          error.status === 400 &&
+          error.data?.code === 'FEE_RATE_MISMATCH'
+            ? toFiniteInteger(error.data.expectedFeeRateBps)
+            : undefined;
+
+        if (attempt !== 0 || expectedFeeRateBps === undefined) {
+          throw error;
+        }
+
+        orderBuilder = new OrderBuilder(this.wallet.address, expectedFeeRateBps, 0.001);
+      }
     }
 
-    const apiResponse = await this.httpClient.post<RawOrderResponse>('/orders', payload);
-
-    this.logger.info('Order created successfully', {
-      orderId: apiResponse.order.id,
-    });
-
-    // Step 5: Transform API response to clean DTO
-    return this.transformOrderResponse(apiResponse);
+    throw new Error('Order submission failed');
   }
 
   async cancelReplace(params: CancelReplaceParams): Promise<CancelReplaceResponse> {

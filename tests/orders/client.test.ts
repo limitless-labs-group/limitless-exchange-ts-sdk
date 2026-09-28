@@ -1,8 +1,178 @@
 import { describe, expect, it, vi } from 'vitest';
 import { OrderClient } from '../../src/orders/client';
+import { OrderBuilder } from '../../src/orders/builder';
 import { CancelReplaceMode, OrderType, Side } from '../../src/types/orders';
+import { APIError, ValidationError } from '../../src/api/errors';
+
+const walletAddress = '0x0000000000000000000000000000000000000001';
+const exchangeAddress = '0x0000000000000000000000000000000000000002';
+
+function rawOrderResponse(payload: any, id: string = 'order-1') {
+  return {
+    order: {
+      ...payload.order,
+      id,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      orderType: payload.orderType,
+      marketId: 42,
+    },
+    makerMatches: [],
+  };
+}
+
+function configuredClient(httpClient: any) {
+  const client = new OrderClient({
+    httpClient,
+    wallet: { address: walletAddress } as any,
+  });
+  (client as any).orderSigner = {
+    signOrder: vi.fn().mockResolvedValue(`0x${'a'.repeat(130)}`),
+  };
+  (client as any).marketFetcher = {
+    getVenue: vi.fn().mockReturnValue({ exchange: exchangeAddress, adapter: null }),
+  };
+  return client;
+}
+
+const orderParams = {
+  tokenId: '123',
+  side: Side.BUY,
+  price: 0.5,
+  size: 2,
+  orderType: OrderType.GTC,
+  marketSlug: 'market',
+} as const;
 
 describe('OrderClient', () => {
+  it.each([0, 150])(
+    'prefers top-level effective fee %i over rank fee',
+    async (effectiveFeeRateBps) => {
+      const httpClient = {
+        get: vi.fn().mockResolvedValue({
+          id: 42,
+          account: walletAddress,
+          effectiveFeeRateBps,
+          rank: { id: 1, name: 'rank', feeRateBps: 300 },
+        }),
+        post: vi
+          .fn()
+          .mockImplementation(async (_path: string, payload: any) => rawOrderResponse(payload)),
+      };
+      const client = configuredClient(httpClient);
+
+      await client.createOrder(orderParams);
+
+      expect(httpClient.post.mock.calls[0][1].order.feeRateBps).toBe(effectiveFeeRateBps);
+    }
+  );
+
+  it('rebuilds, re-signs, and retries once with expected fee in raw response mode', async () => {
+    const mismatch = new ValidationError(
+      'fee mismatch',
+      400,
+      { code: 'FEE_RATE_MISMATCH', expectedFeeRateBps: 150 },
+      '/orders',
+      'POST'
+    );
+    const httpClient = {
+      post: vi
+        .fn()
+        .mockRejectedValueOnce(mismatch)
+        .mockImplementationOnce(async (_path: string, payload: any) => ({
+          data: rawOrderResponse(payload, 'retried-order'),
+          status: 201,
+          headers: {},
+        })),
+    };
+    const client = configuredClient(httpClient);
+    (client as any).cachedUserData = { userId: 42, feeRateBps: 300 };
+    (client as any).orderBuilder = new OrderBuilder(walletAddress, 300);
+    const buildOrder = vi.spyOn(OrderBuilder.prototype, 'buildOrder');
+
+    const response = await client.createOrder(orderParams, { withRawResponse: true });
+
+    expect(buildOrder).toHaveBeenCalledTimes(2);
+    expect((client as any).orderSigner.signOrder).toHaveBeenCalledTimes(2);
+    expect(httpClient.post).toHaveBeenCalledTimes(2);
+    expect(httpClient.post.mock.calls[0][1].order.feeRateBps).toBe(300);
+    expect(httpClient.post.mock.calls[1][1].order.feeRateBps).toBe(150);
+    expect(httpClient.post.mock.calls[0][1].order.salt).not.toBe(
+      httpClient.post.mock.calls[1][1].order.salt
+    );
+    expect((client as any).cachedUserData.feeRateBps).toBe(300);
+    expect(response.data.order.id).toBe('retried-order');
+    expect(response.getRaw().status).toBe(201);
+  });
+
+  it('keeps market-specific retry fee out of profile cache and later order builders', async () => {
+    const mismatch = new ValidationError(
+      'fee mismatch',
+      400,
+      { code: 'FEE_RATE_MISMATCH', expectedFeeRateBps: 0 },
+      '/orders',
+      'POST'
+    );
+    let createCalls = 0;
+    const httpClient = {
+      post: vi.fn().mockImplementation(async (path: string, payload: any) => {
+        if (path === '/orders') {
+          createCalls += 1;
+          if (createCalls === 1) {
+            throw mismatch;
+          }
+          return rawOrderResponse(payload, `order-${createCalls}`);
+        }
+        return {
+          cancel: { status: 'FAILURE', error: { code: 'X', message: 'x' } },
+          replacement: { status: 'NOT_ATTEMPTED' },
+        };
+      }),
+    };
+    const client = configuredClient(httpClient);
+    (client as any).cachedUserData = { userId: 42, feeRateBps: 300 };
+    (client as any).orderBuilder = new OrderBuilder(walletAddress, 300);
+
+    await client.createOrder({ ...orderParams, marketSlug: 'fee-disabled' });
+    await client.createOrder({ ...orderParams, marketSlug: 'fee-enabled' });
+    await client.cancelReplace({
+      cancel: { orderId: 'old-order' },
+      mode: CancelReplaceMode.STOP_ON_FAILURE,
+      replacement: { ...orderParams, marketSlug: 'fee-enabled' },
+    });
+
+    const createPayloads = httpClient.post.mock.calls
+      .filter(([path]) => path === '/orders')
+      .map(([, payload]) => payload);
+    const cancelReplaceCall = httpClient.post.mock.calls.find(
+      ([path]) => path === '/orders/cancel-replace'
+    );
+    expect(createPayloads.map((payload) => payload.order.feeRateBps)).toEqual([300, 0, 300]);
+    expect(JSON.parse(cancelReplaceCall![1]).replacement.order.feeRateBps).toBe(300);
+    expect((client as any).cachedUserData.feeRateBps).toBe(300);
+  });
+
+  it.each([
+    ['network error', new Error('timeout')],
+    ['server error', new APIError('server error', 500, {}, '/orders', 'POST')],
+    [
+      'unknown mismatch',
+      new ValidationError('fee mismatch', 400, { code: 'FEE_RATE_MISMATCH' }, '/orders', 'POST'),
+    ],
+  ])('does not retry %s', async (_name, error) => {
+    const httpClient = { post: vi.fn().mockRejectedValue(error) };
+    const client = configuredClient(httpClient);
+    (client as any).cachedUserData = { userId: 42, feeRateBps: 300 };
+    (client as any).orderBuilder = {
+      buildOrder: vi.fn().mockReturnValue({ tokenId: '123', salt: 1, feeRateBps: 300 }),
+    };
+
+    await expect(client.createOrder(orderParams)).rejects.toBe(error);
+
+    expect((client as any).orderBuilder.buildOrder).toHaveBeenCalledTimes(1);
+    expect((client as any).orderSigner.signOrder).toHaveBeenCalledTimes(1);
+    expect(httpClient.post).toHaveBeenCalledTimes(1);
+  });
+
   it('normalizes numeric-string createOrder fields for makerAmount, takerAmount, price, and safe salt', () => {
     const client = new OrderClient({
       httpClient: {} as any,
