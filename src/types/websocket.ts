@@ -168,25 +168,65 @@ export interface OraclePriceData {
 }
 
 /**
- * OME order lifecycle event.
+ * Fields shared by every `source: "OME"` order event frame.
  * @public
  */
-export interface OmeOrderEvent {
-  clientOrderId?: string;
-  eventId: number | string;
+export interface OmeOrderEventBase {
   marketId: string;
+  /** Lifecycle fact time recorded by the matching engine; `null` when unknown. */
+  occurredAt?: string | null;
   orderId: string;
-  price: number;
-  remainingSize: number;
+  /** Per-client gateway queue time, immediately before the frame is written. */
+  publishedAt?: string;
   side: string;
   source: 'OME';
-  /** Present only on EXECUTION (FAK/FOK terminal) frames. */
-  status?: 'FILLED' | 'PARTIALLY_FILLED' | 'KILLED';
+  /** Deprecated legacy timestamp; prefer `occurredAt`. */
   timestamp: string;
   token: string;
-  type: 'PLACEMENT' | 'UPDATE' | 'CANCELLATION' | 'EXECUTION';
   userId: number;
 }
+
+/**
+ * OME lifecycle frame (`PLACEMENT` / `UPDATE` / `CANCELLATION`) for a resting order.
+ * `price` and `remainingSize` are JSON numbers; `remainingSize` is in raw 6-decimal units.
+ * @public
+ */
+export interface OmeLifecycleOrderEvent extends OmeOrderEventBase {
+  /** Client-supplied id from `POST /orders`; omitted when the order had none. */
+  clientOrderId?: string;
+  /** Monotonic OME event id. */
+  eventId: number;
+  price: number;
+  /** Engine cancellation reason, e.g. `STP_MAKER_CANCELLED`. */
+  reason?: string;
+  remainingSize: number;
+  status?: undefined;
+  type: 'PLACEMENT' | 'UPDATE' | 'CANCELLATION';
+}
+
+/**
+ * FAK/FOK terminal frame (`type: "EXECUTION"`), emitted once per immediate-or-cancel order.
+ * Unlike lifecycle frames, `price` and `remainingSize` are strings; `remainingSize` is in raw
+ * 6-decimal units (`"0"` on `FILLED`, the original size on `KILLED`). Carries no `clientOrderId`.
+ * @public
+ */
+export interface OmeExecutionOrderEvent extends OmeOrderEventBase {
+  clientOrderId?: undefined;
+  /** `terminal:<orderId>`. */
+  eventId: string;
+  price: string;
+  reason?: undefined;
+  remainingSize: string;
+  status: 'FILLED' | 'PARTIALLY_FILLED' | 'KILLED';
+  type: 'EXECUTION';
+}
+
+/**
+ * OME order event. Narrow on `type` to get the numeric lifecycle shape or the string-typed
+ * `EXECUTION` terminal shape.
+ * @public
+ */
+export type OmeOrderEvent = OmeLifecycleOrderEvent | OmeExecutionOrderEvent;
 
 /**
  * Maker match included in settlement order events.

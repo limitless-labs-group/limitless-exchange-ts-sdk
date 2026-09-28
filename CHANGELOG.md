@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Typed HTTP errors `ConflictError` (409), `UnprocessableEntityError` (422), `TooEarlyError` (425), and `UpstreamUnavailableError` (502/503), mapped for all requests (raw and non-raw). Existing `instanceof APIError` checks continue to match.
 - Unit coverage for AMM allowance mapping, 200/202 approve handling, buy/sell body shape, validation matrix, idempotent-body retries, 409 conflict mapping, identity vs HMAC auth, and raw-response variants.
 
+### Fixed
+
+- `OmeOrderEvent` is now a discriminated union of `OmeLifecycleOrderEvent` (`PLACEMENT` / `UPDATE` / `CANCELLATION`, numeric `price` and `remainingSize`) and `OmeExecutionOrderEvent` (`EXECUTION`, string `price` and `remainingSize` in raw 6-decimal units, required `status`). The previous single interface typed the terminal frame's `price` and `remainingSize` as numbers, but the gateway sends them as strings. Narrow on `type`. Both shapes now also declare `occurredAt` and `publishedAt`, and the lifecycle shape declares `reason`.
+
 ## [1.1.0]
 
 ### Added
