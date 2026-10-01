@@ -13,7 +13,7 @@ import {
   type WebSocketEvents,
   type SubscriptionChannel,
   type SubscriptionOptions,
-  type PositionsSubscriptionOptions,
+  type SubscribeArgs,
 } from '../types/websocket';
 import type { ILogger } from '../types/logger';
 import { NoOpLogger } from '../types/logger';
@@ -316,9 +316,10 @@ export class WebSocketClient {
    * Subscribes to a channel.
    *
    * @param channel - Channel to subscribe to
-   * @param options - Subscription options. Required for `subscribe_positions`,
+   * @param args - Subscription options. Required for `subscribe_positions`,
    *   which must carry `marketSlugs` and/or `marketAddresses`; the server
    *   ignores a positions subscription without them (no ack, no error).
+   *   Optional for every other channel.
    * @returns Promise that resolves immediately (kept async for API compatibility)
    * @throws Error if not connected
    *
@@ -334,12 +335,12 @@ export class WebSocketClient {
    * await wsClient.subscribe('subscribe_positions', { marketSlugs: ['market-123'] });
    * ```
    */
-  subscribe(channel: 'subscribe_positions', options: PositionsSubscriptionOptions): Promise<void>;
-  subscribe(
-    channel: Exclude<SubscriptionChannel, 'subscribe_positions'>,
-    options?: SubscriptionOptions
-  ): Promise<void>;
-  async subscribe(channel: SubscriptionChannel, options: SubscriptionOptions = {}): Promise<void> {
+  async subscribe<C extends SubscriptionChannel>(
+    channel: C,
+    ...args: SubscribeArgs<C>
+  ): Promise<void> {
+    const options: SubscriptionOptions = args[0] ?? {};
+
     if (!this.isConnected()) {
       throw new Error('WebSocket not connected. Call connect() first.');
     }
@@ -596,11 +597,7 @@ export class WebSocketClient {
     for (const [key, options] of this.subscriptions.entries()) {
       const channel = this.getChannelFromKey(key);
       try {
-        // Stored options already passed the public overloads; the cast only re-enters them.
-        await this.subscribe(
-          channel as Exclude<SubscriptionChannel, 'subscribe_positions'>,
-          options
-        );
+        await this.subscribe(channel, options);
       } catch (error) {
         this.logger.error('Failed to re-subscribe', error as Error, { channel, options });
       }

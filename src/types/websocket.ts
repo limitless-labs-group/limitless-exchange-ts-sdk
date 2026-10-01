@@ -519,3 +519,15 @@ export interface SubscriptionOptions {
  */
 export type PositionsSubscriptionOptions = SubscriptionOptions &
   ({ marketSlugs: string[] } | { marketAddresses: string[] });
+
+/**
+ * Trailing arguments of `WebSocketClient.subscribe()` for a channel.
+ * `subscribe_positions` requires a {@link PositionsSubscriptionOptions} payload;
+ * every other channel takes optional {@link SubscriptionOptions}. The type
+ * distributes over unions, so a `SubscriptionChannel`-typed variable still
+ * accepts plain `SubscriptionOptions`.
+ * @public
+ */
+export type SubscribeArgs<C extends SubscriptionChannel> = C extends 'subscribe_positions'
+  ? [options: PositionsSubscriptionOptions]
+  : [options?: SubscriptionOptions];
