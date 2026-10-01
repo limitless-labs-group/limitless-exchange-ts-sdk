@@ -138,14 +138,39 @@ export interface AmmPriceEntry {
 }
 
 /**
+ * Shape of `updatedPrices` on the initial snapshot frame sent right after
+ * `subscribe_market_prices`. The server emits one object here, not an array.
+ * @public
+ */
+export interface AmmPriceSnapshot {
+  /** Collateral token decimals */
+  collateralDecimals: number;
+  /** Market ID (may be absent on the snapshot frame) */
+  marketId?: number;
+  /** Market contract address */
+  marketAddress: string;
+  /** YES token price (0-1 range) */
+  yesPrice: number;
+  /** NO token price (0-1 range) */
+  noPrice: number;
+}
+
+/**
  * AMM price update event (newPriceData) - matches API format exactly.
+ *
+ * @remarks
+ * Live frames carry `updatedPrices` as an array. The first frame per address
+ * after `subscribe_market_prices` is a snapshot whose `updatedPrices` is a
+ * single {@link AmmPriceSnapshot} object. Normalise with
+ * `Array.isArray(data.updatedPrices) ? data.updatedPrices : [data.updatedPrices]`.
+ *
  * @public
  */
 export interface NewPriceData {
   /** Market contract address (camelCase to match API) */
   marketAddress: string;
-  /** Array of price updates for this market */
-  updatedPrices: AmmPriceEntry[];
+  /** Price updates for this market: an array on live frames, one object on the initial snapshot */
+  updatedPrices: AmmPriceEntry[] | AmmPriceSnapshot;
   /** Blockchain block number */
   blockNumber: number;
   /** Timestamp as Date or number after serialization */
@@ -311,6 +336,22 @@ export interface TransactionEvent {
   price?: string;
   /** Trade side (optional) */
   side?: 'BUY' | 'SELL';
+  /** Order id (optional, CLOB trades) */
+  orderId?: string;
+  /** Client-supplied order id (optional, CLOB trades) */
+  clientOrderId?: string;
+  /** Settlement trade event id (optional, CLOB trades) */
+  tradeEventId?: string;
+  /** Source event id (optional) */
+  eventId?: string;
+  /** Configured fee rate in bps (optional) */
+  configuredFeeRateBps?: number;
+  /** Effective fee rate in bps (optional) */
+  effectiveFeeBps?: number;
+  /** Fee charged in contracts (optional, in string format) */
+  feeAmountContracts?: string;
+  /** Fee charged in collateral (optional, in string format) */
+  feeAmountCollateral?: string;
 }
 
 /**
@@ -444,7 +485,9 @@ export interface SubscriptionOptions {
   marketSlug?: string;
 
   /**
-   * Market slugs to subscribe to (array format - required by server)
+   * Market slugs to subscribe to (array format - required by server).
+   * `subscribe_positions` requires `marketSlugs` and/or `marketAddresses`;
+   * the server ignores a positions subscription without them (no ack, no error).
    */
   marketSlugs?: string[];
 
@@ -455,7 +498,9 @@ export interface SubscriptionOptions {
   marketAddress?: string;
 
   /**
-   * Market addresses to subscribe to (array format - required by server)
+   * Market addresses to subscribe to (array format - required by server).
+   * `subscribe_positions` requires `marketSlugs` and/or `marketAddresses`;
+   * the server ignores a positions subscription without them (no ack, no error).
    */
   marketAddresses?: string[];
 
@@ -464,3 +509,13 @@ export interface SubscriptionOptions {
    */
   filters?: Record<string, any>;
 }
+
+/**
+ * Options for `subscribe_positions`. The server ignores a positions
+ * subscription that carries neither `marketSlugs` nor `marketAddresses`
+ * (no ack, no error), so at least one must be present. Like
+ * `subscribe_market_prices`, a new call replaces the previous market set.
+ * @public
+ */
+export type PositionsSubscriptionOptions = SubscriptionOptions &
+  ({ marketSlugs: string[] } | { marketAddresses: string[] });
