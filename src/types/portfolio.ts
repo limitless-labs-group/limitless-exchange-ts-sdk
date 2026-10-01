@@ -469,6 +469,15 @@ export interface HistoryEntry {
 
   /** On-chain transaction hash */
   transactionHash?: string;
+
+  /** CLOB rows only: id of the order this fill belongs to */
+  orderId?: string;
+
+  /** CLOB rows only: settlement trade event id */
+  tradeEventId?: string;
+
+  /** CLOB maker rows only */
+  makerMatchId?: string;
 }
 
 /**

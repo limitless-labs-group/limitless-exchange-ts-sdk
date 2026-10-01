@@ -1,0 +1,24 @@
+{
+  // Type-checks src/ together with tests/ (the base config excludes tests). Run via `pnpm typecheck:tests`.
+  // Enforces the compile-time contracts in tests/types/*.test.ts, including their @ts-expect-error lines.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": ".",
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false,
+    "types": ["node", "vitest/globals"]
+  },
+  "include": ["src/**/*", "tests/**/*"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    // Pre-existing type errors in test-only mock typing (vitest Mock generics); unrelated to src.
+    // Remove each entry once that file type-checks.
+    "tests/amm/service.test.ts",
+    "tests/api/http.test.ts",
+    "tests/markets/fetcher.test.ts",
+    "tests/raw-response-support.test.ts"
+  ]
+}

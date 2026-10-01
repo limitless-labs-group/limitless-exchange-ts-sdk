@@ -13,6 +13,7 @@ import {
   type WebSocketEvents,
   type SubscriptionChannel,
   type SubscriptionOptions,
+  type SubscribeArgs,
 } from '../types/websocket';
 import type { ILogger } from '../types/logger';
 import { NoOpLogger } from '../types/logger';
@@ -315,7 +316,10 @@ export class WebSocketClient {
    * Subscribes to a channel.
    *
    * @param channel - Channel to subscribe to
-   * @param options - Subscription options
+   * @param args - Subscription options. Required for `subscribe_positions`,
+   *   which must carry `marketSlugs` and/or `marketAddresses`; the server
+   *   ignores a positions subscription without them (no ack, no error).
+   *   Optional for every other channel.
    * @returns Promise that resolves immediately (kept async for API compatibility)
    * @throws Error if not connected
    *
@@ -326,9 +330,17 @@ export class WebSocketClient {
    *
    * // Subscribe to your authenticated order lifecycle events
    * await wsClient.subscribe('subscribe_order_events');
+   *
+   * // Positions need the market set
+   * await wsClient.subscribe('subscribe_positions', { marketSlugs: ['market-123'] });
    * ```
    */
-  async subscribe(channel: SubscriptionChannel, options: SubscriptionOptions = {}): Promise<void> {
+  async subscribe<C extends SubscriptionChannel>(
+    channel: C,
+    ...args: SubscribeArgs<C>
+  ): Promise<void> {
+    const options: SubscriptionOptions = args[0] ?? {};
+
     if (!this.isConnected()) {
       throw new Error('WebSocket not connected. Call connect() first.');
     }
