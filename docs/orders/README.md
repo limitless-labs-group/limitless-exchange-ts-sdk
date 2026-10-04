@@ -7,6 +7,7 @@ Complete guide to creating and managing orders on the Limitless Exchange.
 - [Overview](#overview)
 - [Market Types](#market-types)
 - [Order Types](#order-types)
+- [Token Approvals Setup](#token-approvals-setup)
 - [Creating Orders](#creating-orders)
 - [NegRisk Markets](#negrisk-markets)
 - [Order Management](#order-management)
@@ -17,7 +18,7 @@ Complete guide to creating and managing orders on the Limitless Exchange.
 The Limitless Exchange supports three order types for both CLOB and NegRisk markets:
 
 - **FOK (Fill or Kill)**: Market orders that execute immediately at the best available price or cancel entirely
-- **GTC (Good Til Cancelled)**: Limit orders that remain on the orderbook until filled or manually cancelled
+- **GTC (Good Til Cancelled)**: Limit orders that remain on the orderbook until filled, cancelled, or the market resolves
 - **FAK (Fill and Kill)**: Limit orders that fill what they can immediately and cancel any remainder
 
 ## Market Types
@@ -53,8 +54,10 @@ Standard prediction markets with a single outcome to trade.
 **Default Contract Address** (Base mainnet):
 
 ```
-0xa4409D988CA2218d956BeEFD3874100F444f0DC3
+0x05c748E2f4DcDe0ec9Fa8DDc40DE6b867f923fa5
 ```
+
+Some older markets still use `0xa4409D988CA2218d956BeEFD3874100F444f0DC3`. Always use `venue.exchange` from the API.
 
 **Characteristics**:
 
@@ -76,8 +79,10 @@ Group markets with multiple related outcomes traded together (e.g., "Largest Com
 **Default Contract Address** (Base mainnet):
 
 ```
-0x5a38afc17F7E97ad8d6C547ddb837E40B4aEDfC6
+0xe3E00BA3a9888d1DE4834269f62ac008b4BB5C47
 ```
+
+Some older markets still use `0x5a38afc17F7E97ad8d6C547ddb837E40B4aEDfC6`. Always use `venue.exchange` from the API.
 
 **Characteristics**:
 
@@ -120,7 +125,7 @@ Best for price-specific execution when you can wait for your target price.
 **Characteristics**:
 
 - Executes only at specified price or better
-- Remains on orderbook until filled or cancelled
+- Remains on orderbook until filled, cancelled, or the market resolves
 - Allows partial fills
 - Full price control
 - Optional `postOnly` flag rejects the order if it would immediately match
