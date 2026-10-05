@@ -326,7 +326,7 @@ if (market.negRiskRequestId) {
 
 ### Prerequisites
 
-You need three components to create orders:
+You need four components to create orders:
 
 ```typescript
 import { ethers } from 'ethers';
@@ -604,7 +604,6 @@ console.log('Order cancelled');
 const result = await orderClient.cancelAll('market-slug');
 
 console.log(result.message); // "Orders canceled successfully"
-console.log(result.canceled); // IDs of cancelled orders
 ```
 
 ### Checking Order Status
