@@ -166,17 +166,20 @@ if (market.tokens) {
 ### Get User Orders for a Market
 
 ```typescript
-// Requires API key authentication
+// Requires API tokens authentication
 const httpClient = new HttpClient({
   baseURL: 'https://api.limitless.exchange',
-  apiKey: process.env.LIMITLESS_API_KEY,
+  hmacCredentials: {
+    tokenId: process.env.LMTS_TOKEN_ID!,
+    secret: process.env.LMTS_TOKEN_SECRET!,
+  },
 });
 
 const marketFetcher = new MarketFetcher(httpClient);
 
 // Get market and user orders
 const market = await marketFetcher.getMarket('market-slug-here');
-const orders = await market.getUserOrders(); // to get this we need to pas API key
+const orders = await market.getUserOrders(); // requires an authenticated httpClient
 
 console.log(`Found ${orders.length} orders for ${market.title}`);
 console.log(JSON.stringify(orders, null, 2));

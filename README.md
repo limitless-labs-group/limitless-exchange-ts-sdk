@@ -135,8 +135,8 @@ import { HttpClient } from '@limitless-exchange/sdk';
 const httpClient = new HttpClient({
   baseURL: 'https://api.limitless.exchange',
   hmacCredentials: {
-    tokenId: process.env.LIMITLESS_API_TOKEN_ID!, // API Key
-    secret: process.env.LIMITLESS_API_TOKEN_SECRET!, // Secret
+    tokenId: process.env.LMTS_TOKEN_ID!, // API Key
+    secret: process.env.LMTS_TOKEN_SECRET!, // Secret
   },
 });
 
@@ -152,8 +152,8 @@ Create a local `.env` file that is not committed to source control:
 
 ```bash
 # Required for authenticated endpoints
-LIMITLESS_API_TOKEN_ID=your_api_key_here
-LIMITLESS_API_TOKEN_SECRET=your_secret_here
+LMTS_TOKEN_ID=your_api_key_here
+LMTS_TOKEN_SECRET=your_secret_here
 
 # REQUIRED for server-side or local scripts that sign orders (EIP-712)
 # Never commit a real private key to the repository.
@@ -172,8 +172,8 @@ import { Client } from '@limitless-exchange/sdk';
 const client = new Client({
   baseURL: 'https://api.limitless.exchange',
   hmacCredentials: {
-    tokenId: process.env.LIMITLESS_API_TOKEN_ID!,
-    secret: process.env.LIMITLESS_API_TOKEN_SECRET!,
+    tokenId: process.env.LMTS_TOKEN_ID!,
+    secret: process.env.LMTS_TOKEN_SECRET!,
   },
 });
 
@@ -234,8 +234,8 @@ import { Client } from '@limitless-exchange/sdk';
 const client = new Client({
   baseURL: 'https://api.limitless.exchange',
   hmacCredentials: {
-    tokenId: process.env.LIMITLESS_API_TOKEN_ID!,
-    secret: process.env.LIMITLESS_API_TOKEN_SECRET!,
+    tokenId: process.env.LMTS_TOKEN_ID!,
+    secret: process.env.LMTS_TOKEN_SECRET!,
   },
 });
 
@@ -272,8 +272,8 @@ import { Client } from '@limitless-exchange/sdk';
 const client = new Client({
   baseURL: 'https://api.limitless.exchange',
   hmacCredentials: {
-    tokenId: process.env.LIMITLESS_API_TOKEN_ID!,
-    secret: process.env.LIMITLESS_API_TOKEN_SECRET!,
+    tokenId: process.env.LMTS_TOKEN_ID!,
+    secret: process.env.LMTS_TOKEN_SECRET!,
   },
 });
 
@@ -552,7 +552,7 @@ Replace many orders at once with `orderClient.cancelReplaceBatch({ operations: [
 import { Client } from '@limitless-exchange/sdk';
 
 const client = new Client({
-  hmacCredentials: { tokenId: process.env.LMTS_TOKEN_ID!, secret: process.env.LMTS_SECRET! },
+  hmacCredentials: { tokenId: process.env.LMTS_TOKEN_ID!, secret: process.env.LMTS_TOKEN_SECRET! },
 });
 
 // 1. One-time approval setup for a wallet/market pair (BUY and SELL are independent).
