@@ -9,9 +9,13 @@ Complete guide to fetching market data and orderbooks from the Limitless Exchang
   - [Basic Setup](#basic-setup)
   - [Get Active Markets](#get-active-markets)
   - [Get Market Details](#get-market-details)
+  - [Get User Orders for a Market](#get-user-orders-for-a-market)
 - [Orderbook Data](#orderbook-data)
   - [Get Current Orderbook](#get-current-orderbook)
 - [Best Practices](#best-practices)
+- [Complete Example](#complete-example)
+- [Examples](#examples)
+- [Next Steps](#next-steps)
 
 ## Overview
 
@@ -21,7 +25,7 @@ The Markets API provides access to:
 - **Orderbook Data**: Current bids and asks for CLOB markets
 - **Market Statistics**: Volume, liquidity, and price data
 
-All market data is public and doesn't require authentication.
+Market and orderbook data is public and doesn't require authentication. Reading your own orders requires an authenticated client.
 
 ## Market Discovery
 
@@ -120,15 +124,16 @@ interface ActiveMarketsResponse {
 }
 
 interface Market {
-  id: string;
+  id: number;
   slug: string;
   title: string;
-  description: string;
-  type: 'CLOB' | 'NEGRISK';
+  description?: string;
+  marketType: string; // e.g. 'single', 'group'
+  tradeType: string; // e.g. 'clob', 'amm'
   createdAt: string;
-  resolutionDate?: string;
-  volume24h?: number;
-  liquidity?: number;
+  expirationDate: string;
+  volume?: string;
+  liquidity?: string;
   // ... other market fields
 }
 ```
@@ -204,8 +209,8 @@ if (orderbook.bids.length === 0 || orderbook.asks.length === 0) {
 const bestBid = orderbook.bids[0];
 const bestAsk = orderbook.asks[0];
 
-console.log('Best Bid:', bestBid.price, '-', bestBid.size, 'shares');
-console.log('Best Ask:', bestAsk.price, '-', bestAsk.size, 'shares');
+console.log('Best Bid:', bestBid.price, '-', bestBid.size / 1e6, 'shares');
+console.log('Best Ask:', bestAsk.price, '-', bestAsk.size / 1e6, 'shares');
 
 // Calculate spread
 const spread = bestAsk.price - bestBid.price;
@@ -219,13 +224,18 @@ console.log('Spread:', spread, `(${spreadPercent.toFixed(2)}%)`);
 ```typescript
 interface OrderbookLevel {
   price: number; // Price level (0-1 representing 0%-100%)
-  size: number; // Total shares available at this price
+  size: number; // Raw 6-decimal units (10000000 = 10 shares)
+  side: string; // 'BUY' or 'SELL'
 }
 
-interface Orderbook {
+interface OrderBook {
   bids: OrderbookLevel[]; // Buy orders, sorted high to low
   asks: OrderbookLevel[]; // Sell orders, sorted low to high
-  timestamp: number; // Last update timestamp
+  tokenId: string;
+  adjustedMidpoint: number;
+  maxSpread: string;
+  minSize: string; // Raw 6-decimal units
+  lastTradePrice: number | null;
 }
 ```
 
@@ -236,7 +246,7 @@ interface Orderbook {
 Always fetch market details before creating orders to cache venue data and eliminate redundant API calls.
 
 ```typescript
-import { MarketFetcher, OrderClient } from '@limitless-exchange/sdk';
+import { MarketFetcher, OrderClient, OrderType, Side } from '@limitless-exchange/sdk';
 import { ethers } from 'ethers';
 
 // Create marketFetcher once
@@ -253,11 +263,13 @@ const orderClient = new OrderClient({
 });
 
 // Create order (uses cached venue - no extra API calls)
-await orderClient.createGTCOrder({
-  marketId: 'market-slug',
-  side: 'BUY',
+await orderClient.createOrder({
+  tokenId: market.tokens!.yes,
   price: 0.65,
-  amount: 10,
+  size: 10,
+  side: Side.BUY,
+  orderType: OrderType.GTC,
+  marketSlug: 'market-slug',
 });
 ```
 
@@ -308,7 +320,7 @@ await wsClient.subscribe('subscribe_market_prices', {
   marketSlugs: ['market-slug'],
 });
 
-wsClient.on('orderbookUpdate' as any, (data: any) => {
+wsClient.on('orderbookUpdate', (data) => {
   console.log(JSON.stringify(data, null, 2));
 });
 ```
