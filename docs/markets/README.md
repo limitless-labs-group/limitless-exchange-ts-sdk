@@ -171,7 +171,7 @@ if (market.tokens) {
 ### Get User Orders for a Market
 
 ```typescript
-// Requires API tokens authentication
+// Requires API token authentication
 const httpClient = new HttpClient({
   baseURL: 'https://api.limitless.exchange',
   hmacCredentials: {
