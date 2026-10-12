@@ -336,8 +336,8 @@ import { HttpClient, OrderClient, MarketFetcher, Side, OrderType } from '@limitl
 const httpClient = new HttpClient({
   baseURL: 'https://api.limitless.exchange',
   hmacCredentials: {
-    tokenId: process.env.LIMITLESS_API_TOKEN_ID!,
-    secret: process.env.LIMITLESS_API_TOKEN_SECRET!,
+    tokenId: process.env.LMTS_TOKEN_ID!,
+    secret: process.env.LMTS_TOKEN_SECRET!,
   },
 });
 
@@ -445,8 +445,8 @@ import { HttpClient, OrderClient, MarketFetcher, Side, OrderType } from '@limitl
 const httpClient = new HttpClient({
   baseURL: 'https://api.limitless.exchange',
   hmacCredentials: {
-    tokenId: process.env.LIMITLESS_API_TOKEN_ID!,
-    secret: process.env.LIMITLESS_API_TOKEN_SECRET!,
+    tokenId: process.env.LMTS_TOKEN_ID!,
+    secret: process.env.LMTS_TOKEN_SECRET!,
   },
 });
 
@@ -659,7 +659,7 @@ history.data.filter((t: any) => t.orderId).forEach((t: any) => {
 | ------------------ | ---------------------------------------------- |
 | `LIVE`             | Order is on the orderbook, waiting to fill     |
 | `MATCHED`          | Order has been filled                          |
-| `CANCELED`         | Order was cancelled before filling             |
+| `CANCELED`         | Order was cancelled or the market resolved     |
 | `UNMATCHED`        |                                                |
 
 
@@ -675,8 +675,8 @@ import { HttpClient, MarketFetcher } from '@limitless-exchange/sdk';
 const httpClient = new HttpClient({
   baseURL: 'https://api.limitless.exchange',
   hmacCredentials: {
-    tokenId: process.env.LIMITLESS_API_TOKEN_ID!,
-    secret: process.env.LIMITLESS_API_TOKEN_SECRET!,
+    tokenId: process.env.LMTS_TOKEN_ID!,
+    secret: process.env.LMTS_TOKEN_SECRET!,
   },
 });
 
