@@ -23,6 +23,7 @@ export type {
   OrderBook,
   MarketOutcome,
   Venue,
+  VenueFeeModuleType,
   MarketTokens,
   Market as MarketInterface, // Export interface as alias for typing
   MarketsResponse,

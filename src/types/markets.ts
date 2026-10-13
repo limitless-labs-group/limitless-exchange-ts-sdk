@@ -292,7 +292,38 @@ export interface Venue {
    * SELL orders on NegRisk markets require CT approval to both exchange AND adapter.
    */
   adapter: string | null;
+
+  /**
+   * Fee module contract address (collateral fee venues only).
+   *
+   * @remarks
+   * Present only on venues that charge the taker fee in USDC through a separate
+   * fee module. Every order that is not `postOnly` (BUY and SELL) requires USDC
+   * approval to this address. SIMPLE and NegRisk markets use different fee modules,
+   * so always read it from the market instead of hardcoding it.
+   * Omitted on legacy venues.
+   */
+  feeModule?: string;
+
+  /**
+   * Fee module type (collateral fee venues only).
+   *
+   * @remarks
+   * `'COLLATERAL'` marks a collateral fee venue. Omitted on legacy venues.
+   * Use {@link isCollateralFeeVenue} to check it.
+   */
+  feeModuleType?: VenueFeeModuleType;
 }
+
+/**
+ * Fee module type reported on a market venue.
+ *
+ * @remarks
+ * Open string union so that new values from the API do not break typing.
+ *
+ * @public
+ */
+export type VenueFeeModuleType = 'COLLATERAL' | (string & {});
 
 /**
  * Market token IDs for CLOB markets.

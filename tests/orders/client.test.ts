@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { OrderBuilder } from '../../src/orders/builder';
 import { OrderClient } from '../../src/orders/client';
 import { CancelReplaceMode, OrderType, Side } from '../../src/types/orders';
 
@@ -281,5 +282,71 @@ describe('OrderClient', () => {
 
     expect(httpClient.post.mock.calls[0][0]).toBe('/orders/cancel-replace/batch');
     expect(JSON.parse(httpClient.post.mock.calls[0][1]).operations).toHaveLength(5);
+  });
+
+  describe('collateral fee venues', () => {
+    const walletAddress = '0x0000000000000000000000000000000000000001';
+    const legacyVenue = { exchange: '0x0000000000000000000000000000000000000002', adapter: null };
+    const collateralFeeVenue = {
+      ...legacyVenue,
+      feeModule: '0x0000000000000000000000000000000000000003',
+      feeModuleType: 'COLLATERAL',
+    };
+
+    function createClient(venue: object) {
+      const httpClient = {
+        post: vi.fn().mockImplementation(async (_path: string, payload: any) => ({
+          order: { ...payload.order, id: 'order-1', orderType: payload.orderType },
+        })),
+      } as any;
+      const client = new OrderClient({ httpClient, wallet: { address: walletAddress } as any });
+      (client as any).cachedUserData = { userId: 42, feeRateBps: 300 };
+      (client as any).orderBuilder = new OrderBuilder(walletAddress, 300, 0.001);
+      (client as any).orderSigner = { signOrder: vi.fn().mockResolvedValue('0xsigned') };
+      (client as any).marketFetcher = { getVenue: vi.fn().mockReturnValue(venue) };
+      return { client, httpClient };
+    }
+
+    const orderParams = {
+      tokenId: '123',
+      side: Side.BUY,
+      price: 0.55,
+      size: 10,
+      orderType: OrderType.GTC,
+      marketSlug: 'test-market',
+    } as const;
+
+    it('signs and submits feeRateBps 0 on a collateral fee venue', async () => {
+      const { client, httpClient } = createClient(collateralFeeVenue);
+
+      await client.createOrder(orderParams);
+
+      const [signedOrder, signingConfig] = (client as any).orderSigner.signOrder.mock.calls[0];
+      expect(signedOrder.feeRateBps).toBe(0);
+      expect(signingConfig.contractAddress).toBe(collateralFeeVenue.exchange);
+      expect(httpClient.post.mock.calls[0][1].order.feeRateBps).toBe(0);
+    });
+
+    it('keeps the profile fee rate on legacy venues', async () => {
+      const { client, httpClient } = createClient(legacyVenue);
+
+      await client.createOrder(orderParams);
+
+      expect((client as any).orderSigner.signOrder.mock.calls[0][0].feeRateBps).toBe(300);
+      expect(httpClient.post.mock.calls[0][1].order.feeRateBps).toBe(300);
+    });
+
+    it('signs cancel-replace replacements with feeRateBps 0 on a collateral fee venue', async () => {
+      const { client, httpClient } = createClient(collateralFeeVenue);
+
+      await client.cancelReplace({
+        cancel: { orderId: 'old-order' },
+        mode: CancelReplaceMode.ALLOW_FAILURE,
+        replacement: orderParams,
+      });
+
+      expect((client as any).orderSigner.signOrder.mock.calls[0][0].feeRateBps).toBe(0);
+      expect(JSON.parse(httpClient.post.mock.calls[0][1]).replacement.order.feeRateBps).toBe(0);
+    });
   });
 });

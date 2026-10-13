@@ -200,6 +200,11 @@ describe('raw response support across domain methods', () => {
   it('covers all delegated-order methods and preserves cancellation response bodies', async () => {
     const httpClient = {
       requireAuth: vi.fn(),
+      get: vi.fn().mockResolvedValue({
+        id: 1,
+        slug: 'market',
+        venue: { exchange: '0x0000000000000000000000000000000000000001', adapter: null },
+      }),
       post: vi.fn().mockResolvedValue(raw({ order: { id: 'order-1' } }, 201)),
       delete: vi.fn().mockResolvedValue(raw({ message: 'cancelled' })),
     } as unknown as HttpClient;

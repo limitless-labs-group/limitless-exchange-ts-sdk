@@ -43,7 +43,7 @@ export class Client {
     this.apiTokens = new ApiTokenService(this.http, logger);
     this.amm = new AmmService(this.http, logger);
     this.partnerAccounts = new PartnerAccountService(this.http, logger);
-    this.delegatedOrders = new DelegatedOrderService(this.http, logger);
+    this.delegatedOrders = new DelegatedOrderService(this.http, logger, this.markets);
     this.serverWallets = new ServerWalletService(this.http, logger);
   }
 
@@ -61,7 +61,7 @@ export class Client {
     client.apiTokens = new ApiTokenService(httpClient, logger);
     client.amm = new AmmService(httpClient, logger);
     client.partnerAccounts = new PartnerAccountService(httpClient, logger);
-    client.delegatedOrders = new DelegatedOrderService(httpClient, logger);
+    client.delegatedOrders = new DelegatedOrderService(httpClient, logger, client.markets);
     client.serverWallets = new ServerWalletService(httpClient, logger);
 
     return client;

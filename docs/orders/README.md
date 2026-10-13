@@ -30,6 +30,7 @@ The SDK supports two market types: CLOB and NegRisk. Each market uses a **venue 
 
 - **exchange**: Contract address used as `verifyingContract` for EIP-712 order signing
 - **adapter**: Contract address required for NegRisk/Grouped market SELL approvals
+- **feeModule** / **feeModuleType**: Present only on collateral fee venues (`feeModuleType: 'COLLATERAL'`); omitted on legacy venues. Use `isCollateralFeeVenue(market.venue)` to check.
 
 **Best Practice**: Always fetch market details before creating orders to cache venue data and avoid redundant API calls.
 
@@ -179,6 +180,20 @@ Smart contracts cannot transfer tokens from your wallet without explicit permiss
 
 ⚠️ **NegRisk SELL orders require TWO approvals**: one for `venue.exchange` and one for `venue.adapter`.
 
+#### Collateral Fee Venues
+
+Collateral fee venues charge the taker fee in USDC through a separate fee module contract. They use the same exchange and adapter contracts, so the approvals above stay valid; they add one USDC approval:
+
+| Order Type                            | Token | Approval Target   | Method                      |
+| ------------------------------------- | ----- | ----------------- | --------------------------- |
+| **BUY** and **SELL** (not `postOnly`) | USDC  | `venue.feeModule` | `approve(address, uint256)` |
+
+- Approve once per fee module address (max uint recommended). SIMPLE and NegRisk markets use different fee modules, so always read `venue.feeModule` from the market and never hardcode it.
+- `postOnly` orders don't need it. Without it the API rejects the order with `Insufficient collateral allowance for the order fee.`
+- Orders on these venues must be signed with `feeRateBps = 0` (otherwise `FEE_RATE_MISMATCH`). `OrderClient` and `DelegatedOrderService` set this automatically; set it yourself when using `OrderBuilder` / `buildUnsignedOrder` directly.
+- BUY orders need enough USDC for the order plus the trading fee.
+- Wallets that Limitless provisions and manages (server wallets / API-key managed wallets) get these approvals automatically.
+
 ### Quick Setup Script
 
 Use the provided approval setup script:
@@ -201,6 +216,7 @@ The script will:
 - Approve USDC for BUY orders
 - Approve Conditional Tokens for SELL orders
 - Handle NegRisk adapter approvals automatically
+- Approve USDC to the fee module on collateral fee venues
 - Confirm all approvals are set correctly
 
 ### Manual Approval Example

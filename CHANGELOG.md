@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Collateral fee venue support: `Venue` now exposes optional `feeModule` and `feeModuleType`, and the new `isCollateralFeeVenue(venue)` helper detects venues with `feeModuleType: 'COLLATERAL'`.
+- `OrderClient` (create and cancel-replace) and `DelegatedOrderService` sign/submit `feeRateBps = 0` on collateral fee venues. Legacy venues are unchanged. `DelegatedOrderService` resolves the market venue through the shared `MarketFetcher` cache (fetching the market on a cache miss).
+- Approval docs and `setup-approvals.ts` cover the USDC approval to `venue.feeModule` on collateral fee venues.
+
 ### Fixed
 
 - `WebSocketClient` now restores subscriptions after an automatic reconnect. Re-subscription ran on the Socket.IO Manager's `reconnect` event, which fires when only the engine is open, before the `/markets` namespace reconnects, so every re-subscribe threw "not connected" and was swallowed, leaving the socket connected and silent. It now runs from the namespace `connect` event.

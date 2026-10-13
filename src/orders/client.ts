@@ -31,10 +31,12 @@ import { OrderType } from '../types/orders';
 import { OrderBuilder } from './builder';
 import { OrderSigner } from './signer';
 import type { UserData } from '../types/auth';
+import type { Venue } from '../types/markets';
 import type { EthersLikeWallet } from '../types/wallet';
 import { ZERO_ADDRESS } from '../utils/constants';
 import { toFiniteInteger, toFiniteNumber } from '../utils/number-flex';
 import { MarketFetcher } from '../markets/fetcher';
+import { isCollateralFeeVenue } from '../markets/venue';
 import { PortfolioFetcher } from '../portfolio/fetcher';
 
 /**
@@ -333,9 +335,10 @@ export class OrderClient {
       marketSlug: params.marketSlug,
       exchange: venue.exchange,
       adapter: venue.adapter,
+      feeModuleType: venue.feeModuleType,
     });
 
-    const unsignedOrder = this.orderBuilder!.buildOrder(params);
+    const unsignedOrder = this.buildOrderForVenue(params, venue);
 
     this.logger.debug('Built unsigned order', {
       salt: unsignedOrder.salt,
@@ -425,7 +428,7 @@ export class OrderClient {
       venue = market.venue;
     }
 
-    const unsignedOrder = this.orderBuilder!.buildOrder(params);
+    const unsignedOrder = this.buildOrderForVenue(params, venue);
     const signature = await this.orderSigner.signOrder(unsignedOrder, {
       ...this.signingConfig,
       contractAddress: venue.exchange,
@@ -444,6 +447,22 @@ export class OrderClient {
       ...(params.recvWindow !== undefined ? { recvWindow: params.recvWindow } : {}),
       ...(params.stpPolicy !== undefined ? { stpPolicy: params.stpPolicy } : {}),
     };
+  }
+
+  /**
+   * Builds an unsigned order using the fee rate the market venue expects.
+   *
+   * @remarks
+   * Collateral fee venues require `feeRateBps = 0`; legacy venues keep the profile fee rate.
+   *
+   * @internal
+   */
+  private buildOrderForVenue(params: OrderArgs, venue: Venue): UnsignedOrder {
+    const unsignedOrder = this.orderBuilder!.buildOrder(params);
+    if (isCollateralFeeVenue(venue)) {
+      unsignedOrder.feeRateBps = 0;
+    }
+    return unsignedOrder;
   }
 
   /**
@@ -616,6 +635,10 @@ export class OrderClient {
    * @remarks
    * Useful for advanced use cases where you need the unsigned order
    * before signing and submission.
+   *
+   * This method does not know the market venue and uses the profile fee rate.
+   * On collateral fee venues (see {@link isCollateralFeeVenue}) set
+   * `feeRateBps = 0` on the returned order before signing it.
    *
    * @param params - Order parameters
    * @returns Promise resolving to unsigned order

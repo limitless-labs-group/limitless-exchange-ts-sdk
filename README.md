@@ -334,6 +334,10 @@ For a complete runnable flow, see [`docs/code-samples/api-key-v3/server-wallet-r
 - **BUY orders**: Approve USDC → `market.venue.exchange`
 - **SELL orders**: Approve Conditional Tokens → **both** `market.venue.exchange` AND `market.venue.adapter`
 
+**Collateral fee venues (in addition to the above):**
+
+- **BUY and SELL orders that are not `postOnly`**: Approve USDC → `market.venue.feeModule` (see [Collateral Fee Venues](#collateral-fee-venues))
+
 #### Quick Setup
 
 Run the approval setup script:
@@ -351,7 +355,7 @@ npx tsx docs/code-samples/setup-approvals.ts
 
 ```typescript
 import { ethers } from 'ethers';
-import { MarketFetcher, getContractAddress } from '@limitless-exchange/sdk';
+import { MarketFetcher, getContractAddress, isCollateralFeeVenue } from '@limitless-exchange/sdk';
 
 // 1. Fetch market to get venue addresses
 const market = await marketFetcher.getMarket('market-slug');
@@ -379,9 +383,35 @@ await ctf.setApprovalForAll(market.venue.exchange, true);
 if (market.negRiskRequestId) {
   await ctf.setApprovalForAll(market.venue.adapter, true);
 }
+
+// 6. On collateral fee venues, also approve USDC to the fee module
+if (isCollateralFeeVenue(market.venue) && market.venue.feeModule) {
+  await usdc.approve(market.venue.feeModule, ethers.MaxUint256);
+}
 ```
 
 For complete examples, see [docs/code-samples/setup-approvals.ts](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/docs/code-samples/setup-approvals.ts).
+
+### Collateral Fee Venues
+
+Some markets trade on collateral fee venues, which charge the taker fee in USDC through a separate fee module contract. Markets on legacy venues behave exactly as before.
+
+1. **Detect the venue.** On collateral fee venues `market.venue` carries `feeModule` (address) and `feeModuleType: 'COLLATERAL'`; legacy venues omit both. Use `isCollateralFeeVenue(market.venue)`.
+2. **Approve USDC to the fee module.** The wallet that signs orders must approve USDC to `market.venue.feeModule` (max uint recommended). This is required for every order that is not `postOnly` (BUY and SELL); `postOnly` orders don't need it. Without it the API rejects the order with `Insufficient collateral allowance for the order fee.` Approve once per fee module address. SIMPLE and NegRisk markets use different fee modules, so always read `venue.feeModule` from the market and never hardcode it.
+3. **Existing approvals stay as they are.** Collateral fee venues use the same exchange and NegRisk adapter contracts, so the USDC and Conditional Token approvals to `venue.exchange` / `venue.adapter` remain valid, and the EIP-712 domain (`verifyingContract = venue.exchange`) is unchanged.
+4. **Sign `feeRateBps = 0`.** Orders on collateral fee venues must be signed with `feeRateBps = 0`; any other value is rejected with `FEE_RATE_MISMATCH`. `OrderClient` (including cancel-replace) and `DelegatedOrderService` do this automatically from the market venue. If you build orders with the low-level `OrderBuilder` / `buildUnsignedOrder`, set `feeRateBps = 0` yourself on these venues.
+5. **Keep a little extra USDC.** BUY orders on collateral fee venues need enough USDC for the order plus the trading fee.
+6. **Managed wallets need no action.** Wallets that Limitless provisions and manages (server wallets / API-key managed wallets) get these approvals automatically.
+
+```typescript
+import { ethers } from 'ethers';
+import { isCollateralFeeVenue } from '@limitless-exchange/sdk';
+
+const market = await marketFetcher.getMarket('market-slug');
+if (isCollateralFeeVenue(market.venue) && market.venue?.feeModule) {
+  await usdc.approve(market.venue.feeModule, ethers.MaxUint256);
+}
+```
 
 ### Trading on NegRisk Markets
 
