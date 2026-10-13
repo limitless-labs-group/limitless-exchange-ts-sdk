@@ -178,12 +178,12 @@ CHAIN_ID=8453
 The SDK uses typed errors for better error handling:
 
 ```typescript
-import { ApiError } from '@limitless-exchange/sdk';
+import { APIError } from '@limitless-exchange/sdk';
 
 try {
   await orderClient.createOrder(params);
 } catch (error) {
-  if (error instanceof ApiError) {
+  if (error instanceof APIError) {
     console.error(`API Error ${error.status}:`, error.message);
     console.error('Details:', error.data);
   }
@@ -218,7 +218,7 @@ See the [code samples directory](./code-samples/README.md) for complete working 
 
 ## Support
 
-- **GitHub Issues**: [Report bugs or request features](https://github.com/limitless-exchange/ts-sdk/issues)
+- **GitHub Issues**: [Report bugs or request features](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/issues)
 - **Documentation**: [https://docs.limitless.exchange](https://docs.limitless.exchange)
 - **Discord**: [Join our community](https://discord.gg/limitless)
 

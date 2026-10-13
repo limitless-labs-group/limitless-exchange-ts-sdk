@@ -631,6 +631,6 @@ const markets = await withRetry(
 
 ## See Also
 
-- [Authentication with Retry](../auth/README.md#authentication-with-retry)
+- [Authentication with Retry](../code-samples/README.md#authentication-with-retry)
 - [Error Handling Examples](../code-samples/error-handling.ts)
 - [Retry Examples](../code-samples/auth-retry.ts)
