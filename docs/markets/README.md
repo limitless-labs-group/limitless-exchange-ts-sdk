@@ -231,10 +231,11 @@ interface OrderbookLevel {
 interface OrderBook {
   bids: OrderbookLevel[]; // Buy orders, sorted high to low
   asks: OrderbookLevel[]; // Sell orders, sorted low to high
-  tokenId: string;
+  tokenId: string; // YES token ID
   adjustedMidpoint: number;
-  maxSpread: string;
-  minSize: string; // Raw 6-decimal units
+  midpoint: number; // (best bid + best ask) / 2
+  maxSpread: string; // e.g. "0.035"
+  minSize: string; // Raw 6-decimal units ("50000000" = 50 shares)
   lastTradePrice: number | null;
 }
 ```
