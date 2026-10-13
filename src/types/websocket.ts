@@ -99,6 +99,8 @@ export interface OrderbookData {
   tokenId: string;
   /** Adjusted midpoint price */
   adjustedMidpoint: number;
+  /** Midpoint of the best bid and ask: (best bid + best ask) / 2 */
+  midpoint: number;
   /** Maximum spread allowed */
   maxSpread: number;
   /** Minimum order size */
