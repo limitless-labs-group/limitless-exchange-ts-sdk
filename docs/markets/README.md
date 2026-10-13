@@ -78,7 +78,7 @@ const newestMarkets = await marketFetcher.getActiveMarkets({
   sortBy: 'newest',
 });
 
-// Sort by high value (markets with highest total value)
+// Sort by high value (markets with highest volume or liquidity)
 const highValueMarkets = await marketFetcher.getActiveMarkets({
   limit: 10,
   sortBy: 'high_value',
@@ -90,7 +90,7 @@ const highValueMarkets = await marketFetcher.getActiveMarkets({
 - `'lp_rewards'` - Markets with highest LP rewards
 - `'ending_soon'` - Markets closing soonest
 - `'newest'` - Most recently created markets
-- `'high_value'` - Markets with highest total value
+- `'high_value'` - Markets with highest volume or liquidity
 
 #### With Pagination
 
