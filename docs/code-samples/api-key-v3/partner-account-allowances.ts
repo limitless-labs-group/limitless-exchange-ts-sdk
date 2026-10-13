@@ -94,8 +94,8 @@ async function main() {
   const profileId = partnerAccountProfileId();
   const skipRetry = envFlag('LIMITLESS_SKIP_ALLOWANCE_RETRY', false);
   const client = createHmacClient({
-    tokenId: requireEnv('LIMITLESS_API_TOKEN_ID'),
-    secret: requireEnv('LIMITLESS_API_TOKEN_SECRET'),
+    tokenId: requireEnv('LMTS_TOKEN_ID'),
+    secret: requireEnv('LMTS_TOKEN_SECRET'),
   });
 
   console.log(`GET /profiles/partner-accounts/${profileId}/allowances`);

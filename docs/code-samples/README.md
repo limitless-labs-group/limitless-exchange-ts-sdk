@@ -513,8 +513,8 @@ const updatedOrders = await market.getUserOrders();
 | `PRIVATE_KEY`                              | Wallet private key for order signing                         | For trading                 | -                                |
 | `MARKET_SLUG`                              | Market slug for examples (works for both CLOB and NegRisk)   | No                          | `bitcoin-2024`                   |
 | `LIMITLESS_IDENTITY_TOKEN`                 | Privy identity token for partner api-key-v3 examples         | No                          | -                                |
-| `LIMITLESS_API_TOKEN_ID`                   | Scoped HMAC token id for partner api-key-v3 examples         | For partner HMAC examples   | -                                |
-| `LIMITLESS_API_TOKEN_SECRET`               | Scoped HMAC token secret for partner api-key-v3 examples     | For partner HMAC examples   | -                                |
+| `LMTS_TOKEN_ID`                            | Scoped HMAC token id for partner api-key-v3 examples         | For partner HMAC examples   | -                                |
+| `LMTS_TOKEN_SECRET`                        | Scoped HMAC token secret for partner api-key-v3 examples     | For partner HMAC examples   | -                                |
 | `LIMITLESS_PARTNER_ACCOUNT_PROFILE_ID`     | Server-wallet child profile id for allowance checks          | For allowance example       | -                                |
 | `PARTNER_NAME`                             | Partner identifier used by api-key-v3 runtime files          | No                          | `partner-a`                      |
 | `LIMITLESS_SKIP_ALLOWANCE_RETRY`           | Skip the allowance retry POST step                           | No                          | `false`                          |
