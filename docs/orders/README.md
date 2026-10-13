@@ -640,17 +640,21 @@ openOrders.forEach((order) => {
 #### Alternative Approaches
 
 ```typescript
-// market.getUserOrders() returns only LIVE orders.
-// To include other statuses, call the endpoint directly:
-const allOrders = await httpClient.get(
-  '/markets/market-slug/user-orders?statuses=LIVE&statuses=MATCHED&statuses=CANCELED&statuses=UNMATCHED&limit=200'
-);
-
-// Trade history for one market (filtered by the server)
-const history = await httpClient.get('/portfolio/history?market=market-slug&limit=20');
-history.data.filter((t: any) => t.orderId).forEach((t: any) => {
-  console.log(`${t.strategy}: ${t.outcomeTokenAmount} @ ${t.outcomeTokenPrice} (order ${t.orderId})`);
+// Method 1: Using orderClient (traditional approach)
+const openOrders = await orderClient.getOpenOrders({
+  marketSlug: 'market-slug',
 });
+
+console.log('Open orders:', openOrders);
+
+// Method 2: Using marketFetcher (backward compatible)
+const orders = await marketFetcher.getUserOrders('market-slug');
+
+// Get order details by ID
+const orderDetails = await orderClient.getOrder('ORDER_ID');
+console.log('Status:', orderDetails.status);
+console.log('Filled:', orderDetails.filled);
+console.log('Remaining:', orderDetails.size - orderDetails.filled);
 ```
 
 ### Order States
