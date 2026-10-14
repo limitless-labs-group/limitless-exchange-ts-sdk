@@ -2,11 +2,28 @@ import { describe, expect, it, vi } from 'vitest';
 import { DelegatedOrderService } from '../../src/delegated-orders/service';
 import { CancelReplaceMode, OrderType, Side } from '../../src/types/orders';
 import type { HttpClient } from '../../src/api/http';
+import { MarketFetcher } from '../../src/markets/fetcher';
+
+const LEGACY_VENUE = {
+  exchange: '0x0000000000000000000000000000000000000002',
+  adapter: null,
+};
+const COLLATERAL_FEE_VENUE = {
+  exchange: '0x0000000000000000000000000000000000000002',
+  adapter: null,
+  feeModule: '0x0000000000000000000000000000000000000003',
+  feeModuleType: 'COLLATERAL',
+};
+
+function marketResponse(venue: object = LEGACY_VENUE) {
+  return vi.fn().mockResolvedValue({ id: 1, slug: 'test-market', venue });
+}
 
 describe('DelegatedOrderService', () => {
   it('builds an unsigned delegated order payload and posts it on behalf of the target profile', async () => {
     const httpClient = {
       requireAuth: vi.fn(),
+      get: marketResponse(),
       post: vi.fn().mockResolvedValue({ order: { id: 'delegated-1' } }),
     } as unknown as HttpClient;
 
@@ -53,6 +70,7 @@ describe('DelegatedOrderService', () => {
   it('omits postOnly for FAK delegated orders before submitting to the API', async () => {
     const httpClient = {
       requireAuth: vi.fn(),
+      get: marketResponse(),
       post: vi.fn().mockResolvedValue({ order: { id: 'delegated-fak' } }),
     } as unknown as HttpClient;
 
@@ -79,6 +97,7 @@ describe('DelegatedOrderService', () => {
   it('builds delegated cancel-replace with operation-level onBehalfOf and no signature', async () => {
     const httpClient = {
       requireAuth: vi.fn(),
+      get: marketResponse(),
       post: vi.fn().mockResolvedValue({ cancel: {}, replacement: {} }),
     } as unknown as HttpClient;
     const service = new DelegatedOrderService(httpClient);
@@ -107,5 +126,102 @@ describe('DelegatedOrderService', () => {
     expect(payload.replacement.order.signature).toBeUndefined();
     expect(config.validateStatus(409)).toBe(true);
     expect(config.validateStatus(400)).toBe(false);
+  });
+
+  describe('collateral fee venues', () => {
+    it('submits feeRateBps 0 on a collateral fee venue even when a fee rate is requested', async () => {
+      const httpClient = {
+        requireAuth: vi.fn(),
+        get: marketResponse(COLLATERAL_FEE_VENUE),
+        post: vi.fn().mockResolvedValue({ order: { id: 'delegated-1' } }),
+      } as unknown as HttpClient;
+      const service = new DelegatedOrderService(httpClient);
+
+      await service.createOrder({
+        marketSlug: 'test-market',
+        orderType: OrderType.FOK,
+        onBehalfOf: 326,
+        feeRateBps: 150,
+        args: { tokenId: '123', side: Side.SELL, makerAmount: 10 },
+      });
+
+      expect((httpClient as any).get).toHaveBeenCalledWith('/markets/test-market');
+      const [, payload] = (httpClient as any).post.mock.calls[0];
+      expect(payload.order.feeRateBps).toBe(0);
+    });
+
+    it('keeps the requested fee rate on legacy venues', async () => {
+      const httpClient = {
+        requireAuth: vi.fn(),
+        get: marketResponse(LEGACY_VENUE),
+        post: vi.fn().mockResolvedValue({ order: { id: 'delegated-1' } }),
+      } as unknown as HttpClient;
+      const service = new DelegatedOrderService(httpClient);
+
+      await service.createOrder({
+        marketSlug: 'test-market',
+        orderType: OrderType.GTC,
+        onBehalfOf: 326,
+        feeRateBps: 150,
+        args: { tokenId: '123', side: Side.BUY, price: 0.55, size: 10 },
+      });
+
+      const [, payload] = (httpClient as any).post.mock.calls[0];
+      expect(payload.order.feeRateBps).toBe(150);
+    });
+
+    it('uses the venue cached by a shared MarketFetcher without refetching the market', async () => {
+      const httpClient = {
+        requireAuth: vi.fn(),
+        get: marketResponse(COLLATERAL_FEE_VENUE),
+        post: vi.fn().mockResolvedValue({ order: { id: 'delegated-1' } }),
+      } as unknown as HttpClient;
+      const marketFetcher = new MarketFetcher(httpClient);
+      await marketFetcher.getMarket('test-market');
+      const service = new DelegatedOrderService(httpClient, undefined, marketFetcher);
+
+      await service.createOrder({
+        marketSlug: 'test-market',
+        orderType: OrderType.GTC,
+        onBehalfOf: 326,
+        args: { tokenId: '123', side: Side.BUY, price: 0.55, size: 10 },
+      });
+
+      expect((httpClient as any).get).toHaveBeenCalledTimes(1);
+      const [, payload] = (httpClient as any).post.mock.calls[0];
+      expect(payload.order.feeRateBps).toBe(0);
+    });
+
+    it('builds cancel-replace replacements with feeRateBps 0 on a collateral fee venue', async () => {
+      const httpClient = {
+        requireAuth: vi.fn(),
+        get: marketResponse(COLLATERAL_FEE_VENUE),
+        post: vi.fn().mockResolvedValue({ results: [] }),
+      } as unknown as HttpClient;
+      const service = new DelegatedOrderService(httpClient);
+      const replacement = {
+        tokenId: '123',
+        side: Side.BUY,
+        price: 0.55,
+        size: 10,
+        orderType: OrderType.GTC,
+        marketSlug: 'test-market',
+      };
+
+      await service.cancelReplaceBatch({
+        operations: [
+          {
+            cancel: { orderId: 'old-order' },
+            mode: CancelReplaceMode.STOP_ON_FAILURE,
+            onBehalfOf: 326,
+            replacement,
+          },
+        ],
+      });
+
+      const [path, body] = (httpClient as any).post.mock.calls[0];
+      expect(path).toBe('/orders/cancel-replace/batch');
+      expect(JSON.parse(body).operations[0].replacement.order.feeRateBps).toBe(0);
+    });
   });
 });

@@ -17,6 +17,7 @@ export interface CreateDelegatedOrderParams {
   marketSlug: string;
   orderType: OrderType;
   onBehalfOf: number;
+  /** Fee rate for legacy venues. Collateral fee venues always use `0`. */
   feeRateBps?: number;
   args: OrderArgs;
 }
@@ -72,6 +73,7 @@ export type DelegatedOrderResponse = OrderResponse;
 export type DelegatedCancelReplaceReplacementParams = OrderArgs & {
   marketSlug: string;
   orderType: OrderType;
+  /** Fee rate for legacy venues. Collateral fee venues always use `0`. */
   feeRateBps?: number;
   clientOrderId?: string;
   timestamp?: number;

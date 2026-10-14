@@ -5,6 +5,8 @@ import {
   type WithRawResponseOptions,
   type WithoutRawResponseOptions,
 } from '../api/response';
+import { MarketFetcher } from '../markets/fetcher';
+import { isCollateralFeeVenue } from '../markets/venue';
 import { OrderBuilder } from '../orders/builder';
 import { ZERO_ADDRESS } from '../utils/constants';
 import {
@@ -26,15 +28,28 @@ const DEFAULT_DELEGATED_FEE_RATE_BPS = 300;
 
 /**
  * Delegated partner-order operations.
+ *
+ * @remarks
+ * The market venue is resolved (from the shared venue cache, or by fetching the market)
+ * so that orders on collateral fee venues are submitted with `feeRateBps = 0`.
+ * Legacy venues keep the requested or default fee rate.
+ *
  * @public
  */
 export class DelegatedOrderService {
   private readonly httpClient: HttpClient;
   private readonly logger: ILogger;
+  private readonly marketFetcher: MarketFetcher;
 
-  constructor(httpClient: HttpClient, logger?: ILogger) {
+  /**
+   * @param httpClient - HTTP client with partner credentials
+   * @param logger - Optional logger
+   * @param marketFetcher - Optional shared MarketFetcher used for venue caching
+   */
+  constructor(httpClient: HttpClient, logger?: ILogger, marketFetcher?: MarketFetcher) {
     this.httpClient = httpClient;
     this.logger = logger || new NoOpLogger();
+    this.marketFetcher = marketFetcher || new MarketFetcher(httpClient, this.logger);
   }
 
   async createOrder(
@@ -59,10 +74,7 @@ export class DelegatedOrderService {
       throw new Error('onBehalfOf must be a positive integer');
     }
 
-    const feeRateBps =
-      params.feeRateBps && params.feeRateBps > 0
-        ? params.feeRateBps
-        : DEFAULT_DELEGATED_FEE_RATE_BPS;
+    const feeRateBps = await this.resolveFeeRateBps(params.marketSlug, params.feeRateBps);
 
     const builder = new OrderBuilder(ZERO_ADDRESS, feeRateBps);
     const unsignedOrder = builder.buildOrder(params.args);
@@ -142,7 +154,7 @@ export class DelegatedOrderService {
     this.assertOnBehalfOf(params.onBehalfOf);
     const payload = {
       cancel: params.cancel,
-      replacement: this.buildCancelReplaceReplacement(params.replacement, params.onBehalfOf),
+      replacement: await this.buildCancelReplaceReplacement(params.replacement, params.onBehalfOf),
       mode: params.mode,
       onBehalfOf: params.onBehalfOf,
     };
@@ -157,31 +169,28 @@ export class DelegatedOrderService {
     params: DelegatedCancelReplaceBatchParams
   ): Promise<CancelReplaceBatchResponse> {
     this.httpClient.requireAuth('cancelReplaceDelegatedOrderBatch');
-    const operations = params.operations.map((operation) => {
-      this.assertOnBehalfOf(operation.onBehalfOf);
-      return {
+    params.operations.forEach((operation) => this.assertOnBehalfOf(operation.onBehalfOf));
+    const operations = await Promise.all(
+      params.operations.map(async (operation) => ({
         cancel: operation.cancel,
-        replacement: this.buildCancelReplaceReplacement(
+        replacement: await this.buildCancelReplaceReplacement(
           operation.replacement,
           operation.onBehalfOf
         ),
         mode: operation.mode,
         onBehalfOf: operation.onBehalfOf,
-      };
-    });
+      }))
+    );
     const body = JSON.stringify({ operations });
 
     return this.httpClient.post<CancelReplaceBatchResponse>('/orders/cancel-replace/batch', body);
   }
 
-  private buildCancelReplaceReplacement(
+  private async buildCancelReplaceReplacement(
     params: DelegatedCancelReplaceReplacementParams,
     onBehalfOf: number
-  ): DelegatedCancelReplaceReplacementRequest {
-    const feeRateBps =
-      params.feeRateBps && params.feeRateBps > 0
-        ? params.feeRateBps
-        : DEFAULT_DELEGATED_FEE_RATE_BPS;
+  ): Promise<DelegatedCancelReplaceReplacementRequest> {
+    const feeRateBps = await this.resolveFeeRateBps(params.marketSlug, params.feeRateBps);
     const unsignedOrder = new OrderBuilder(ZERO_ADDRESS, feeRateBps).buildOrder(params);
     const postOnly =
       params.orderType === OrderType.GTC && 'postOnly' in params ? params.postOnly : undefined;
@@ -203,6 +212,32 @@ export class DelegatedOrderService {
     if (!Number.isInteger(onBehalfOf) || onBehalfOf <= 0) {
       throw new Error('onBehalfOf must be a positive integer');
     }
+  }
+
+  /**
+   * Resolves the fee rate for a delegated order.
+   *
+   * @remarks
+   * Collateral fee venues require `feeRateBps = 0`. Legacy venues keep the requested
+   * fee rate, or the default when none is provided.
+   *
+   * @internal
+   */
+  private async resolveFeeRateBps(
+    marketSlug: string,
+    requestedFeeRateBps?: number
+  ): Promise<number> {
+    let venue = this.marketFetcher.getVenue(marketSlug);
+    if (!venue) {
+      venue = (await this.marketFetcher.getMarket(marketSlug)).venue;
+    }
+    if (isCollateralFeeVenue(venue)) {
+      return 0;
+    }
+
+    return requestedFeeRateBps && requestedFeeRateBps > 0
+      ? requestedFeeRateBps
+      : DEFAULT_DELEGATED_FEE_RATE_BPS;
   }
 
   async cancelOnBehalfOf(

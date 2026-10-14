@@ -14,6 +14,10 @@
  * - BUY orders: Approve USDC → venue.exchange
  * - SELL orders: Approve CT → venue.exchange AND venue.adapter (TWO approvals!)
  *
+ * Collateral Fee Venues (venue.feeModuleType === 'COLLATERAL'), in addition to the above:
+ * - Every order that is not postOnly (BUY and SELL): Approve USDC → venue.feeModule
+ *   (one approval per fee module address; always read it from the market)
+ *
  * These approvals are permanent (until revoked) and only need to be set once per wallet.
  */
 
@@ -25,6 +29,7 @@ import {
   getContractAddress,
   Side,
   ConsoleLogger,
+  isCollateralFeeVenue,
 } from '@limitless-exchange/sdk';
 
 // Load environment variables
@@ -158,7 +163,10 @@ async function main() {
     console.log(`   Venue Adapter: ${market.venue.adapter}`);
 
     const isNegRisk = market.negRiskRequestId !== null && market.negRiskRequestId !== undefined;
-    console.log(`   Is NegRisk: ${isNegRisk}\n`);
+    console.log(`   Is NegRisk: ${isNegRisk}`);
+
+    const feeModule = isCollateralFeeVenue(market.venue) ? market.venue.feeModule : undefined;
+    console.log(`   Fee Module: ${feeModule ?? 'none (legacy venue)'}\n`);
 
     // ===========================================
     // STEP 3: Check Current Allowances
@@ -255,6 +263,28 @@ async function main() {
       }
     }
 
+    // 4d. Approve USDC for the fee module (collateral fee venues ONLY)
+    if (feeModule) {
+      console.log('   📝 Approving USDC for the collateral fee module...');
+      console.log(`      Target: venue.feeModule (${feeModule})`);
+      console.log('      ⚠️  Required for every order that is not postOnly (BUY and SELL)!\n');
+
+      const feeModuleAllowance = await usdc.allowance(wallet.address, feeModule);
+
+      if (feeModuleAllowance > 0) {
+        console.log('      ✅ USDC already approved for venue.feeModule');
+        console.log('      Skipping approval transaction\n');
+      } else {
+        console.log('      Approving unlimited USDC...');
+        const approveTx = await usdc.approve(feeModule, ethers.MaxUint256);
+        console.log(`      Transaction hash: ${approveTx.hash}`);
+        console.log('      Waiting for confirmation...');
+
+        const receipt = await approveTx.wait();
+        console.log(`      ✅ USDC approved for venue.feeModule! (Block: ${receipt?.blockNumber})\n`);
+      }
+    }
+
     // ===========================================
     // STEP 5: Verify All Approvals
     // ===========================================
@@ -277,6 +307,13 @@ async function main() {
       );
       console.log(
         `   ✅ CT → venue.adapter: ${finalCtfApprovedForAdapter ? 'Approved' : 'Not approved'}`
+      );
+    }
+
+    if (feeModule) {
+      const finalFeeModuleAllowance = await usdc.allowance(wallet.address, feeModule);
+      console.log(
+        `   ✅ USDC → venue.feeModule: ${ethers.formatUnits(finalFeeModuleAllowance, 6)} USDC`
       );
     }
 
