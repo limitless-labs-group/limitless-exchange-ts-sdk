@@ -20,7 +20,7 @@ The Limitless Exchange WebSocket API provides real-time streaming for:
 - **Live Sports/Esports**: `subscribe_live_sports` and `subscribe_live_esports`
 - **Market Lifecycle**: `subscribe_market_lifecycle` and `unsubscribe_market_lifecycle`
 
-**Authenticated Subscriptions** (require API key):
+**Authenticated Subscriptions** (require `hmacCredentials`):
 
 - **Positions**: Real-time position updates for authenticated users
 - **Transactions**: User transaction status updates
@@ -30,8 +30,8 @@ The Limitless Exchange WebSocket API provides real-time streaming for:
 
 - SDK is a **raw data passthrough** - no transformations
 - Events use exact API event names (e.g., `orderbookUpdate`, `newPriceData`, `orderEvent`)
-- **API key not required** for public subscriptions
-- API key required for positions, transactions, and order events
+- **Authentication not required** for public subscriptions
+- `hmacCredentials` required for positions, transactions, and order events
 - There is no separate `trades`, `orders`, `fills`, `markets`, `prices`, or raw `orderbook` websocket channel
 - Automatic reconnection with subscription restoration
 
@@ -62,12 +62,12 @@ await wsClient.subscribe('subscribe_market_prices', {
 
 ### Authenticated Data (Positions & Transactions)
 
-For authenticated subscriptions (positions, transactions, order events), you **must provide an API key**.
+For authenticated subscriptions (positions, transactions, order events), you **must provide API token credentials** (`hmacCredentials`).
 
-**API Key Authentication**:
+**API Token Authentication**:
 
 - Required for positions, transactions, and order-event subscriptions
-- SDK sends X-API-Key header automatically
+- SDK signs the WebSocket handshake automatically
 - Same API key used for HTTP REST API
 
 **Setup**:
@@ -78,19 +78,13 @@ For authenticated subscriptions (positions, transactions, order events), you **m
 ```typescript
 import { WebSocketClient } from '@limitless-exchange/sdk';
 
-// Option 1: Use environment variable
-// Set LIMITLESS_API_KEY in your .env file
 const wsClient = new WebSocketClient({
   url: 'wss://ws.limitless.exchange',
   autoReconnect: true,
-  // apiKey will be read from process.env.LIMITLESS_API_KEY
-});
-
-// Option 2: Pass API key directly
-const wsClient = new WebSocketClient({
-  url: 'wss://ws.limitless.exchange',
-  apiKey: 'lx_your_api_key_here',
-  autoReconnect: true,
+  hmacCredentials: {
+    tokenId: process.env.LMTS_TOKEN_ID!,
+    secret: process.env.LMTS_TOKEN_SECRET!,
+  },
 });
 
 // Connect to WebSocket
@@ -108,15 +102,15 @@ await wsClient.subscribe('subscribe_order_events', {});
 
 **Error Handling**:
 
-If you try to subscribe to authenticated channels without an API key:
+If you try to subscribe to authenticated channels without `hmacCredentials`:
 
 ```typescript
 // ❌ This will throw an error
-const wsClient = new WebSocketClient(); // No API key
+const wsClient = new WebSocketClient(); // No hmacCredentials
 await wsClient.subscribe('subscribe_positions', { marketSlugs: ['bitcoin-2024'] });
 
-// Error: API key is required for 'subscribe_positions' subscription.
-// Please provide an API key in the constructor or set LIMITLESS_API_KEY environment variable.
+// Error: Authentication is required for 'subscribe_positions' subscription.
+// Please provide either apiKey or hmacCredentials when creating the WebSocket client.
 ```
 
 ## Subscription Types
@@ -133,18 +127,20 @@ Subscribe to live orderbook updates and price changes for specific markets.
 - `newPriceData`: AMM price updates with market addresses and block numbers
 
 ```typescript
-// Subscribe to market
+// Subscribe to market prices in a single call:
+// CLOB markets by slug, AMM markets by contract address (market.address)
 await wsClient.subscribe('subscribe_market_prices', {
   marketSlugs: ['market-slug-here'],
+  marketAddresses: ['0xMarketAddress'],
 });
 
 // Listen to orderbook updates (CLOB markets)
-wsClient.on('orderbookUpdate' as any, (data: any) => {
+wsClient.on('orderbookUpdate', (data) => {
   console.log(JSON.stringify(data, null, 2));
 });
 
 // Listen to AMM price updates (uses marketAddress, not marketSlug!)
-wsClient.on('newPriceData' as any, (data: any) => {
+wsClient.on('newPriceData', (data) => {
   console.log(JSON.stringify(data, null, 2));
 });
 ```
@@ -164,7 +160,7 @@ await wsClient.subscribe('subscribe_positions', {
 });
 
 // Listen to position updates
-wsClient.on('positions' as any, (data: any) => {
+wsClient.on('positions', (data) => {
   console.log(JSON.stringify(data, null, 2));
 });
 ```
@@ -182,7 +178,7 @@ Subscribe to user transaction status updates.
 await wsClient.subscribe('subscribe_transactions', {});
 
 // Listen to transaction events
-wsClient.on('tx' as any, (data: any) => {
+wsClient.on('tx', (data) => {
   console.log(JSON.stringify(data, null, 2));
 });
 ```
@@ -198,7 +194,7 @@ Subscribe to user order lifecycle events.
 ```typescript
 await wsClient.subscribe('subscribe_order_events', {});
 
-wsClient.on('orderEvent' as any, (data: any) => {
+wsClient.on('orderEvent', (data) => {
   console.log(JSON.stringify(data, null, 2));
 });
 ```
@@ -215,7 +211,7 @@ Subscribe to live sports or esports snapshots.
 await wsClient.subscribe('subscribe_live_sports');
 await wsClient.subscribe('subscribe_live_esports');
 
-wsClient.on('live_sports_update' as any, (data: any) => {
+wsClient.on('live_sports_update', (data) => {
   console.log(JSON.stringify(data, null, 2));
 });
 ```
@@ -231,7 +227,7 @@ Subscribe to market creation and resolution events.
 ```typescript
 await wsClient.subscribe('subscribe_market_lifecycle');
 
-wsClient.on('marketCreated' as any, (data: any) => {
+wsClient.on('marketCreated', (data) => {
   console.log(JSON.stringify(data, null, 2));
 });
 ```
@@ -243,9 +239,9 @@ wsClient.on('marketCreated' as any, (data: any) => {
 The SDK passes through backend event payloads. Register handlers for supported backend events while debugging:
 
 ```typescript
-wsClient.on('orderbookUpdate' as any, (data: any) => console.log('[orderbookUpdate]', data));
-wsClient.on('newPriceData' as any, (data: any) => console.log('[newPriceData]', data));
-wsClient.on('orderEvent' as any, (data: any) => console.log('[orderEvent]', data));
+wsClient.on('orderbookUpdate', (data) => console.log('[orderbookUpdate]', data));
+wsClient.on('newPriceData', (data) => console.log('[newPriceData]', data));
+wsClient.on('orderEvent', (data) => console.log('[orderEvent]', data));
 ```
 
 ### System Events
@@ -285,7 +281,7 @@ wsClient.on('connect', () => {
   console.log('✅ Connected');
 });
 
-wsClient.on('orderbookUpdate' as any, (data: any) => {
+wsClient.on('orderbookUpdate', (data) => {
   console.log(JSON.stringify(data, null, 2));
 });
 
@@ -381,7 +377,8 @@ interface OrderbookData {
 
 interface OrderbookEntry {
   price: number; // Price per share (0-1 range)
-  size: number; // Size in shares
+  size: number; // Raw 6-decimal units (100000000 = 100 shares)
+  side: string; // 'BUY' or 'SELL'
 }
 ```
 
