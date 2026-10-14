@@ -7,6 +7,7 @@ Complete guide to creating and managing orders on the Limitless Exchange.
 - [Overview](#overview)
 - [Market Types](#market-types)
 - [Order Types](#order-types)
+- [Token Approvals Setup](#token-approvals-setup)
 - [Creating Orders](#creating-orders)
 - [NegRisk Markets](#negrisk-markets)
 - [Order Management](#order-management)
@@ -17,7 +18,7 @@ Complete guide to creating and managing orders on the Limitless Exchange.
 The Limitless Exchange supports three order types for both CLOB and NegRisk markets:
 
 - **FOK (Fill or Kill)**: Market orders that execute immediately at the best available price or cancel entirely
-- **GTC (Good Til Cancelled)**: Limit orders that remain on the orderbook until filled or manually cancelled
+- **GTC (Good Til Cancelled)**: Limit orders that remain on the orderbook until filled, cancelled, or the market resolves
 - **FAK (Fill and Kill)**: Limit orders that fill what they can immediately and cancel any remainder
 
 ## Market Types
@@ -54,8 +55,10 @@ Standard prediction markets with a single outcome to trade.
 **Default Contract Address** (Base mainnet):
 
 ```
-0xa4409D988CA2218d956BeEFD3874100F444f0DC3
+0x05c748E2f4DcDe0ec9Fa8DDc40DE6b867f923fa5
 ```
+
+Some older markets still use `0xa4409D988CA2218d956BeEFD3874100F444f0DC3`. Always use `venue.exchange` from the API.
 
 **Characteristics**:
 
@@ -77,8 +80,10 @@ Group markets with multiple related outcomes traded together (e.g., "Largest Com
 **Default Contract Address** (Base mainnet):
 
 ```
-0x5a38afc17F7E97ad8d6C547ddb837E40B4aEDfC6
+0xe3E00BA3a9888d1DE4834269f62ac008b4BB5C47
 ```
+
+Some older markets still use `0x5a38afc17F7E97ad8d6C547ddb837E40B4aEDfC6`. Always use `venue.exchange` from the API.
 
 **Characteristics**:
 
@@ -121,7 +126,7 @@ Best for price-specific execution when you can wait for your target price.
 **Characteristics**:
 
 - Executes only at specified price or better
-- Remains on orderbook until filled or cancelled
+- Remains on orderbook until filled, cancelled, or the market resolves
 - Allows partial fills
 - Full price control
 - Optional `postOnly` flag rejects the order if it would immediately match
@@ -225,7 +230,7 @@ For custom implementations, here's how to set up approvals manually:
 
 ```typescript
 import { ethers } from 'ethers';
-import { MarketFetcher, getContractAddress } from '@limitless-exchange/sdk';
+import { HttpClient, MarketFetcher, getContractAddress } from '@limitless-exchange/sdk';
 
 async function setupApprovals(wallet: ethers.Wallet, marketSlug: string) {
   // 1. Fetch market to get venue addresses
@@ -244,13 +249,19 @@ async function setupApprovals(wallet: ethers.Wallet, marketSlug: string) {
   // 3. Create contract instances
   const usdc = new ethers.Contract(
     usdcAddress,
-    ['function approve(address spender, uint256 amount) returns (bool)'],
+    [
+      'function approve(address spender, uint256 amount) returns (bool)',
+      'function allowance(address owner, address spender) view returns (uint256)',
+    ],
     wallet
   );
 
   const ctf = new ethers.Contract(
     ctfAddress,
-    ['function setApprovalForAll(address operator, bool approved)'],
+    [
+      'function setApprovalForAll(address operator, bool approved)',
+      'function isApprovedForAll(address account, address operator) view returns (bool)',
+    ],
     wallet
   );
 
@@ -331,16 +342,19 @@ if (market.negRiskRequestId) {
 
 ### Prerequisites
 
-You need three components to create orders:
+You need four components to create orders:
 
 ```typescript
 import { ethers } from 'ethers';
 import { HttpClient, OrderClient, MarketFetcher, Side, OrderType } from '@limitless-exchange/sdk';
 
-// 1. Setup HTTP client with API key authentication
+// 1. Setup HTTP client with HMAC API token authentication
 const httpClient = new HttpClient({
   baseURL: 'https://api.limitless.exchange',
-  apiKey: process.env.LIMITLESS_API_KEY, // Get from https://limitless.exchange
+  hmacCredentials: {
+    tokenId: process.env.LMTS_TOKEN_ID!,
+    secret: process.env.LMTS_TOKEN_SECRET!,
+  },
 });
 
 // 2. Initialize wallet for order signing (EIP-712)
@@ -373,7 +387,7 @@ const buyOrder = await orderClient.createOrder({
   marketSlug: 'market-slug',
 });
 
-console.log('Buy order executed:', buyOrder.id);
+console.log('Buy order executed:', buyOrder.order.id);
 
 // Sell 120 shares at market price
 const sellOrder = await orderClient.createOrder({
@@ -384,7 +398,7 @@ const sellOrder = await orderClient.createOrder({
   marketSlug: 'market-slug',
 });
 
-console.log('Sell order executed:', sellOrder.id);
+console.log('Sell order executed:', sellOrder.order.id);
 ```
 
 ### GTC Orders (Limit Orders)
@@ -401,7 +415,7 @@ const limitBuy = await orderClient.createOrder({
   postOnly: true, // Optional. Supported only for GTC orders
 });
 
-console.log('Limit buy placed:', limitBuy.id);
+console.log('Limit buy placed:', limitBuy.order.id);
 
 // Place limit sell at specific price
 const limitSell = await orderClient.createOrder({
@@ -413,7 +427,7 @@ const limitSell = await orderClient.createOrder({
   marketSlug: 'market-slug',
 });
 
-console.log('Limit sell placed:', limitSell.id);
+console.log('Limit sell placed:', limitSell.order.id);
 ```
 
 ### FAK Orders (Fill-And-Kill Limit Orders)
@@ -429,7 +443,7 @@ const fakBuy = await orderClient.createOrder({
   marketSlug: 'market-slug',
 });
 
-console.log('FAK buy submitted:', fakBuy.id);
+console.log('FAK buy submitted:', fakBuy.order.id);
 console.log('Immediate matches:', fakBuy.makerMatches ?? []);
 ```
 
@@ -443,10 +457,13 @@ NegRisk markets are **group markets** containing multiple related outcomes. Trad
 import { ethers } from 'ethers';
 import { HttpClient, OrderClient, MarketFetcher, Side, OrderType } from '@limitless-exchange/sdk';
 
-// 1. Setup HTTP client with API key authentication
+// 1. Setup HTTP client with HMAC API token authentication
 const httpClient = new HttpClient({
   baseURL: 'https://api.limitless.exchange',
-  apiKey: process.env.LIMITLESS_API_KEY, // Get from https://limitless.exchange
+  hmacCredentials: {
+    tokenId: process.env.LMTS_TOKEN_ID!,
+    secret: process.env.LMTS_TOKEN_SECRET!,
+  },
 });
 
 // 2. Initialize wallet for order signing (EIP-712)
@@ -478,7 +495,7 @@ submarkets.forEach((submarket: any) => {
   console.log('Submarket:', submarket.title);
   console.log('  Slug:', submarket.slug);
   console.log('  Type:', submarket.marketType); // "single"
-  console.log('  Prices: Yes=${submarket.prices?.[0]}, No=${submarket.prices?.[1]}');
+  console.log(`  Prices: Yes=${submarket.prices?.[0]}, No=${submarket.prices?.[1]}`);
 });
 
 // 3. Get detailed submarket info (for token IDs)
@@ -572,7 +589,7 @@ const fakBuy = await orderClient.createOrder({
   marketSlug: submarket.slug,
 });
 
-console.log('NegRisk FAK order:', fakBuy.id);
+console.log('NegRisk FAK order:', fakBuy.order.id);
 ```
 
 ### Key Differences: NegRisk vs CLOB
@@ -593,12 +610,16 @@ console.log('NegRisk FAK order:', fakBuy.id);
 
 ```typescript
 // Cancel a specific order
-await orderClient.cancelOrder({
-  orderId: 'ORDER_ID',
-  marketSlug: 'market-slug',
-});
+await orderClient.cancel('ORDER_ID');
 
 console.log('Order cancelled');
+```
+
+```typescript
+// Cancel all orders
+const result = await orderClient.cancelAll('market-slug');
+
+console.log(result.message); // "Orders canceled successfully"
 ```
 
 ### Checking Order Status
@@ -615,19 +636,20 @@ const orders = await market.getUserOrders();
 console.log(`Found ${orders.length} orders for ${market.title}`);
 
 // Filter and analyze orders
-const openOrders = orders.filter((o) => o.status === 'OPEN');
-const filledOrders = orders.filter((o) => o.status === 'FILLED');
+const openOrders = orders.filter((o) => o.status === 'LIVE');
 
-console.log(`Open: ${openOrders.length}, Filled: ${filledOrders.length}`);
+console.log(`Open: ${openOrders.length}`);
 
 // Display open orders
 openOrders.forEach((order) => {
+  const size = Number(order.originalSize) / 1e6;
+  const remaining = Number(order.remainingSize) / 1e6;
   console.log(`Order ${order.id}:`);
   console.log(`  Side: ${order.side}`);
   console.log(`  Price: ${order.price}`);
-  console.log(`  Size: ${order.size}`);
-  console.log(`  Filled: ${order.filled || 0}`);
-  console.log(`  Remaining: ${order.size - (order.filled || 0)}`);
+  console.log(`  Size: ${size}`);
+  console.log(`  Filled: ${size - remaining}`);
+  console.log(`  Remaining: ${remaining}`);
 });
 ```
 
@@ -653,13 +675,13 @@ console.log('Remaining:', orderDetails.size - orderDetails.filled);
 
 ### Order States
 
-| State              | Description                                   |
-| ------------------ | --------------------------------------------- |
-| `OPEN`             | Order is on the orderbook, waiting to fill    |
-| `PARTIALLY_FILLED` | Order has been partially filled               |
-| `FILLED`           | Order has been completely filled              |
-| `CANCELLED`        | Order was cancelled before filling            |
-| `REJECTED`         | Order was rejected (insufficient funds, etc.) |
+| State              | Description                                    |
+| ------------------ | ---------------------------------------------- |
+| `LIVE`             | Order is on the orderbook, waiting to fill     |
+| `MATCHED`          | Order has been filled                          |
+| `CANCELED`         | Order was cancelled or the market resolved     |
+| `UNMATCHED`        |                                                |
+
 
 ## Best Practices
 
@@ -672,7 +694,10 @@ import { HttpClient, MarketFetcher } from '@limitless-exchange/sdk';
 
 const httpClient = new HttpClient({
   baseURL: 'https://api.limitless.exchange',
-  apiKey: process.env.LIMITLESS_API_KEY,
+  hmacCredentials: {
+    tokenId: process.env.LMTS_TOKEN_ID!,
+    secret: process.env.LMTS_TOKEN_SECRET!,
+  },
 });
 
 const marketFetcher = new MarketFetcher(httpClient);
@@ -689,10 +714,9 @@ console.log('Type:', market.marketType);
 console.log('Orders:', orders.length);
 
 // Filter orders by status
-const activeOrders = orders.filter((o) => o.status === 'OPEN');
-const completedOrders = orders.filter((o) => o.status === 'FILLED');
+const activeOrders = orders.filter((o) => o.status === 'LIVE');
 
-console.log(`Active: ${activeOrders.length}, Completed: ${completedOrders.length}`);
+console.log(`Active: ${activeOrders.length}`);
 ```
 
 **Why use the fluent API?**
@@ -716,13 +740,13 @@ const orders = await marketFetcher.getUserOrders('bitcoin-2024');
 ### 2. Error Handling
 
 ```typescript
-import { ApiError } from '@limitless-exchange/sdk';
+import { APIError } from '@limitless-exchange/sdk';
 
 try {
   const order = await orderClient.createOrder(params);
-  console.log('Order created:', order.id);
+  console.log('Order created:', order.order.id);
 } catch (error) {
-  if (error instanceof ApiError) {
+  if (error instanceof APIError) {
     switch (error.status) {
       case 400:
         console.error('Invalid order parameters:', error.message);
@@ -740,7 +764,7 @@ try {
 }
 ```
 
-### 2. Price Validation
+### 3. Price Validation
 
 ```typescript
 function validatePrice(price: number, orderType: OrderType): boolean {
@@ -762,7 +786,7 @@ validatePrice(0.6543, OrderType.GTC); // OK
 validatePrice(0.654321, OrderType.GTC); // Error: too precise
 ```
 
-### 3. Size Validation
+### 4. Size Validation
 
 ```typescript
 function validateSize(size: number): boolean {
@@ -782,7 +806,7 @@ validateSize(10); // OK
 validateSize(0.5); // Error: must be integer
 ```
 
-### 4. Balance Checking
+### 5. Balance Checking
 
 ```typescript
 // Check available balance before placing order
@@ -810,7 +834,7 @@ if (!hasBalance) {
 }
 ```
 
-### 5. Order Monitoring
+### 6. Order Monitoring
 
 ```typescript
 // Poll for order status
@@ -843,7 +867,7 @@ async function waitForOrderFill(
 }
 ```
 
-### 6. Rate Limiting
+### 7. Rate Limiting
 
 ```typescript
 // Avoid hitting rate limits
