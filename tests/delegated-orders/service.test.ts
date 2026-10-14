@@ -223,5 +223,53 @@ describe('DelegatedOrderService', () => {
       expect(path).toBe('/orders/cancel-replace/batch');
       expect(JSON.parse(body).operations[0].replacement.order.feeRateBps).toBe(0);
     });
+
+    it('fetches each distinct uncached market once when building a cancel-replace batch', async () => {
+      const get = vi.fn().mockImplementation(async (path: string) => {
+        const slug = path.split('/').pop();
+        return {
+          id: 1,
+          slug,
+          venue: slug === 'collateral-market' ? COLLATERAL_FEE_VENUE : LEGACY_VENUE,
+        };
+      });
+      const httpClient = {
+        requireAuth: vi.fn(),
+        get,
+        post: vi.fn().mockResolvedValue({ results: [] }),
+      } as unknown as HttpClient;
+      const service = new DelegatedOrderService(httpClient);
+      const operation = (marketSlug: string) => ({
+        cancel: { orderId: `old-${marketSlug}` },
+        mode: CancelReplaceMode.ALLOW_FAILURE,
+        onBehalfOf: 326,
+        replacement: {
+          tokenId: '123',
+          side: Side.BUY,
+          price: 0.55,
+          size: 10,
+          orderType: OrderType.GTC,
+          marketSlug,
+        },
+      });
+
+      await service.cancelReplaceBatch({
+        operations: [
+          operation('collateral-market'),
+          operation('collateral-market'),
+          operation('legacy-market'),
+          operation('collateral-market'),
+        ],
+      });
+
+      expect(get).toHaveBeenCalledTimes(2);
+      expect(get.mock.calls.map(([path]) => path).sort()).toEqual([
+        '/markets/collateral-market',
+        '/markets/legacy-market',
+      ]);
+      const [, body] = (httpClient as any).post.mock.calls[0];
+      const fees = JSON.parse(body).operations.map((op: any) => op.replacement.order.feeRateBps);
+      expect(fees).toEqual([0, 0, 300, 0]);
+    });
   });
 });
