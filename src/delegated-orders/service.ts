@@ -7,6 +7,7 @@ import {
 } from '../api/response';
 import { MarketFetcher } from '../markets/fetcher';
 import { isCollateralFeeVenue } from '../markets/venue';
+import type { Venue } from '../types/markets';
 import { OrderBuilder } from '../orders/builder';
 import { ZERO_ADDRESS } from '../utils/constants';
 import {
@@ -74,7 +75,8 @@ export class DelegatedOrderService {
       throw new Error('onBehalfOf must be a positive integer');
     }
 
-    const feeRateBps = await this.resolveFeeRateBps(params.marketSlug, params.feeRateBps);
+    const venue = await this.resolveVenue(params.marketSlug);
+    const feeRateBps = this.feeRateBpsForVenue(venue, params.feeRateBps);
 
     const builder = new OrderBuilder(ZERO_ADDRESS, feeRateBps);
     const unsignedOrder = builder.buildOrder(params.args);
@@ -154,7 +156,11 @@ export class DelegatedOrderService {
     this.assertOnBehalfOf(params.onBehalfOf);
     const payload = {
       cancel: params.cancel,
-      replacement: await this.buildCancelReplaceReplacement(params.replacement, params.onBehalfOf),
+      replacement: this.buildCancelReplaceReplacement(
+        params.replacement,
+        params.onBehalfOf,
+        await this.resolveVenue(params.replacement.marketSlug)
+      ),
       mode: params.mode,
       onBehalfOf: params.onBehalfOf,
     };
@@ -170,27 +176,30 @@ export class DelegatedOrderService {
   ): Promise<CancelReplaceBatchResponse> {
     this.httpClient.requireAuth('cancelReplaceDelegatedOrderBatch');
     params.operations.forEach((operation) => this.assertOnBehalfOf(operation.onBehalfOf));
-    const operations = await Promise.all(
-      params.operations.map(async (operation) => ({
-        cancel: operation.cancel,
-        replacement: await this.buildCancelReplaceReplacement(
-          operation.replacement,
-          operation.onBehalfOf
-        ),
-        mode: operation.mode,
-        onBehalfOf: operation.onBehalfOf,
-      }))
+    const venues = await this.resolveVenues(
+      params.operations.map((operation) => operation.replacement.marketSlug)
     );
+    const operations = params.operations.map((operation) => ({
+      cancel: operation.cancel,
+      replacement: this.buildCancelReplaceReplacement(
+        operation.replacement,
+        operation.onBehalfOf,
+        venues.get(operation.replacement.marketSlug)
+      ),
+      mode: operation.mode,
+      onBehalfOf: operation.onBehalfOf,
+    }));
     const body = JSON.stringify({ operations });
 
     return this.httpClient.post<CancelReplaceBatchResponse>('/orders/cancel-replace/batch', body);
   }
 
-  private async buildCancelReplaceReplacement(
+  private buildCancelReplaceReplacement(
     params: DelegatedCancelReplaceReplacementParams,
-    onBehalfOf: number
-  ): Promise<DelegatedCancelReplaceReplacementRequest> {
-    const feeRateBps = await this.resolveFeeRateBps(params.marketSlug, params.feeRateBps);
+    onBehalfOf: number,
+    venue: Venue | undefined
+  ): DelegatedCancelReplaceReplacementRequest {
+    const feeRateBps = this.feeRateBpsForVenue(venue, params.feeRateBps);
     const unsignedOrder = new OrderBuilder(ZERO_ADDRESS, feeRateBps).buildOrder(params);
     const postOnly =
       params.orderType === OrderType.GTC && 'postOnly' in params ? params.postOnly : undefined;
@@ -215,7 +224,32 @@ export class DelegatedOrderService {
   }
 
   /**
-   * Resolves the fee rate for a delegated order.
+   * Resolves the venue of a market from the shared cache, fetching the market on a miss.
+   *
+   * @returns The venue, or `undefined` when the market exposes none (treated as a legacy venue)
+   * @internal
+   */
+  private async resolveVenue(marketSlug: string): Promise<Venue | undefined> {
+    const cached = this.marketFetcher.getVenue(marketSlug);
+    if (cached) {
+      return cached;
+    }
+    return (await this.marketFetcher.getMarket(marketSlug)).venue;
+  }
+
+  /**
+   * Resolves the venues for a list of market slugs, fetching each distinct uncached market once.
+   *
+   * @internal
+   */
+  private async resolveVenues(marketSlugs: string[]): Promise<Map<string, Venue | undefined>> {
+    const uniqueSlugs = [...new Set(marketSlugs)];
+    const venues = await Promise.all(uniqueSlugs.map((slug) => this.resolveVenue(slug)));
+    return new Map(uniqueSlugs.map((slug, index) => [slug, venues[index]]));
+  }
+
+  /**
+   * Fee rate for a delegated order on the given venue.
    *
    * @remarks
    * Collateral fee venues require `feeRateBps = 0`. Legacy venues keep the requested
@@ -223,14 +257,7 @@ export class DelegatedOrderService {
    *
    * @internal
    */
-  private async resolveFeeRateBps(
-    marketSlug: string,
-    requestedFeeRateBps?: number
-  ): Promise<number> {
-    let venue = this.marketFetcher.getVenue(marketSlug);
-    if (!venue) {
-      venue = (await this.marketFetcher.getMarket(marketSlug)).venue;
-    }
+  private feeRateBpsForVenue(venue: Venue | undefined, requestedFeeRateBps?: number): number {
     if (isCollateralFeeVenue(venue)) {
       return 0;
     }
