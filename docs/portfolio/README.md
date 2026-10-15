@@ -108,21 +108,34 @@ interface PortfolioPositionsResponse {
 
 interface CLOBPosition {
   market: {
-    id: string;
-    title: string;
+    id: number | string;
     slug: string;
+    title: string;
+    closed: boolean;
+    deadline: string;
+    // ... other market fields
   };
+  makerAddress: string;
   positions: {
-    yes: {
-      size: number;
-      collateral: number;
-      unrealizedPnl: number;
-    };
-    no: {
-      size: number;
-      collateral: number;
-      unrealizedPnl: number;
-    };
+    yes: PositionSide;
+    no: PositionSide;
+  };
+  tokensBalance: {
+    yes: string; // Shares held per side, raw 6-decimal units
+    no: string;
+  };
+  latestTrade: {
+    latestYesPrice: number;
+    latestNoPrice: number;
+    outcomeTokenPrice: number;
+  };
+  orders?: {
+    liveOrders: any[];
+    totalCollateralLocked: string;
+  };
+  rewards?: {
+    epochs: any[];
+    isEarning: boolean;
   };
 }
 
