@@ -46,7 +46,10 @@ import { HttpClient, PortfolioFetcher } from '@limitless-exchange/sdk';
 // Create authenticated HTTP client
 const httpClient = new HttpClient({
   baseURL: 'https://api.limitless.exchange',
-  apiKey: process.env.LIMITLESS_API_KEY, // Required for portfolio endpoints
+  hmacCredentials: {
+    tokenId: process.env.LMTS_TOKEN_ID!,
+    secret: process.env.LMTS_TOKEN_SECRET!,
+  },
 });
 
 // Create portfolio fetcher
@@ -91,8 +94,9 @@ console.log(JSON.stringify(ammPositions, null, 2));
 
 ammPositions.forEach(pos => {
   console.log('Market:', pos.market.title);
-  console.log('YES Position:', pos.positions.yes);
-  console.log('NO Position:', pos.positions.no);
+  console.log('Outcome:', pos.outcomeIndex === 0 ? 'YES' : 'NO');
+  console.log('Shares:', pos.outcomeTokenAmount);
+  console.log('Unrealized P&L:', pos.unrealizedPnl);
   console.log('---');
 });
 ```
@@ -116,11 +120,13 @@ interface PortfolioPositionsResponse {
 }
 
 interface PositionSide {
-  cost: string;          // Cost basis in USDC, raw 6-decimal units
-  fillPrice: string;     // Average fill price, raw 6-decimal units
-  marketValue: string;   // Current value in USDC, raw 6-decimal units
-  realisedPnl: string;   // Raw 6-decimal units
-  unrealizedPnl: string; // Raw 6-decimal units
+  orderId: string | null;  // Order that opened the position (null if no position on this side)
+  openedAt: string | null; // ISO 8601 (null if no position on this side)
+  cost: string;            // Cost basis in USDC, raw 6-decimal units
+  fillPrice: string;       // Average fill price, raw 6-decimal units
+  marketValue: string;     // Current value in USDC, raw 6-decimal units
+  realisedPnl: string;     // Raw 6-decimal units
+  unrealizedPnl: string;   // Raw 6-decimal units
 }
 
 interface CLOBPosition {
@@ -254,10 +260,13 @@ Use WebSocket for real-time position tracking instead of polling:
 ```typescript
 import { WebSocketClient } from '@limitless-exchange/sdk';
 
-// Create WebSocket client with API key
+// Create WebSocket client with HMAC credentials
 const wsClient = new WebSocketClient({
   url: 'wss://ws.limitless.exchange',
-  apiKey: process.env.LIMITLESS_API_KEY, // Required for positions
+  hmacCredentials: {
+    tokenId: process.env.LMTS_TOKEN_ID!,
+    secret: process.env.LMTS_TOKEN_SECRET!,
+  },
   autoReconnect: true,
 });
 
@@ -269,7 +278,7 @@ await wsClient.subscribe('subscribe_positions', {
 });
 
 // Listen to updates
-wsClient.on('positions' as any, (data: any) => {
+wsClient.on('positions', (data) => {
   console.log(JSON.stringify(data, null, 2));
 });
 ```
@@ -288,7 +297,7 @@ try {
     console.error('Response:', JSON.stringify(error.data, null, 2));
 
     if (error.status === 401) {
-      console.error('Authentication failed - check API key');
+      console.error('Authentication failed - check your API token credentials');
     }
   } else {
     console.error('Unknown error:', error);
@@ -310,8 +319,8 @@ for (const pos of positions.clob) {
   const market = await marketFetcher.getMarket(pos.market.slug);
 
   console.log(`${pos.market.title}:`);
-  console.log(`  YES: ${pos.positions.yes.size} shares`);
-  console.log(`  Current Price: ${market.currentPrice}`);
+  console.log(`  YES: ${Number(pos.tokensBalance.yes) / 1e6} shares`);
+  console.log(`  Current Price: ${market.prices?.[0]}`);
   console.log(`  Unrealized P&L: ${pos.positions.yes.unrealizedPnl}`);
 }
 ```
@@ -325,7 +334,10 @@ async function main() {
   // Create authenticated client
   const httpClient = new HttpClient({
     baseURL: 'https://api.limitless.exchange',
-    apiKey: process.env.LIMITLESS_API_KEY,
+    hmacCredentials: {
+      tokenId: process.env.LMTS_TOKEN_ID!,
+      secret: process.env.LMTS_TOKEN_SECRET!,
+    },
   });
 
   const portfolioFetcher = new PortfolioFetcher(httpClient);
