@@ -28,9 +28,7 @@ Use `getProfile()` without an address to fetch the authenticated caller's profil
 
 ```typescript
 const currentProfile = await portfolioFetcher.getProfile();
-const profileByAddress = await portfolioFetcher.getProfile(
-  '0x1676716Ef7F19B5C5d690631CB57cf0bFD900A3d'
-);
+const profileByAddress = await portfolioFetcher.getProfile('0xYOUR_WALLET_ADDRESS');
 
 console.log(`Current profile ID: ${currentProfile.id}`);
 console.log(`Profile account: ${profileByAddress.account}`);
