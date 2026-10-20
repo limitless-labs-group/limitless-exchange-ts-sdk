@@ -1,10 +1,10 @@
 # Limitless Exchange TypeScript SDK
 
-**v1.0.10** | Production-Ready | Type-Safe | Fully Documented
+**v1.3.0** | Production-Ready | Type-Safe | Fully Documented
 
 A TypeScript SDK for interacting with the Limitless Exchange platform, providing type-safe access to CLOB and NegRisk prediction markets.
 
-> **v1.0.10 Release**: Adds authenticated profile reads via `/profiles/me` and partner sub-account listing/recovery, alongside partner wallet, withdrawal, and WebSocket updates. See [Changelog](#changelog) for details.
+> **v1.3.0 Release**: Adds partner curated Packs buy and claim APIs, recovery-aware polling, and typed error guidance. See [CHANGELOG.md](./CHANGELOG.md) for release notes.
 
 ## ⚠️ Disclaimer
 
@@ -907,3 +907,93 @@ For complete release notes, see [CHANGELOG.md](https://github.com/limitless-labs
 ## License
 
 MIT - See [LICENSE](https://github.com/limitless-labs-group/limitless-exchange-ts-sdk/blob/main/LICENSE) file for details
+
+
+## Partner curated Packs
+
+The Packs service supports catalogue list/search/detail, HMAC quote and buy,
+managed position list/detail, mint polling, claim progression and claim receipt
+confirmation. Partner calls require `trading` and `delegated_signing` scopes.
+Use a funded managed server wallet. Buy amounts are integer micro-USDC strings;
+position amounts may include trailing decimal zeros in the same units.
+Before quoting/buying, check `GET /profiles/partner-accounts/:id/allowances` using
+the partner token. Find the USDC target labelled `parlay-treasury-vault` and
+require `confirmed: true` with `status: confirmed`; overall `ready` alone does
+not establish that the vault target exists. If missing, call
+`POST /profiles/partner-accounts/:id/allowances/retry`, then poll the GET until
+confirmed with a bounded timeout. `submitted` is not confirmation. Stop on an
+absent vault target or failed repair. These endpoints additionally require
+`account_creation` and use the backend's existing unlimited-approval policy;
+repair may approve other missing trading targets too. They are available through
+the SDK's partner-account service. Packs do not invoke repair automatically.
+Code-bearing wallets need a standing vault allowance. EOAs may use a supported,
+verified permit when allowance is insufficient; permit support is not universal.
+
+Persist the complete buy request before submission. Retry with the **same body**,
+including the original deadline and idempotency key, even after expiry. The SDK
+never generates or rotates keys, and submits each write once. Buy `PENDING` and
+`RECOVERING` mean keep the existing key and wait for minting. A **position** with
+status `FAILED` can be reactivated by backend reconciliation, so mint polling
+continues through it. Buy-status `FAILED` corresponds to position `VAULT_REVERTED`,
+a confirmed vault revert. Never create a new purchase merely because a position
+says `FAILED` or polling times out. On mint polling exhaustion, replay the identical
+saved buy: that response distinguishes explicit `NOT_SUBMITTED` from recovery.
+Transport failures and generic 5xx errors remain ambiguous; retain the request.
+
+Reads set `x-on-behalf-of` per request; writes use body `onBehalfOf`. Do not set
+a global delegation header. Reuse one Packs service per partner: calls are
+serialized and spaced 1.1 seconds apart. After HTTP 429, subsequent calls wait
+at least 10 seconds. Separate clients/processes must coordinate the shared
+partner-owner limit themselves. Claim polling stops on API errors, especially
+`PACK_SUBMISSION_UNKNOWN`; recover using a known mined redemption hash and
+claim confirmation. A `userOperationHash` is not a transaction hash.
+Claim helpers deliberately stop on all API errors. After a 429, back off at least
+10 seconds; after the exact wallet-busy conflict, wait for the lock to clear;
+after `PACK_TRANSACTION_REVERTED`, inspect the reported revert. Call claim again
+with the same position to resume these retryable cases. There are no hidden
+transaction retries, and `PACK_SUBMISSION_UNKNOWN` always requires investigation.
+
+Polling checks at five-second intervals, with 60 attempts by default, and supports
+cancellation. Waiting for a position means waiting for minting, not settlement.
+Packs response bodies are omitted from HTTP logs to avoid exposing unexpected
+prepared transaction material. Deployment requires the partner-Pack migration,
+an active catalogue and configured treasury/vault.
+
+`classifyPackError(error)` returns typed `PackErrorDetails` without modifying the original
+API error. Import it from the package root. `kind`/`Kind` identifies the cases
+below (Rust uses the corresponding `PackErrorKind` enum variants). Optional
+payload fields expose `code`, `submissionState`, `parlayId`, `recovery`,
+`tokenAddress`, `spender`, and `requiredAllowance` using each language's naming
+conventions. Unknown errors classify as `OTHER`; that never proves no submission.
+
+| Kind | Caller recovery |
+| --- | --- |
+| `ALLOWANCE_REQUIRED` | HTTP 409 `PACK_ALLOWANCE_REQUIRED`: repair the specified vault allowance and wait for confirmation, then replay the saved buy. Do not rotate its key just for approval. |
+| `NOT_SUBMITTED` | Explicit 4xx `submissionState: NOT_SUBMITTED`: fix the reported cause, then obtain a fresh quote/deadline and persist a new key. The old key stays bound to its failed position. |
+| `PRICE_DRIFTED` | HTTP 409 `PRICE_DRIFTED`: obtain a fresh quote and persist a new purchase key. |
+| `INTENT_EXPIRED` | Only HTTP 401 with exact message `Intent expired — please retry`: obtain a fresh quote/deadline/key. Local expiry or another 401 is insufficient evidence. |
+| `WALLET_BUSY` | Wait and retry the identical request. |
+| `RATE_LIMITED` | Back off at least 10 seconds; retry the identical request. |
+| `SUBMISSION_UNKNOWN` | Stop and investigate; confirm a known mined redemption receipt for claims. |
+| `TRANSACTION_REVERTED` | Claim step reverted; inspect cause before resuming the same position. |
+
+An ineligible quote may contain only `eligible: false` and `ineligibleReasons`.
+Check eligibility before accessing optional quote pricing/leg fields.
+
+```ts
+const quote = await client.packs.quote({ packId, stakeAmount: '1000000' });
+if (!quote.eligible) throw new Error(quote.ineligibleReasons?.join(', '));
+if (!quote.potentialPayout) throw new Error('Eligible quote omitted payout');
+const request = {
+  onBehalfOf: profileId, packId, stakeAmount: '1000000',
+  minPayoutAmount: packMinPayout(quote.potentialPayout, 100),
+  deadline: String(Math.floor(Date.now() / 1000) + 120),
+  idempotencyKey: durableOrderId,
+};
+// Save request durably in your application before this call.
+const result = await client.packs.buy(request);
+```
+
+Import `packMinPayout` from `@limitless-exchange/sdk`. Use `waitForPosition`,
+`claimOnce`, `claim`, and `confirmClaim`. Poll helpers accept `signal`,
+`maxAttempts`, and `intervalMs`.

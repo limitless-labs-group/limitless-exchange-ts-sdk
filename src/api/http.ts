@@ -309,7 +309,7 @@ export class HttpClient {
         const url = response.config.url || '';
 
         this.logger.debug(`✓ ${response.status} ${method} ${url}`, {
-          data: response.data,
+          data: url.startsWith('/parlay/') ? '[Pack response omitted]' : response.data,
         });
         return response;
       },
@@ -325,7 +325,7 @@ export class HttpClient {
           if (data) {
             // Log error response - concise format
             this.logger.debug(`✗ ${status} ${method} ${url}`, {
-              error: data,
+              error: url?.startsWith('/parlay/') ? '[Pack response omitted]' : data,
             });
 
             // If data is an object, try to extract message or stringify
