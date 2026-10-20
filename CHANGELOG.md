@@ -5,6 +5,19 @@ All notable changes to the Limitless Exchange TypeScript SDK will be documented 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0]
+
+### Added
+
+- Partner curated Packs: catalogue, quote, managed-wallet buy, scoped positions,
+  bounded mint polling, sponsored claim progression, and claim confirmation.
+- Exact integer slippage calculation and typed Pack error recovery details,
+  including vault approval requirements and definitively unsubmitted purchases.
+- Recovery-aware polling through position `FAILED`, minimal ineligible quote
+  handling, and request pacing with 429 backoff.
+- Documentation for durable purchase replay, vault allowance preflight, and
+  claim receipt recovery.
+
 ## [1.2.0]
 
 ### Added
