@@ -40,15 +40,17 @@ import {
   OrderType
 } from '@limitless-exchange/sdk';
 
-// Setup HTTP client with API key authentication
-// API key is automatically loaded from LIMITLESS_API_KEY environment variable
+// Setup HTTP client with HMAC API token authentication
 const httpClient = new HttpClient({
   baseURL: 'https://api.limitless.exchange',
-  apiKey: process.env.LIMITLESS_API_KEY, // Optional - auto-loads from env
+  hmacCredentials: {
+    tokenId: process.env.LMTS_TOKEN_ID!,
+    secret: process.env.LMTS_TOKEN_SECRET!,
+  },
 });
 
 // Initialize wallet for order signing (EIP-712)
-const wallet = new ethers.Wallet(process.env.PRIVATE_KEY);
+const wallet = new ethers.Wallet(process.env.PRIVATE_KEY!);
 
 // Fetch market details (caches venue for efficient order signing)
 const marketFetcher = new MarketFetcher(httpClient);
@@ -63,7 +65,7 @@ const orderClient = new OrderClient({
 
 // Place an order (uses cached venue - no extra API calls)
 const order = await orderClient.createOrder({
-  tokenId: market.tokens.yes,
+  tokenId: market.tokens!.yes,
   price: 0.65,
   size: 10,
   side: Side.BUY,
@@ -165,7 +167,8 @@ Create a `.env` file:
 
 ```env
 # Required
-LIMITLESS_API_KEY=your_api_key_here
+LMTS_TOKEN_ID=your_api_key_here
+LMTS_TOKEN_SECRET=your_secret_here
 PRIVATE_KEY=your_private_key_here
 
 # Optional - defaults shown
@@ -196,7 +199,7 @@ The SDK is written in TypeScript and includes comprehensive type definitions:
 
 ```typescript
 import type {
-  Order,
+  OrderResponse,
   Market,
   Position,
   OrderbookUpdate,
