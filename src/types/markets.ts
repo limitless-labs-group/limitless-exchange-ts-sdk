@@ -221,6 +221,11 @@ export interface OrderBook {
   adjustedMidpoint: number;
 
   /**
+   * Midpoint of the best bid and ask: (best bid + best ask) / 2
+   */
+  midpoint: number;
+
+  /**
    * Maximum allowed spread for the market
    */
   maxSpread: string;
