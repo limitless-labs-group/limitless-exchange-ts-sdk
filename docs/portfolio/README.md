@@ -23,7 +23,7 @@ The Portfolio API provides access to:
 ## Profile Lookup
 
 Use `getProfile()` without an address to fetch the authenticated caller's profile via
-`GET /profiles/me`. Pass an address to keep the existing address-based lookup via
+`GET /profiles/me`. Pass your own wallet address to keep the existing address-based lookup via
 `GET /profiles/:account`.
 
 ```typescript
@@ -105,46 +105,82 @@ ammPositions.forEach(pos => {
 interface PortfolioPositionsResponse {
   clob: CLOBPosition[];         // CLOB market positions
   amm: AMMPosition[];           // AMM market positions
-  accumulativePoints: number;   // Total points earned
+  group: any[];                 // Group positions
+  points?: string;              // User points
+  accumulativePoints?: string;  // Total points earned
+  rewards?: {
+    todaysRewards: string;
+    rewardsByEpoch: any[];
+    rewardsChartData: any[];
+    totalUnpaidRewards: string;
+    totalUserRewardsLastEpoch: string;
+  };
+}
+
+interface PositionSide {
+  orderId: string | null;  // Order that opened the position (null if no position on this side)
+  openedAt: string | null; // ISO 8601 (null if no position on this side)
+  cost: string;            // Cost basis in USDC, raw 6-decimal units
+  fillPrice: string;       // Average fill price, raw 6-decimal units
+  marketValue: string;     // Current value in USDC, raw 6-decimal units
+  realisedPnl: string;     // Raw 6-decimal units
+  unrealizedPnl: string;   // Raw 6-decimal units
 }
 
 interface CLOBPosition {
   market: {
-    id: string;
-    title: string;
+    id: number | string;
     slug: string;
+    title: string;
+    closed: boolean;
+    deadline: string;
+    // ... other market fields
   };
+  makerAddress: string;
   positions: {
-    yes: {
-      size: number;
-      collateral: number;
-      unrealizedPnl: number;
-    };
-    no: {
-      size: number;
-      collateral: number;
-      unrealizedPnl: number;
-    };
+    yes: PositionSide;
+    no: PositionSide;
+  };
+  tokensBalance: {
+    yes: string; // Shares held per side, raw 6-decimal units
+    no: string;
+  };
+  latestTrade: {
+    latestYesPrice: number;
+    latestNoPrice: number;
+    outcomeTokenPrice: number;
+  };
+  orders?: {
+    liveOrders: any[];
+    totalCollateralLocked: string;
+  };
+  rewards?: {
+    epochs: any[];
+    isEarning: boolean;
   };
 }
 
 interface AMMPosition {
   market: {
-    id: string;
-    title: string;
+    id: number | string;
     slug: string;
+    title: string;
+    closed: boolean;
+    deadline: string;
+    // ... other market fields
   };
-  positions: {
-    yes: {
-      size: number;
-      collateral: number;
-      unrealizedPnl: number;
-    };
-    no: {
-      size: number;
-      collateral: number;
-      unrealizedPnl: number;
-    };
+  account: string;
+  outcomeIndex: number;        // 0 = YES, 1 = NO
+  collateralAmount: string;
+  outcomeTokenAmount: string;  // Shares held, decimal string (not raw units)
+  averageFillPrice: string;
+  totalBuysCost: string;
+  totalSellsCost: string;
+  realizedPnl: string;
+  unrealizedPnl: string;
+  openedAt: string;            // ISO 8601
+  latestTrade?: {
+    outcomeTokenPrice: string;
   };
 }
 ```
@@ -237,7 +273,7 @@ await wsClient.connect();
 
 // Subscribe to position updates
 await wsClient.subscribe('subscribe_positions', {
-  marketSlugs: ['market-slug'], // or omit for all markets
+  marketSlugs: ['market-slug'], // required: without marketSlugs the server ignores the subscription
 });
 
 // Listen to updates

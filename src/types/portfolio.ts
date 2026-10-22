@@ -247,6 +247,11 @@ export interface AMMPosition {
   unrealizedPnl: string;
 
   /**
+   * When the position was opened, ISO 8601
+   */
+  openedAt: string;
+  
+  /**
    * Latest trade information
    */
   latestTrade?: {
