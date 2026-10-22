@@ -65,6 +65,16 @@ export interface PositionMarket {
  */
 export interface PositionSide {
   /**
+   * Order that opened the position (null if no position on this side)
+   */
+  orderId: string | null;
+
+  /**
+   * When the position was opened, ISO 8601 (null if no position on this side)
+   */
+  openedAt: string | null;
+
+  /**
    * Cost basis (6 decimals)
    */
   cost: string;
@@ -236,6 +246,11 @@ export interface AMMPosition {
    */
   unrealizedPnl: string;
 
+  /**
+   * When the position was opened, ISO 8601
+   */
+  openedAt: string;
+  
   /**
    * Latest trade information
    */

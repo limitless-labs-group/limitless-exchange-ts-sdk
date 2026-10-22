@@ -23,14 +23,12 @@ The Portfolio API provides access to:
 ## Profile Lookup
 
 Use `getProfile()` without an address to fetch the authenticated caller's profile via
-`GET /profiles/me`. Pass an address to keep the existing address-based lookup via
+`GET /profiles/me`. Pass your own wallet address to keep the existing address-based lookup via
 `GET /profiles/:account`.
 
 ```typescript
 const currentProfile = await portfolioFetcher.getProfile();
-const profileByAddress = await portfolioFetcher.getProfile(
-  '0x1676716Ef7F19B5C5d690631CB57cf0bFD900A3d'
-);
+const profileByAddress = await portfolioFetcher.getProfile('0xYOUR_WALLET_ADDRESS');
 
 console.log(`Current profile ID: ${currentProfile.id}`);
 console.log(`Profile account: ${profileByAddress.account}`);
@@ -46,7 +44,10 @@ import { HttpClient, PortfolioFetcher } from '@limitless-exchange/sdk';
 // Create authenticated HTTP client
 const httpClient = new HttpClient({
   baseURL: 'https://api.limitless.exchange',
-  apiKey: process.env.LIMITLESS_API_KEY, // Required for portfolio endpoints
+  hmacCredentials: {
+    tokenId: process.env.LMTS_TOKEN_ID!,
+    secret: process.env.LMTS_TOKEN_SECRET!,
+  },
 });
 
 // Create portfolio fetcher
@@ -91,8 +92,9 @@ console.log(JSON.stringify(ammPositions, null, 2));
 
 ammPositions.forEach(pos => {
   console.log('Market:', pos.market.title);
-  console.log('YES Position:', pos.positions.yes);
-  console.log('NO Position:', pos.positions.no);
+  console.log('Outcome:', pos.outcomeIndex === 0 ? 'YES' : 'NO');
+  console.log('Shares:', pos.outcomeTokenAmount);
+  console.log('Unrealized P&L:', pos.unrealizedPnl);
   console.log('---');
 });
 ```
@@ -103,46 +105,82 @@ ammPositions.forEach(pos => {
 interface PortfolioPositionsResponse {
   clob: CLOBPosition[];         // CLOB market positions
   amm: AMMPosition[];           // AMM market positions
-  accumulativePoints: number;   // Total points earned
+  group: any[];                 // Group positions
+  points?: string;              // User points
+  accumulativePoints?: string;  // Total points earned
+  rewards?: {
+    todaysRewards: string;
+    rewardsByEpoch: any[];
+    rewardsChartData: any[];
+    totalUnpaidRewards: string;
+    totalUserRewardsLastEpoch: string;
+  };
+}
+
+interface PositionSide {
+  orderId: string | null;  // Order that opened the position (null if no position on this side)
+  openedAt: string | null; // ISO 8601 (null if no position on this side)
+  cost: string;            // Cost basis in USDC, raw 6-decimal units
+  fillPrice: string;       // Average fill price, raw 6-decimal units
+  marketValue: string;     // Current value in USDC, raw 6-decimal units
+  realisedPnl: string;     // Raw 6-decimal units
+  unrealizedPnl: string;   // Raw 6-decimal units
 }
 
 interface CLOBPosition {
   market: {
-    id: string;
-    title: string;
+    id: number | string;
     slug: string;
+    title: string;
+    closed: boolean;
+    deadline: string;
+    // ... other market fields
   };
+  makerAddress: string;
   positions: {
-    yes: {
-      size: number;
-      collateral: number;
-      unrealizedPnl: number;
-    };
-    no: {
-      size: number;
-      collateral: number;
-      unrealizedPnl: number;
-    };
+    yes: PositionSide;
+    no: PositionSide;
+  };
+  tokensBalance: {
+    yes: string; // Shares held per side, raw 6-decimal units
+    no: string;
+  };
+  latestTrade: {
+    latestYesPrice: number;
+    latestNoPrice: number;
+    outcomeTokenPrice: number;
+  };
+  orders?: {
+    liveOrders: any[];
+    totalCollateralLocked: string;
+  };
+  rewards?: {
+    epochs: any[];
+    isEarning: boolean;
   };
 }
 
 interface AMMPosition {
   market: {
-    id: string;
-    title: string;
+    id: number | string;
     slug: string;
+    title: string;
+    closed: boolean;
+    deadline: string;
+    // ... other market fields
   };
-  positions: {
-    yes: {
-      size: number;
-      collateral: number;
-      unrealizedPnl: number;
-    };
-    no: {
-      size: number;
-      collateral: number;
-      unrealizedPnl: number;
-    };
+  account: string;
+  outcomeIndex: number;        // 0 = YES, 1 = NO
+  collateralAmount: string;
+  outcomeTokenAmount: string;  // Shares held, decimal string (not raw units)
+  averageFillPrice: string;
+  totalBuysCost: string;
+  totalSellsCost: string;
+  realizedPnl: string;
+  unrealizedPnl: string;
+  openedAt: string;            // ISO 8601
+  latestTrade?: {
+    outcomeTokenPrice: string;
   };
 }
 ```
@@ -221,10 +259,13 @@ Use WebSocket for real-time position tracking instead of polling:
 ```typescript
 import { WebSocketClient } from '@limitless-exchange/sdk';
 
-// Create WebSocket client with API key
+// Create WebSocket client with HMAC credentials
 const wsClient = new WebSocketClient({
   url: 'wss://ws.limitless.exchange',
-  apiKey: process.env.LIMITLESS_API_KEY, // Required for positions
+  hmacCredentials: {
+    tokenId: process.env.LMTS_TOKEN_ID!,
+    secret: process.env.LMTS_TOKEN_SECRET!,
+  },
   autoReconnect: true,
 });
 
@@ -232,11 +273,11 @@ await wsClient.connect();
 
 // Subscribe to position updates
 await wsClient.subscribe('subscribe_positions', {
-  marketSlugs: ['market-slug'], // or omit for all markets
+  marketSlugs: ['market-slug'], // required: without marketSlugs the server ignores the subscription
 });
 
 // Listen to updates
-wsClient.on('positions' as any, (data: any) => {
+wsClient.on('positions', (data) => {
   console.log(JSON.stringify(data, null, 2));
 });
 ```
@@ -255,7 +296,7 @@ try {
     console.error('Response:', JSON.stringify(error.data, null, 2));
 
     if (error.status === 401) {
-      console.error('Authentication failed - check API key');
+      console.error('Authentication failed - check your API token credentials');
     }
   } else {
     console.error('Unknown error:', error);
@@ -277,8 +318,8 @@ for (const pos of positions.clob) {
   const market = await marketFetcher.getMarket(pos.market.slug);
 
   console.log(`${pos.market.title}:`);
-  console.log(`  YES: ${pos.positions.yes.size} shares`);
-  console.log(`  Current Price: ${market.currentPrice}`);
+  console.log(`  YES: ${Number(pos.tokensBalance.yes) / 1e6} shares`);
+  console.log(`  Current Price: ${market.prices?.[0]}`);
   console.log(`  Unrealized P&L: ${pos.positions.yes.unrealizedPnl}`);
 }
 ```
@@ -292,7 +333,10 @@ async function main() {
   // Create authenticated client
   const httpClient = new HttpClient({
     baseURL: 'https://api.limitless.exchange',
-    apiKey: process.env.LIMITLESS_API_KEY,
+    hmacCredentials: {
+      tokenId: process.env.LMTS_TOKEN_ID!,
+      secret: process.env.LMTS_TOKEN_SECRET!,
+    },
   });
 
   const portfolioFetcher = new PortfolioFetcher(httpClient);
