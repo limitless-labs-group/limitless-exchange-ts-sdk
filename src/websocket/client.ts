@@ -271,7 +271,6 @@ export class WebSocketClient {
         clearTimeout(timeout);
         this.state = WebSocketState.CONNECTED;
         this.reconnectAttempts = 0;
-        this.logger.info('WebSocket connected');
 
         // Re-subscribe to all previous subscriptions
         this.resubscribeAll();
