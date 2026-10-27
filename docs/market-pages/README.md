@@ -60,7 +60,7 @@ Example flow:
 ### Offset pagination
 
 ```typescript
-const response = await pageFetcher.getMarkets(pageId, {
+const response = await pageFetcher.getMarkets(cryptoPage.id, {
   page: 1,
   limit: 20,
 });
@@ -73,10 +73,10 @@ if ('pagination' in response) {
 ### Cursor pagination
 
 ```typescript
-const first = await pageFetcher.getMarkets(pageId, { cursor: '', limit: 20 });
+const first = await pageFetcher.getMarkets(cryptoPage.id, { cursor: '', limit: 20 });
 
 if ('cursor' in first && first.cursor.nextCursor) {
-  const second = await pageFetcher.getMarkets(pageId, {
+  const second = await pageFetcher.getMarkets(cryptoPage.id, {
     cursor: first.cursor.nextCursor,
     limit: 20,
   });
