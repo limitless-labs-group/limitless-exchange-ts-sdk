@@ -15,7 +15,7 @@ This SDK is provided "as-is" without any warranties or guarantees. Trading on pr
 - You are responsible for testing the SDK thoroughly before using it in production
 - The SDK authors are not liable for any financial losses or damages
 - You should review and understand the code before executing any trades
-- It is recommended to test all functionality on testnet or with small amounts first
+- There is no testnet or sandbox: test with small live orders (for example the minimum order size) before trading larger amounts
 - The SDK may contain bugs or unexpected behavior despite best efforts
 
 **ALWAYS TEST BEFORE USING IN PRODUCTION WITH REAL FUNDS**
