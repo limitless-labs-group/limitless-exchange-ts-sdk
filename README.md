@@ -35,7 +35,7 @@ For production use, we strongly recommend:
 
 ## Features
 
-- ✅ **Authentication**: API key auth and partner HMAC-scoped API-token auth
+- ✅ **Authentication**: HMAC-scoped API-token auth (legacy API keys are deprecated)
 - ✅ **Order Management**: Create, cancel, and manage orders on CLOB and NegRisk markets
 - ✅ **Partner Server Wallets**: Delegated child-account flows, server-wallet redeem, and HMAC-only withdraw to account, smart wallet, or whitelisted treasury destinations
 - ✅ **Market Data**: Access real-time market data and orderbooks
@@ -45,7 +45,7 @@ For production use, we strongly recommend:
 - ✅ **Type Safety**: Full TypeScript support with comprehensive type definitions
 - ✅ **IEEE-Safe Order Payload Parsing**: `createOrder()` handles `makerAmount`, `takerAmount`, `price`, and `salt` returned as JSON strings
 - ✅ **TSDoc Documentation**: Complete API documentation with examples
-- ✅ **WebSocket**: Real-time price and position updates with API key auth
+- ✅ **WebSocket**: Real-time price and position updates with HMAC API-token auth
 
 ## Installation
 
@@ -79,7 +79,7 @@ const marketFetcher = new MarketFetcher(httpClient);
 // Get markets sorted by LP rewards
 const markets = await marketFetcher.getActiveMarkets({
   limit: 8,
-  sortBy: 'lp_rewards', // 'lp_rewards' | 'ending_soon' | 'newest' | 'high_value'
+  sortBy: 'lp_rewards', // 'lp_rewards' | 'ending_soon' | 'newest' | 'high_value' | 'trending'
 });
 
 console.log(`Found ${markets.data.length} of ${markets.totalMarketsCount} markets`);
@@ -178,9 +178,7 @@ const client = new Client({
 });
 
 const currentProfile = await client.portfolio.getProfile();
-const profileByAddress = await client.portfolio.getProfile(
-  '0x1676716Ef7F19B5C5d690631CB57cf0bFD900A3d'
-);
+const profileByAddress = await client.portfolio.getProfile('0xYOUR_WALLET_ADDRESS');
 ```
 
 ### Partner API Token v3 / HMAC Usage
@@ -374,14 +372,14 @@ const ctf = new ethers.Contract(
 );
 
 // 3. Approve USDC for BUY orders
-await usdc.approve(market.venue.exchange, ethers.MaxUint256);
+await usdc.approve(market.venue!.exchange, ethers.MaxUint256);
 
 // 4. Approve CT for SELL orders
-await ctf.setApprovalForAll(market.venue.exchange, true);
+await ctf.setApprovalForAll(market.venue!.exchange, true);
 
 // 5. For NegRisk SELL orders, also approve adapter
 if (market.negRiskRequestId) {
-  await ctf.setApprovalForAll(market.venue.adapter, true);
+  await ctf.setApprovalForAll(market.venue!.adapter, true);
 }
 
 // 6. On collateral fee venues, also approve USDC to the fee module
@@ -425,7 +423,7 @@ const marketFetcher = new MarketFetcher(httpClient);
 const groupMarket = await marketFetcher.getMarket('largest-company-end-of-2025-1746118069282');
 
 // 2. Select a submarket (e.g., Apple)
-const appleMarket = groupMarket.markets[0];
+const appleMarket = groupMarket.markets![0];
 const marketDetails = await marketFetcher.getMarket(appleMarket.slug);
 
 // 3. Create order client (userData fetched automatically from profile)
@@ -436,7 +434,7 @@ const orderClient = new OrderClient({
 
 // 4. Place order on submarket (not group!)
 const order = await orderClient.createOrder({
-  tokenId: marketDetails.tokens.yes,
+  tokenId: marketDetails.tokens!.yes,
   price: 0.5,
   size: 10,
   side: Side.BUY,
@@ -457,7 +455,7 @@ GTC orders use `price` + `size` and can optionally set `postOnly` to reject an o
 import { OrderClient, Side, OrderType } from '@limitless-exchange/sdk';
 
 const gtcOrder = await orderClient.createOrder({
-  tokenId: marketDetails.tokens.yes,
+  tokenId: marketDetails.tokens!.yes,
   price: 0.42,
   size: 10,
   side: Side.BUY,
@@ -479,7 +477,7 @@ FAK orders use the same `price` + `size` construction as `GTC`, but they only co
 import { OrderClient, Side, OrderType } from '@limitless-exchange/sdk';
 
 const fakOrder = await orderClient.createOrder({
-  tokenId: marketDetails.tokens.yes,
+  tokenId: marketDetails.tokens!.yes,
   price: 0.45,
   size: 10,
   side: Side.BUY,
@@ -517,7 +515,7 @@ import { OrderClient, Side, OrderType } from '@limitless-exchange/sdk';
 
 // BUY FOK - spend 50 USDC at market price
 const buyOrder = await orderClient.createOrder({
-  tokenId: marketDetails.tokens.yes,
+  tokenId: marketDetails.tokens!.yes,
   makerAmount: 50, // 50 USDC to spend
   side: Side.BUY,
   orderType: OrderType.FOK,
@@ -526,7 +524,7 @@ const buyOrder = await orderClient.createOrder({
 
 // SELL FOK - sell 120 shares at market price
 const sellOrder = await orderClient.createOrder({
-  tokenId: marketDetails.tokens.no,
+  tokenId: marketDetails.tokens!.no,
   makerAmount: 120, // 120 shares to sell
   side: Side.SELL,
   orderType: OrderType.FOK,
@@ -624,7 +622,7 @@ console.log(sell.status, sell.expectedShares, sell.maxShares);
 The SDK provides automatic retry logic for handling transient failures like rate limits and server errors:
 
 ```typescript
-import { withRetry, retryOnErrors } from '@limitless-exchange/sdk';
+import { withRetry, retryOnErrors, OrderClient } from '@limitless-exchange/sdk';
 
 // Option 1: Wrapper function approach
 const result = await withRetry(async () => await orderClient.createOrder(orderData), {
@@ -638,6 +636,8 @@ const result = await withRetry(async () => await orderClient.createOrder(orderDa
 
 // Option 2: Decorator approach (requires experimentalDecorators: true)
 class TradingService {
+  constructor(private orderClient: OrderClient) {}
+
   @retryOnErrors({
     statusCodes: [429, 500, 503],
     maxRetries: 3,
@@ -665,19 +665,22 @@ For detailed documentation, see the [Error Handling & Retry Guide](https://githu
 
 #### `HttpClient`
 
-HTTP client with API key authentication.
+HTTP client with API token (HMAC) authentication.
 
 ```typescript
 const httpClient = new HttpClient({
   baseURL: 'https://api.limitless.exchange',
-  apiKey: process.env.LIMITLESS_API_KEY, // optional: can also be auto-loaded from LIMITLESS_API_KEY
+  hmacCredentials: {
+    tokenId: process.env.LMTS_TOKEN_ID!,
+    secret: process.env.LMTS_TOKEN_SECRET!,
+  },
   timeout: 30000,
 });
 
-// Set or update API key
-httpClient.setApiKey('sk_live_...');
+// Set or update credentials
+httpClient.setHMACCredentials({ tokenId: '...', secret: '...' });
 
-// Make requests - X-API-Key header automatically included
+// Make requests - lmts-api-key, lmts-timestamp and lmts-signature headers are added automatically
 const data = await httpClient.get('/endpoint');
 await httpClient.post('/endpoint', { data });
 ```
@@ -797,7 +800,7 @@ src/
 │   ├── auth.ts     # User profile types
 │   └── ...
 ├── api/            # HTTP client and API utilities
-│   ├── http.ts     # HTTP client with API key auth
+│   ├── http.ts     # HTTP client with HMAC and API key auth
 │   ├── errors.ts   # Error handling
 │   └── retry.ts    # Retry logic
 ├── markets/        # Market data modules
@@ -809,15 +812,12 @@ src/
 │   └── fetcher.ts
 ├── websocket/      # Real-time data streaming
 │   └── client.ts
-├── api/            # HTTP client and API utilities
-│   ├── http.ts     # HTTP client
-│   └── errors.ts   # API error handling
 └── utils/          # Shared utilities and constants
 
 tests/
-├── auth/           # Authentication tests
-└── markets/        # Market fetcher tests
-    └── fetcher.test.ts //etc.
+├── markets/        # Market fetcher tests
+│   └── fetcher.test.ts
+└── ...             # One folder per module (api, orders, portfolio, websocket, etc.)
 
 docs/
 ├── code-samples/   # Production-ready examples

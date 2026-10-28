@@ -642,7 +642,7 @@ export interface MarketsResponse {
  * Sort options for active markets.
  * @public
  */
-export type ActiveMarketsSortBy = 'lp_rewards' | 'ending_soon' | 'newest' | 'high_value' | 'liquidity';
+export type ActiveMarketsSortBy = 'lp_rewards' | 'ending_soon' | 'newest' | 'high_value' | 'trending';
 
 /**
  * Query parameters for active markets endpoint.
